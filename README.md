@@ -1,5 +1,7 @@
 # SOC Bridge Investigator
 
+![KiroBridgerMCP](KiroBridgerMCP.png)
+
 **Kiro-led, read-only investigation from an IBM QRadar offense number or a Trend Vision One Workbench alert ID.**
 
 Given a QRadar offense ID, SOC Bridge reads the offense and associated IPs, searches the Trend Vision One Workbench for alerts referencing those IPs, and produces an evidence report. **Kiro is the main AI analyst interface**: it calls the project's local MCP server, interprets the report, separates facts from hypotheses and suggests the next checks. The Python CLI can also export local Markdown and JSON without any AI. The numeric rank is a sorting heuristic, **not a probability, verdict, or automatic incident link**.
