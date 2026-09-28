@@ -1,0 +1,23 @@
+---
+inclusion: always
+---
+
+# Evidência, atribuição e limites
+
+## Escala de afirmações
+
+| Rótulo | Uso correto |
+| --- | --- |
+| `confirmado` | O registro consultado contém exatamente o campo ou evento alegado; indique fonte, timestamp e identificador. Confirma a observação na fonte, não a causa do incidente. |
+| `candidato` | Coincidência de IP, host, hash, domínio, usuário ou tempo que exige vínculo adicional. |
+| `não verificado` | Campo fornecido manualmente, associação não demonstrada, dado indisponível ou busca não realizada. |
+
+- A ausência de alerta Workbench não significa ausência de detecções, atividade de endpoint ou tráfego. Registre cada fonte pesquisada separadamente.
+- Nunca diga “não existe” após busca vazia. Diga “não retornou no conjunto inspecionado”, com fonte, consulta, janela UTC e local, estado, primeira página, total reportado e cap exatamente como o relatório informar. Busca não executada, erro, timeout e cap não são resultados negativos.
+- Diferencie evento de arquivo (`fullPath`, arquivo detectado) de processo (`processFilePath`, processo que operou). Leitura ou escrita de `rclone.conf` sustenta atividade de configuração; exfiltração requer telemetria de destino e transferência atribuível ao processo.
+- Um IP de inventário é o endereço atual do ativo, não uma prova do IP no instante do evento. IP público pode representar NAT/gateway. Confirme mapeamento histórico por DHCP, proxy, NAT ou fonte equivalente antes de atribuir tráfego ao endpoint.
+- Um `action=accept` do FortiGate confirma a ação registrada para aquela sessão, não entrega de conteúdo, processo originador ou falha do filtro Trend. Um `action=blocked` não prova que todas as tentativas foram bloqueadas.
+- `policyAction: Collect UAC actions` do EPM é coleta; não prova concessão de elevação. `updater.exe` isolado ou hash ausente não identifica um binário.
+- Distinga detecção próxima a um Workbench alert de vínculo verificado com seu View event. Campos colados pelo analista em `investigate_vision_event` não foram confirmados pelo MCP.
+- Nunca declare falso positivo apenas pelo estado fechado, score baixo ou disposição de produto. Cite eventos e justificativa independente, indique confiança e explicite a hipótese alternativa.
+- Cada resposta deve expor as consultas e os limites devolvidos pela ferramenta. Não complete janelas, caps, contagens nem resultados ausentes usando valores de outras execuções.

@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+reports/
+config.json
+mcp_settings.json
+.kiro/settings/mcp.json
+*.pem
+*.key
+private/
+*.bak-*
+_b3tmp/
+_b3check.txt
+_b3diff.txt
+docs/_scanresult.txt
+.kiro/_scan*.txt
+*.zip

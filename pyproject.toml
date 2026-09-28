@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "soc-bridge-investigator"
+version = "0.1.0"
+description = "Read-only QRadar and Trend Vision One MCP investigation bridge"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["mcp>=1.13,<2", "httpx>=0.27,<1"]
+license = {text = "MIT"}
+authors = [{name = "Hian Soares"}]
+
+[project.scripts]
+soc-bridge = "soc_bridge.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
