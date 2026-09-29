@@ -1,48 +1,51 @@
-# SOC Bridge Investigator
+# KiroBridgerMCP
 
 ![KiroBridgerMCP](KiroBridgerMCP.png)
 
-**Kiro-led, read-only investigation from an IBM QRadar offense number or a Trend Vision One Workbench alert ID.**
+**Investigue uma offense do QRadar ou um alerta Workbench da Trend Vision One informando apenas a referência ao Kiro.**
 
-Given a QRadar offense ID, SOC Bridge reads the offense and associated IPs, searches the Trend Vision One Workbench for alerts referencing those IPs, and produces an evidence report. **Kiro is the main AI analyst interface**: it calls the project's local MCP server, interprets the report, separates facts from hypotheses and suggests the next checks. The Python CLI can also export local Markdown and JSON without any AI. The numeric rank is a sorting heuristic, **not a probability, verdict, or automatic incident link**.
+O projeto instala um único MCP local, `soc-bridge-readonly`, que coleta evidências limitadas via IBM QRadar MCP e Trend Vision One MCP. **Kiro é a interface principal**: interpreta o relatório, separa fatos de hipóteses e indica as próximas verificações. A CLI Python também exporta Markdown e JSON localmente. A pontuação de investigação ordena pistas; não é probabilidade nem veredito.
 
 ```
 Kiro chat → local SOC Bridge MCP → QRadar MCP + Vision One MCP
           → bounded evidence report → Kiro's analyst-facing explanation
 ```
 
-Designed for analysts who already operate both products and want a reproducible starting point for triage. The demo runs without Kiro, a SaaS service, or a production environment.
+O primeiro teste é um **demo fabricado**, sem credenciais ou conexão com os produtos. Para uma investigação real, você precisa de acesso autorizado a ambos os ambientes.
 
-## Use Kiro as the primary AI
+## Comece aqui — Windows PowerShell
 
-Open the project folder in Kiro IDE. The included `.kiro/settings/mcp.json` configures **one local MCP server**, `soc-bridge-readonly`, exposing seven read-only tools: `investigate_case`, `investigate_offense`, `investigate_vision_alert`, `investigate_vision_event`, `investigate_epm_uac`, `investigate_web_reputation` and `investigate_demo`. Its main entry point `investigate_case(reference)` accepts an offense number or a `WB-` alert ID and routes to the right specialized tool. Kiro does **not** directly receive QRadar's mutation tools.
+Na pasta em que você quer guardar o projeto:
+
+```powershell
+git clone https://github.com/HianSoares/KiroBridgerMCP.git
+Set-Location .\KiroBridgerMCP
+Test-Path .\pyproject.toml                # precisa retornar True
+py -3 -m venv .venv                      # Python 3.11 ou superior
+& .\.venv\Scripts\python.exe -m pip install -e .
+& .\.venv\Scripts\python.exe -m soc_bridge.cli demo --output reports\demo
+& .\.venv\Scripts\python.exe .\scripts\configure_kiro.py
+```
+
+Abra **esta mesma pasta** no Kiro IDE. Confirme `soc-bridge-readonly` em **MCP Servers** e peça: **“Use `investigate_demo` e explique as evidências e os limites.”** Nenhuma API key ou Docker é necessária para esse teste. O arquivo `.kiro/settings/mcp.json` é gerado localmente pelo último comando e é ignorado pelo Git; ele **não acompanha o clone**.
+
+> [Guia completo de instalação e solução de problemas](docs/guia-instalacao.md) — contém Linux/macOS, conexão real com QRadar e Trend, credenciais e verificação de cada etapa.
+
+## Use o Kiro como analista principal
+
+O configurador cria uma entrada para **um MCP local**, `soc-bridge-readonly`, com sete tools declaradas somente leitura: `investigate_case`, `investigate_offense`, `investigate_vision_alert`, `investigate_vision_event`, `investigate_epm_uac`, `investigate_web_reputation` e `investigate_demo`. `investigate_case(reference)` aceita um número de offense ou ID `WB-` e encaminha à investigação adequada. O Kiro não recebe diretamente as tools de mutação dos MCPs upstream.
 
 ### Steering, skills and agents
 
 `.kiro/` carries three layers on top of the MCP tools, so Kiro's behavior is governed by the project, not just prompted per-session:
 
-- **Steering** (`.kiro/steering/*.md`, always loaded): project-wide rules — evidence classification (`confirmado`/`candidato`/`não verificado`), safety guardrails, QRadar AQL and Trend Search conventions, and the step-by-step investigation methodology. The manual `/investigation` steering command provides the report format.
+- **Steering** (`.kiro/steering/*.md`): regras do projeto com inclusão `always` ou `manual` conforme cada arquivo. O steering manual `investigation.md` fornece um formato de resposta quando invocado.
 - **Skills** (`.kiro/skills/*/SKILL.md`, loaded on demand): one focused playbook per investigation type — offense investigation, Trend alert investigation, EPM/UAC-from-QRadar, web reputation vs. FortiGate, exfiltration assessment, hypothesis hunting, AD user scope, and incident report writing. Each skill states exactly which tool calls it's allowed to make and when to stop rather than guess.
-- **Agents** (`.kiro/agents/*.md`, role-scoped profiles): `case-investigator` and `threat-hunter` carry the full read-only toolset for investigation; `report-writer` is limited to `investigate_case`/`investigate_demo` for drafting from already-collected evidence; `response-advisor` deliberately has an **empty tool list** (`tools: []`), so a containment/response/playbook request can never reach an MCP call — that boundary is structural, not just a prompted convention.
+- **Agents** (`.kiro/agents/*.md`): `case-investigator` pode usar as sete tools de investigação; `threat-hunter` recebe um subconjunto de seis; `report-writer` usa apenas `investigate_case`/`investigate_demo`; `response-advisor` tem **`tools: []`** e só recomenda um plano para revisão e execução humana fora do Kiro.
 
-1. Install Python 3.11+ and [Kiro](https://kiro.dev/docs/getting-started/first-project/). Docker is needed only for live Vision One use.
-2. Create the project virtual environment and install the package. On Linux/macOS:
+Para passar do demo a um caso real, inicie o QRadar MCP local, confira o Docker e a região/permissões da API key do Vision One. O [guia de instalação](docs/guia-instalacao.md#4-prepare-as-conexões-reais) separa token do MCP local e credencial QRadar e mostra como iniciar o Kiro sem gravar segredos no repositório. Confirme o fuso do console QRadar antes de interpretar a linha do tempo. No Windows, o script `start-kiro-soc-bridge.ps1` inicia o demo sem segredos; use `-Live` para inserir credenciais temporárias no processo que lança o Kiro.
 
-   ```bash
-   python3 -m venv .venv
-   .venv/bin/python -m pip install -e .
-   ```
-
-   On Windows PowerShell:
-
-   ```powershell
-   py -3 -m venv .venv
-   .venv\Scripts\python.exe -m pip install -e .
-   ```
-
-3. Configure Kiro using this project's exact virtualenv Python. This avoids Windows Store `python` aliases and PATH differences. Run `.venv/bin/python scripts/configure_kiro.py` on Linux/macOS, or `.\.venv\Scripts\python.exe .\scripts\configure_kiro.py` in Windows PowerShell. This updates `.kiro/settings/mcp.json` without overwriting other servers. Then ask Kiro: **“Use investigate_demo and explain the evidence and limitations.”** No API key is needed for this first conversation.
-4. For live use, start the IBM QRadar MCP server locally and set `QRADAR_MCP_TOKEN`, `TREND_VISION_ONE_API_KEY` and `TREND_VISION_ONE_REGION` in the environment **that starts Kiro**; the local launcher inherits them. `QRADAR_MCP_URL` defaults to `http://127.0.0.1:5001/mcp`; set it in that environment if the port differs. A QRadar MCP local single-user setup can omit `QRADAR_MCP_TOKEN`. If launching Kiro from a desktop icon rather than the shell, ensure its process receives these variables by configuring your operating system or Kiro's MCP `env` settings with `${VAR}` references. Kiro IDE asks you to approve expansion of referenced variables.
-5. Then type **`/investigation Investigate QRadar offense 1842 using investigate_case`** (replace the ID). Confirm `soc-bridge-readonly` is connected in Kiro's MCP Servers panel.
+Depois, peça: **“Investigue a offense `<ID>` usando `investigate_case` e apresente evidências, consultas executadas, limites e lacunas.”** Para um alerta, use um ID `WB-...`. O `/investigation` é opcional e fornece um formato de resposta; você também pode falar diretamente com o agente `case-investigator`.
 
 For a numeric offense, the live bridge now also samples QRadar Ariel events near the offense time and searches Vision One endpoint activities and detections by the offense IP, even when Workbench has no matching alert. If the 100-event Ariel page is full, it retries with ±60s and then ±20s around the offense midpoint. Trend searches inspect the first 50 rows per source. The report lists actual search states, AQL, UTC/local windows, sample counts, event names, host candidates and any exact IP + destination + port + ≤60s network leads. These are leads, not proof that an endpoint process caused the QRadar event. The QRadar console UTC offset defaults to −3 through `QRADAR_AQL_UTC_OFFSET_HOURS`; confirm it for the incident date. The tool does not paginate exhaustively or infer absent activity from an empty bounded search.
 
@@ -64,41 +67,9 @@ Ask Kiro to call `investigate_epm_uac(last_event_id="<lastEventId>", last_event_
 
 The Trend event-viewer link is a filtered **list**, not a unique event reference. Open a specific event and ask Kiro to call `investigate_web_reputation(url_or_domain="https://bad.example/", event_time="2026-09-24T13:33:46Z", event_id="01234567-89ab-cdef-0123-456789abcdef", endpoint_host="DEMO-PC", endpoint_guid="11111111-2222-3333-4444-555555555555")` (fabricated example). Supply the event time with its actual UTC offset: a portal display of `10:33:46` alone does not establish its timezone. `endpoint_ip` is optional when an event UUID and host are supplied. The tool first searches Vision One detections and endpoint activities for the exact event UUID, host, GUID, domain and time. If the specific event does not surface, an unambiguous private IP from host/GUID activity near the event may be used only as a labelled candidate. A full 50-row host page triggers narrower ±60s and ±10s searches before deciding whether the IP evidence is usable. Current inventory IPs may be shown as context but are never used automatically as historical IPs. If discovery still cannot attribute an IP, the tool makes a separate domain-only FortiGate search; logs found there cannot be assigned to this endpoint. Provide an independently checked historical `endpoint_ip` to retry endpoint-specific matching. QRadar Ariel is searched by domain in a ±5 minute window, checking exact source IP, hostname/url and event timestamp in returned FortiGate payloads when the endpoint IP is available. `traffic action=accept` means an accepted connection; only a FortiGate webfilter `passthrough` or comparable allow record matching the domain supports a domain-level allow. Neither establishes delivery of a page or proves Trend did not block the endpoint request. The report includes policy ID, destination IP where logged, and first-page caps; a draft for the network team is generated only when a domain-specific webfilter permission record is found. A blocked-only result generates no request to add a block. No message, rule update, or domain block is sent. NAT/proxy egress, source-IP mismatch, incomplete pages and QRadar local timezone can prevent attribution; confirm these manually.
 
-## Try the synthetic demo
+## Demo e conexões reais
 
-Python 3.11+ is sufficient. No API key, MCP server or installed package required:
-
-```bash
-PYTHONPATH=src python -m soc_bridge.cli demo --output reports/demo
-cat reports/demo.md
-```
-
-Or install it as a command:
-
-```bash
-python -m venv .venv
-. .venv/bin/activate
-python -m pip install -e .
-soc-bridge demo --output reports/demo
-```
-
-The demo uses documentation-only IP ranges and fabricated incidents. Outputs under `reports/` are ignored by Git.
-
-## Connect your own platforms
-
-1. Start [IBM QRadar MCP](https://github.com/IBM/qradar-mcp) locally, using its documentation. The example Docker setup exposes `http://127.0.0.1:5001/mcp`. Use a dedicated least-privilege account. For multi-user mode, set `QRADAR_MCP_TOKEN` to an authorized service token; single-user mode may use its local credential configuration. Do not expose this MCP server to the public internet.
-2. Install Docker. This project launches the [Trend Vision One MCP server](https://github.com/trendmicro/vision-one-mcp-server) through **local stdio** and forces `-readonly=true`. Offense-first uses `-toolsets=workbench`; alert-first uses `-toolsets=workbench,search` to collect bounded endpoint/detection telemetry. Supply a Vision One API key with the minimum Workbench and Search read permissions required for those calls and the correct region. If Search access is unavailable, the Workbench/QRadar investigation continues and marks Search as incomplete. Docker will pull the image on its first run.
-3. Set environment variables locally. Never commit tokens or customer information:
-
-```bash
-export QRADAR_MCP_URL=http://127.0.0.1:5001/mcp
-export QRADAR_MCP_TOKEN='your-qradar-service-token'
-export TREND_VISION_ONE_API_KEY='your-vision-one-read-key'
-export TREND_VISION_ONE_REGION=us
-soc-bridge investigate --offense 1842 --output reports/offense-1842
-```
-
-`QRADAR_MCP_TOKEN` can be omitted if your *local* QRadar MCP configuration authenticates requests. Use a trusted connection between the QRadar MCP process and QRadar itself. This client accepts only a loopback HTTP MCP URL and deliberately does not call either server's write tools.
+O [passo a passo](docs/guia-instalacao.md) começa com `investigate_demo`, sem API key. Depois descreve QRadar MCP em loopback, Docker para Vision One, as variáveis de ambiente e o primeiro caso autorizado. O arquivo `.env.example` é apenas uma referência: o programa **não carrega `.env` automaticamente**. O cliente aceita somente `http://127.0.0.1:<porta>/mcp` (ou outro endereço de loopback suportado) e permite apenas as tools upstream da allowlist no código.
 
 ## What a report means
 
@@ -131,7 +102,7 @@ Local reports may contain sensitive incident data; keep them out of a public por
 
 ## Security and portfolio use
 
-The repository contains no real logs, hostnames or credentials. Publish only the source and fabricated demo. Never publish `reports/` or a populated `.env`. The Trend Micro server's own documentation cautions that its stdio integration is local and that enabling writes may have irreversible effects; SOC Bridge always starts it read-only. It also makes no LLM call, so private telemetry is not forwarded to an external model.
+Publique somente código e exemplos fabricados. Nunca publique `reports/`, um `.env` populado nem `.kiro/settings/mcp.json` com valores reais. A ponte inicia o MCP da Trend em modo somente leitura e não faz chamada direta a um LLM, **mas o conteúdo do relatório retornado a uma tool é entregue ao modelo configurado no Kiro**. Verifique as regras de tratamento de dados da sua organização antes de usar incidentes reais.
 
 IBM's and Trend Micro's MCP servers are separate upstream projects. SOC Bridge is an independent client; it does not copy or modify their source code. Check their licenses and API requirements for your deployment.
 
@@ -154,6 +125,7 @@ Full detail, proposed fixes and manual workarounds for each item are in [docs/br
 ## More documentation
 
 - [README-kiro-pack.md](README-kiro-pack.md) — status and install notes for the `.kiro/` steering/skills/agents pack, and what was validated against a real QRadar offense (identifiers replaced with a fabricated example ID for this public repository).
+- [docs/guia-instalacao.md](docs/guia-instalacao.md) — instalação desde o clone, demo sem credenciais, Kiro e conexão real no Windows/Linux/macOS.
 - [BRIDGE-BACKLOG.md](BRIDGE-BACKLOG.md) — proposed engineering improvements for the bridge itself and for deterministic Kiro agent routing.
 - [docs/bridge-known-limitations.md](docs/bridge-known-limitations.md) — full write-up behind the "Known limitations" summary above.
 
