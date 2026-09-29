@@ -1,60 +1,52 @@
-# Run from soc-bridge-investigator (the folder containing pyproject.toml).
+# Start from the project root. Demo mode needs neither Docker nor credentials.
+param([switch] $Live)
 $ErrorActionPreference = 'Stop'
-$project = (Get-Location).Path
+$project = $PSScriptRoot
 $python = Join-Path $project '.venv\Scripts\python.exe'
-$configPath = Join-Path $project '.kiro\settings\mcp.json'
+$configurator = Join-Path $project 'scripts\configure_kiro.py'
 if (-not (Test-Path -LiteralPath (Join-Path $project 'pyproject.toml')) -or
-    -not (Test-Path -LiteralPath $python)) {
-    throw 'Abra PowerShell na pasta soc-bridge-investigator que contem pyproject.toml e .venv.'
+    -not (Test-Path -LiteralPath $python) -or
+    -not (Test-Path -LiteralPath $configurator)) {
+    throw 'Execute apos criar .venv e instalar o projeto; confira pyproject.toml e scripts\configure_kiro.py.'
 }
+
+& $python $configurator
+if ($LASTEXITCODE -ne 0) { throw 'Falha ao configurar soc-bridge-readonly no Kiro.' }
 if (-not (Get-Command kiro -ErrorAction SilentlyContinue)) {
-    throw 'Comando kiro nao encontrado. Abra o Kiro e instale o comando kiro no PATH, ou use a configuracao MCP no IDE.'
+    throw 'Comando kiro nao encontrado. Abra a pasta deste projeto no Kiro IDE; a configuracao MCP ja foi criada.'
 }
 
-$configDir = Split-Path -Parent $configPath
-if (-not (Test-Path -LiteralPath $configDir)) {
-    New-Item -ItemType Directory -Path $configDir -Force | Out-Null
-}
-if (Test-Path -LiteralPath $configPath) {
-    $config = [System.IO.File]::ReadAllText($configPath) | ConvertFrom-Json
-} else {
-    $config = [pscustomobject]@{ mcpServers = [pscustomobject]@{} }
-}
-if ($null -eq $config.mcpServers) {
-    $config | Add-Member -NotePropertyName mcpServers -NotePropertyValue ([pscustomobject]@{}) -Force
-}
-if ($null -eq $config.mcpServers.'soc-bridge-readonly') {
-    $config.mcpServers | Add-Member -NotePropertyName 'soc-bridge-readonly' -NotePropertyValue ([pscustomobject]@{})
-}
-$bridge = $config.mcpServers.'soc-bridge-readonly'
-$bridge | Add-Member -NotePropertyName command -NotePropertyValue $python -Force
-$bridge | Add-Member -NotePropertyName args -NotePropertyValue @('-m', 'soc_bridge.kiro_server') -Force
-$bridge | Add-Member -NotePropertyName autoApprove -NotePropertyValue @('investigate_demo') -Force
-$bridge | Add-Member -NotePropertyName env -NotePropertyValue ([ordered]@{
-    QRADAR_MCP_URL = 'http://127.0.0.1:5001/mcp'
-    QRADAR_MCP_TOKEN = '${QRADAR_MCP_TOKEN}'
-    TREND_VISION_ONE_API_KEY = '${TREND_VISION_ONE_API_KEY}'
-    TREND_VISION_ONE_REGION = 'us'
-}) -Force
-$json = $config | ConvertTo-Json -Depth 20
-[System.IO.File]::WriteAllText($configPath, $json + "`n", [System.Text.UTF8Encoding]::new($false))
-
-function Set-TemporarySecret([string] $name, [string] $prompt) {
+function Read-TemporarySecret([string] $prompt) {
     $secret = Read-Host $prompt -AsSecureString
     $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret)
     try {
-        [Environment]::SetEnvironmentVariable($name, [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer), 'Process')
+        return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)
     } finally {
         [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer)
     }
 }
 
+$previous = @{}
+foreach ($name in 'QRADAR_MCP_TOKEN', 'TREND_VISION_ONE_API_KEY') {
+    $previous[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+}
 try {
-    Set-TemporarySecret 'QRADAR_MCP_TOKEN' 'Token do QRadar MCP local'
-    Set-TemporarySecret 'TREND_VISION_ONE_API_KEY' 'API key do Vision One'
-    Write-Host 'Iniciando Kiro neste projeto. No MCP Servers, confirme soc-bridge-readonly conectado.'
-    & kiro .
+    if ($Live) {
+        $token = Read-TemporarySecret 'Token do QRadar MCP local (Enter se single-user sem token)'
+        if ($token) { $env:QRADAR_MCP_TOKEN = $token }
+        $key = Read-TemporarySecret 'API key do Vision One'
+        if (-not $key) { throw 'A API key do Vision One e necessaria no modo live.' }
+        $env:TREND_VISION_ONE_API_KEY = $key
+    }
+    Push-Location $project
+    try {
+        Write-Host 'No Kiro, confirme soc-bridge-readonly conectado. Teste investigate_demo primeiro.'
+        & kiro .
+    } finally {
+        Pop-Location
+    }
 } finally {
-    Remove-Item Env:\QRADAR_MCP_TOKEN -ErrorAction SilentlyContinue
-    Remove-Item Env:\TREND_VISION_ONE_API_KEY -ErrorAction SilentlyContinue
+    foreach ($name in $previous.Keys) {
+        [Environment]::SetEnvironmentVariable($name, $previous[$name], 'Process')
+    }
 }
