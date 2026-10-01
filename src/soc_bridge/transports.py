@@ -9,7 +9,7 @@ from .diagnostics import MCPToolFailure, failure_reason, unavailable
 from .aql_search import AQL_RESOURCES
 
 
-QRADAR_TOOLS = {"get_offense", "list_source_addresses", "list_local_destination_addresses",
+QRADAR_TOOLS = {"get_offense", "get_rule", "list_source_addresses", "list_local_destination_addresses",
                 "validate_aql", "create_ariel_search", "get_ariel_search_status", "get_ariel_search_results"}
 WORKBENCH_TOOLS = {"workbench_alerts_list", "workbench_alert_detail_get"}
 VISION_TOOLS = WORKBENCH_TOOLS | {"search_detections_list", "search_endpoint_activities_list",
@@ -65,6 +65,18 @@ class RestrictedMCP:
             if result.content and getattr(result.content[0], "text", "").startswith("✓ AQL query is valid"):
                 return {"valid": True}
             raise ValueError("QRadar did not confirm that AQL is valid")
+        if name == "get_rule":
+            # IBM's get_rule formatter appends its JSON object after a fixed heading.
+            for block in result.content:
+                raw = getattr(block, "text", "")
+                if "\nFull JSON:\n" in raw:
+                    try:
+                        data = json.loads(raw.rsplit("\nFull JSON:\n", 1)[1])
+                    except json.JSONDecodeError:
+                        raise ValueError("Rule metadata has invalid trailing JSON") from None
+                    if not isinstance(data, dict):
+                        raise ValueError("Rule metadata must be a JSON object")
+                    return data
         return unpack(result)
 
     async def read_aql_resource(self, resource: str) -> Any:
@@ -96,21 +108,22 @@ async def live_qradar_query(operation: str, parameters: dict[str, Any], url: str
     from mcp.client.streamable_http import streamable_http_client
     import httpx
     from .aql_search import validate_query, start_query, search_status, search_results, run_query
+    from .offense_evidence import verify_offense
 
     parsed = urlparse(url)
     if (parsed.scheme != "http" or parsed.hostname not in ("localhost", "127.0.0.1", "::1")
             or parsed.path != "/mcp" or parsed.username or parsed.password or parsed.query or parsed.fragment):
         raise ValueError("QRadar MCP URL must be a local http://127.0.0.1:<port>/mcp endpoint")
     operations = {"validate": validate_query, "start": start_query, "status": search_status,
-                  "results": search_results, "run": run_query}
-    if operation not in {*operations, "resource"}:
+                  "results": search_results, "run": run_query, "verify_offense": verify_offense}
+    if operation not in {*operations, "resource", "rule"}:
         raise ValueError("Unknown QRadar query operation")
     required = {"validate": {"validate_aql"},
                 "start": {"validate_aql", "create_ariel_search"},
                 "status": {"get_ariel_search_status"},
                 "results": {"get_ariel_search_status", "get_ariel_search_results"},
                 "run": {"validate_aql", "create_ariel_search", "get_ariel_search_status", "get_ariel_search_results"},
-                "resource": set()}[operation]
+                "resource": set(), "verify_offense": {"get_offense"}, "rule": {"get_rule"}}[operation]
     stage = "QRadar MCP connection"
     try:
         async with AsyncExitStack() as stack:
@@ -126,6 +139,14 @@ async def live_qradar_query(operation: str, parameters: dict[str, Any], url: str
             stage = f"QRadar AQL {operation}"
             if operation == "resource":
                 return await client.read_aql_resource(**parameters)
+            if operation == "rule":
+                rule_id = parameters.get("rule_id")
+                if isinstance(rule_id, bool) or not isinstance(rule_id, int) or rule_id < 0:
+                    raise ValueError("rule_id must be a nonnegative integer")
+                rule = await client.call("get_rule", {"rule_id": rule_id})
+                if not isinstance(rule, dict) or rule.get("id") != rule_id:
+                    raise ValueError("Unexpected rule metadata ID")
+                return rule
             return await operations[operation](client, **parameters)
     except (ValueError, MCPToolFailure):
         raise
@@ -157,7 +178,7 @@ async def live_investigation(offense_id: int, url: str, token: str | None,
     stage = "QRadar MCP connection"
     try:
         async with AsyncExitStack() as stack:
-            http = await stack.enter_async_context(httpx.AsyncClient(headers=headers, timeout=30.0))
+            http = await stack.enter_async_context(httpx.AsyncClient(headers=headers, timeout=30.0, trust_env=False))
             qr_stream = await stack.enter_async_context(streamable_http_client(url, http_client=http))
             qr = await stack.enter_async_context(ClientSession(qr_stream[0], qr_stream[1]))
             stage = "QRadar MCP initialization"

@@ -1,7 +1,7 @@
 # Custom Ariel/AQL searches from Kiro
 
-The bridge exposes six query tools alongside the seven existing investigation
-tools. The `soc-bridge-readonly` server name remains compatible with existing
+The bridge exposes six query tools, seven investigation tools and two offense
+verification tools (15 total). The `soc-bridge-readonly` server name remains compatible with existing
 Kiro configurations. Read-only includes creating Ariel **search jobs**; it does
 not require enabling offense changes or endpoint response actions.
 
@@ -122,3 +122,10 @@ resources `qradar://aql/events/fields`, `qradar://aql/flows/fields`,
 results and IBM's textual validation response, including separate HTTP MCP
 sessions resuming the same search job. Production permissions and telemetry
 coverage require validation on the installed upstream deployment.
+
+## Verificação de offense
+
+Além das seis tools de AQL, `qradar_verify_offense` coleta registros INOFFENSE,
+flows, COUNT/UNIQUECOUNT, regras e contexto do host; `qradar_get_rule` lê
+metadados da regra por ID. Ambas usam apenas QRadar. Veja
+[coleta e critérios de conclusão](offense-verification.md).

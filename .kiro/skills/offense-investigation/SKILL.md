@@ -1,33 +1,30 @@
 ---
 name: offense-investigation
-description: Investigar offense do QRadar por ID, inclusive quando não há alerta Workbench, interpretando Ariel e Trend Search retornados pela ponte.
+description: Investigar offense QRadar por ID, verificar registros associados, flows, regras, autenticação e limites antes de concluir, inclusive sem alerta Workbench.
 ---
 
 # Offense do QRadar
 
 ## Quando ativar
 
-Quando o analista fornecer um número positivo de offense ou pedir investigação de offense sem alerta correspondente na Trend. Para uma referência cuja origem não foi definida, use `investigate_case(reference)`.
+Use quando o analista fornecer uma offense positiva ou pedir investigação sem alerta Workbench. Para referência ambígua, use investigate_case.
 
 ## Passo a passo
 
-1. Confirme que a referência é um inteiro positivo. Chame `investigate_offense` com `{"offense_id": 12345}` (ID fictício). Se for texto ambíguo, use `investigate_case` com `{"reference": "12345"}`.
-2. Leia a offense antes das amostras e interprete apenas os campos retornados:
-   - `description` reflete os nomes de regra/evento conforme a nomenclatura configurada nas regras (ex.: “… preceded by …”, “… containing …”); descreve o que disparou, não prova a atividade nem a técnica.
-   - `magnitude` é a prioridade que o QRadar calcula a partir de relevance, severity e credibility, ponderada por volume de eventos/flows, log sources, idade e peso dos ativos; não é probabilidade de comprometimento. O relatório não traz severity, credibility e relevance separadas; não as infira da magnitude.
-   - `status` é `OPEN`, `HIDDEN` ou `CLOSED`. Offense fechada não reabre: eventos novos com o mesmo índice geram outra offense. Fechada não significa falso positivo nem fim da atividade; o motivo de fechamento não consta do relatório.
-   - Compare `event_count` com a amostra Ariel (≤100 linhas, SELECT fixo por IP). Se o evento de gatilho citado em `description` não aparece em “Event names in sample”, diga que a amostra não capturou os eventos que dispararam a regra (limite da coleta inicial fixa; use QID na consulta adicional) e consulte eventos contribuintes por AQL com INOFFENSE e janela explícita usando as tools qradar_*.
-   Depois extraia origem dos IPs, janela UTC e horário local, log sources, consultas Ariel executadas, seus estados, linhas/página/limite, detecções/atividades Trend Search e alertas Workbench. Não preencha campos não retornados.
-3. Mesmo se Workbench não trouxer alerta, examine se houve buscas de atividade/detecção de endpoint e eventos Ariel. Caso alguma não tenha ocorrido, relate a razão ou “razão não informada”; não conclua que o endpoint estava inativo.
-4. Para cada possível vínculo QRadar↔Trend, compare entidade, IP de origem, destino/porta, host, timestamp e identificação histórica da interface conforme disponíveis. Rótulo padrão: `candidato`; só descreva o que cada fonte confirmou de modo separado.
-5. Monte hipóteses concorrentes (atividade maliciosa, administração autorizada, ruído/detecção equivocada) e uma observação que refutaria cada uma. Investigue “por quês” até onde os dados permitirem, sem fabricar causa raiz.
-6. Entregue relatório: consultas de Ariel e Trend que realmente constam da saída; estado, janela, limite, resultados; fatos/candidatos/não verificados; impacto, confiança, próximos pivôs; recomendações humanas de contenção → erradicação → recuperação, se cabíveis.
-   Se `username` vier vazio em eventos PAM, não reexecute a mesma tool esperando colunas diferentes. Leia os resources e consulte `Username`, propriedades customizadas reais do DSM, `devicetime` e `UTF8(payload)` por AQL focada conforme `qradar-aql-conventions`. Use janela/limite explícitos, search ID, páginas e avisos. Sem dado corroborado, mantenha a identidade não verificada.
+1. Chame `investigate_offense(offense_id)` para QRadar e Trend. Para coletar apenas QRadar ou investigar sem credenciais Trend, use `qradar_verify_offense(offense_id)`. ID de exemplo fictício: 12345.
+2. Siga offense-verification. Leia `offense_evidence`: metadados originais, janela INOFFENSE, eventos/flows, censo COUNT/UNIQUECOUNT, contagens, regras, contexto do host e assessment. A coleta antiga por IP é contexto separado.
+3. Retome pesquisas pendentes e páginas do mesmo search ID. Consulte campos reais para pivôs AQL. Casos históricos precisam do timezone confirmado; não presuma -3. Não duplique uma coleta concluída esperando novos campos.
+4. Descreva só os campos observados: description/nome de regra não provam comportamento; magnitude é prioridade do produto; CLOSED é estado, não veredito. severity, credibility, relevance e closing_reason_id só são informados quando retornados.
+5. Se a coleta ligada à offense estiver incompleta, explique LIMIT/páginas/janela/permissão. Divergências de contagem não recebem uma causa inventada. Preserve tempo cru, tempo observado e padding como valores distintos.
+6. Consulte as regras pelos IDs retornados via `qradar_get_rule`. Metadados não garantem a definição completa da CRE. Para campos ausentes, usuário PAM, payload, logons e processos, use qradar_* com filtro e janela explícitos. 4648 é tentativa; sucesso e serviço exigem correlação. Null não prova ausência no payload.
+7. Mesmo sem Workbench, leia separadamente Ariel, atividade e detecções Trend. Compare entidade, conta, processo, host, tempo e histórico de IP; vínculo entre fontes permanece candidato sem atribuição demonstrada.
+8. Teste hipóteses maliciosa, legítima, erro de detecção e erro de atribuição. Cite qual evidência discrimina cada uma. Para padrão DHCP, valide destinos/scopes/relays, regra, anti-spoofing e serviço originador antes de chamar falso positivo.
+9. Entregue fatos, fontes/search IDs, consultas/cobertura, hipóteses, confiança, lacunas com próxima fonte e recomendações humanas. Preserve assessment preliminar até evidência adicional resolver os impedimentos relevantes.
 
 ## Tools permitidas
 
-`investigate_offense(offense_id: integer)`; `investigate_case(reference: string)` apenas para referência de origem ambígua. As seis tools qradar_* permitem consultas adicionais com AQL personalizada, validação automática, status e paginação conforme qradar-aql-conventions. A investigação inicial continua fixa.
+investigate_offense; investigate_case para referência ambígua; qradar_verify_offense e qradar_get_rule; seis tools de AQL/status/paginação descritas em qradar-aql-conventions. Respeite a lista do perfil de agente ativo.
 
 ## Critério de conclusão
 
-O relatório mostra a offense e todas as fontes consultadas, inclusive buscas vazias ou indisponíveis, com limites do próprio retorno. Se a seção de contexto Ariel/endpoint faltar na execução atual, descreva a falha ou diferença de versão observada, sem atribuir uma causa sem evidência.
+O relatório cita as consultas reais e distingue confirmado/candidato/não verificado. Pode concluir preliminarmente quando uma fonte necessária não é acessível, indicando o dado e onde obtê-lo. Não afirme certeza ou ausência de atividade fora da cobertura observada, e não faça mudanças em produtos.

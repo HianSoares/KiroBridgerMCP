@@ -48,7 +48,15 @@ Six additional `qradar_*` tools let Kiro read live field/function metadata, vali
 
 > Read AQL metadata, then use `qradar_run_aql` to collect the missing evidence for this case. Keep the search ID, use the verified time window, and report pagination and truncation.
 
-See [custom AQL setup, examples and limits](docs/dynamic-aql.md). Existing investigation tools keep their fixed initial samples; the new tools provide follow-up queries.
+See [custom AQL setup, examples and limits](docs/dynamic-aql.md). Offense investigations now also collect INOFFENSE events/flows, a COUNT/UNIQUECOUNT census, contributing rule metadata and a separate host context. The legacy IP samples remain labelled as context.
+
+## Verify an offense before concluding
+
+`qradar_verify_offense` performs the QRadar collection without Trend credentials; `qradar_get_rule` reads contributing rule metadata. Together with the existing tools, the bridge exposes **15 tools**. The report distinguishes original metadata times, observed event times and padded collection windows, follows result pages within a budget and preserves unresolved count/payload/attribution gaps.
+
+> Use `qradar_verify_offense` with the offense ID. Resume pending search IDs and collect missing evidence before assessing the case. For a historical case, confirm the actual QRadar timezone before setting `timezone_verified=true`.
+
+A DHCP-compatible port pattern supports a preliminary hypothesis. It does not establish authorization, successful authentication, endpoint health or a false positive. See [verification workflow and decision limits](docs/offense-verification.md).
 
 ## Scope and safety
 

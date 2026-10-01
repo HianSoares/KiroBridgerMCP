@@ -1,13 +1,19 @@
 # Limites de coleta da ponte
 
-As sete tools `investigate_*` mantêm sua coleta inicial fixa e limitada. Se um
-evento de gatilho ou usuário não aparecer nessa amostra, a identidade continua
-não verificada; repetir a mesma chamada não muda o SELECT.
+As sete tools `investigate_*` fazem coleta limitada. `investigate_offense` agora
+acrescenta registros INOFFENSE, flows, censo COUNT/UNIQUECOUNT e regras à coleta
+antiga por IP, rotulada como contexto. Identidade não atribuída continua
+não verificada; repetir a mesma chamada não resolve falta de armazenamento.
 
-As seis tools `qradar_*` agora permitem AQL personalizada, campos reais do DSM,
+Seis tools `qradar_*` permitem AQL personalizada, campos reais do DSM,
 payload selecionado, flows, agregações e paginação por search ID. Veja
 [fluxo, atualização e limites](dynamic-aql.md). `investigate_offense` também
 exibe o search ID de cada busca Ariel quando fornecido pelo upstream.
+
+`qradar_verify_offense` coleta somente no QRadar; `qradar_get_rule` lê metadados
+de regras. As 15 tools e as avaliações preliminares seguem o
+[fluxo de verificação](offense-verification.md). Metadados não incluem
+necessariamente os testes/respostas completos da regra ativa.
 
 ## Limites que continuam relevantes
 

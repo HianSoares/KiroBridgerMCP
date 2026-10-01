@@ -49,6 +49,15 @@ class ArielTransportTests(unittest.TestCase):
                     self.assertEqual(second["search_id"], first["search_id"])
                     self.assertEqual(second["rows"][0]["RawPayload"], "second synthetic event")
                     self.assertFalse(second["has_more"])
+                rule = await live_qradar_query("rule", {"rule_id": 12}, url, None)
+                self.assertEqual(rule["id"], 12)
+                verified = await live_qradar_query("verify_offense", {"offense_id": 12345}, url, None)
+                self.assertEqual(verified["offense_id"], 12345)
+                self.assertEqual(verified["rules"][0]["metadata"]["id"], 12)
+                self.assertEqual(verified["flows"]["distinct_destinations_in_search"], 1)
+                self.assertTrue(verified["queries"]["events"]["result_set_complete"])
+                self.assertEqual(verified["host"]["explicit_credential_attempts"][0]["event_id"], 4648)
+                self.assertFalse(verified["assessment"]["final_benign_verdict_permitted"])
 
             asyncio.run(scenario())
         finally:

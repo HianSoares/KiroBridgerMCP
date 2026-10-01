@@ -87,6 +87,36 @@ async def qradar_run_aql(query_expression: str, justification: str = "", limit: 
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def qradar_verify_offense(offense_id: int, qradar_utc_offset_hours: int = -3,
+                               timezone_verified: bool = False) -> dict:
+    """Collect INOFFENSE events/flows, explicit ports, UNIQUECOUNT, rules and host context.
+
+    QRadar only; no Trend key required. Recent cases use LAST 24 HOURS. Historical
+    cases need timezone_verified=True only after confirming the actual console
+    offset. Reports original metadata times separately from padded context,
+    search IDs, full AQL, coverage, truncation, credential attempts and gaps.
+    A compatible DHCP pattern is preliminary, never proof of authorized activity.
+    """
+    return await live_qradar_query("verify_offense", {"offense_id": offense_id,
+        "qradar_utc_offset_hours": qradar_utc_offset_hours,
+        "timezone_verified": timezone_verified},
+        os.environ.get("QRADAR_MCP_URL", "http://127.0.0.1:5001/mcp"),
+        os.environ.get("QRADAR_MCP_TOKEN"))
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def qradar_get_rule(rule_id: int) -> dict:
+    """Read contributing rule metadata by the ID returned in offense.rules.
+
+    Metadata (name/type/enabled/owner) is not the full CRE test definition.
+    Does not change the rule. No Trend credentials required.
+    """
+    return await live_qradar_query("rule", {"rule_id": rule_id},
+        os.environ.get("QRADAR_MCP_URL", "http://127.0.0.1:5001/mcp"),
+        os.environ.get("QRADAR_MCP_TOKEN"))
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def investigate_case(reference: str) -> str:
     """Investigate by ID alone: QRadar offense number or Vision One WB alert ID.
 
@@ -103,7 +133,7 @@ async def investigate_case(reference: str) -> str:
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def investigate_offense(offense_id: int) -> str:
-    """Read offense, bounded Ariel events and Vision One Workbench/Search evidence.
+    """Read offense-linked events/flows, census, rule metadata and Trend evidence.
 
     Only accepts positive offense IDs. Calls read-only tools in both upstream MCP
     servers, then returns a bounded report. A network match is a candidate,
