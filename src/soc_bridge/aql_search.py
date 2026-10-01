@@ -7,6 +7,7 @@ import re
 from datetime import datetime
 from typing import Any
 
+from .aql_errors import AQLPolicyError, AQLValidationError, ResponseFormatError
 from .ariel import SEARCH_ID
 
 
@@ -33,7 +34,7 @@ def _tokens(query: str) -> list[tuple[str, str]]:
             pos += 1
             continue
         if query.startswith(("--", "/*", "*/"), pos) or char == ";":
-            raise ValueError("Use one SELECT without comments or statement separators")
+            raise AQLPolicyError("Use one SELECT without comments or statement separators")
         if char in "'\"":
             quote, begin = char, pos
             pos += 1
@@ -49,7 +50,7 @@ def _tokens(query: str) -> list[tuple[str, str]]:
                 else:
                     pos += 1
             else:
-                raise ValueError("Unterminated AQL literal or quoted property")
+                raise AQLPolicyError("Unterminated AQL literal or quoted property")
             tokens.append(("string" if quote == "'" else "property", query[begin:pos]))
         else:
             match = re.match(r"[A-Za-z_][A-Za-z_0-9]*|[0-9]+|[^\s]", query[pos:])
@@ -68,14 +69,14 @@ def check_query(query: str, justification: str = "") -> dict[str, Any]:
     offense duration. SQL comments/literals cannot disguise those clauses.
     """
     if not isinstance(query, str) or not query.strip() or len(query) > 20000:
-        raise ValueError("query_expression must contain 1..20000 characters")
+        raise AQLPolicyError("query_expression must contain 1..20000 characters")
     tokens = _tokens(query)
     syntax = [v for kind, v in tokens if kind == "syntax"]
     if not tokens or tokens[0] != ("syntax", "SELECT") or syntax.count("SELECT") != 1:
-        raise ValueError("Only a single SELECT against events or flows is supported")
+        raise AQLPolicyError("Only a single SELECT against events or flows is supported")
     if set(syntax) & {"INTO", "UPDATE", "DELETE", "INSERT", "DROP", "ALTER", "CREATE",
                       "TRUNCATE", "UNION", "JOIN", "TIMES"}:
-        raise ValueError("Unsupported clause; use one bounded SELECT against events or flows")
+        raise AQLPolicyError("Unsupported clause; use one bounded SELECT against events or flows")
     top: list[tuple[str, str]] = []
     depth = 0
     for token in tokens:
@@ -84,29 +85,29 @@ def check_query(query: str, justification: str = "") -> dict[str, Any]:
         elif token == ("syntax", ")"):
             depth -= 1
             if depth < 0:
-                raise ValueError("Unbalanced AQL parentheses")
+                raise AQLPolicyError("Unbalanced AQL parentheses")
         elif depth == 0:
             top.append(token)
     if depth:
-        raise ValueError("Unbalanced AQL parentheses")
+        raise AQLPolicyError("Unbalanced AQL parentheses")
     if syntax.count("FROM") != 1:
-        raise ValueError("Exactly one FROM events or FROM flows is required")
+        raise AQLPolicyError("Exactly one FROM events or FROM flows is required")
     try:
         from_pos = top.index(("syntax", "FROM"))
         table = top[from_pos + 1]
     except (ValueError, IndexError):
-        raise ValueError("Exactly one FROM events or FROM flows is required") from None
+        raise AQLPolicyError("Exactly one FROM events or FROM flows is required") from None
     if table not in {("syntax", "EVENTS"), ("syntax", "FLOWS")}:
-        raise ValueError("Only the events and flows databases are supported")
+        raise AQLPolicyError("Only the events and flows databases are supported")
     if top.count(("syntax", "LIMIT")) != 1:
-        raise ValueError("Include exactly one LIMIT between 1 and 5000 before the time clause")
+        raise AQLPolicyError("Include exactly one LIMIT between 1 and 5000 before the time clause")
     limit_pos = top.index(("syntax", "LIMIT"))
     tail = top[limit_pos:]
     if limit_pos <= from_pos + 1 or len(tail) < 2 or not tail[1][1].isdecimal():
-        raise ValueError("Include LIMIT 1..5000 before LAST or START/STOP")
+        raise AQLPolicyError("Include LIMIT 1..5000 before LAST or START/STOP")
     row_limit = int(tail[1][1])
     if not 1 <= row_limit <= MAX_QUERY_ROWS:
-        raise ValueError("AQL LIMIT must be between 1 and 5000")
+        raise AQLPolicyError("AQL LIMIT must be between 1 and 5000")
     window: dict[str, Any]
     if (len(tail) == 5 and tail[2] == ("syntax", "LAST") and
             tail[3][0] == "syntax" and tail[3][1].isdecimal() and
@@ -120,14 +121,14 @@ def check_query(query: str, justification: str = "") -> dict[str, Any]:
             begin, end = [datetime.strptime(token[1][1:-1], "%Y-%m-%d %H:%M:%S")
                           for token in (tail[3], tail[5])]
         except ValueError:
-            raise ValueError("Use START/STOP 'yyyy-MM-dd HH:mm:ss' in the verified QRadar timezone") from None
+            raise AQLPolicyError("Use START/STOP 'yyyy-MM-dd HH:mm:ss' in the verified QRadar timezone") from None
         hours = (end - begin).total_seconds() / 3600
         window = {"mode": "absolute", "start": tail[3][1][1:-1], "stop": tail[5][1][1:-1],
                   "timezone": "QRadar console local time; verify before interpreting"}
     else:
-        raise ValueError("End AQL with LIMIT n LAST n MINUTES/HOURS/DAYS or LIMIT n START '...' STOP '...'")
+        raise AQLPolicyError("End AQL with LIMIT n LAST n MINUTES/HOURS/DAYS or LIMIT n START '...' STOP '...'")
     if not 0 < hours <= 30 * 24:
-        raise ValueError("Search window must be positive and at most 30 days")
+        raise AQLPolicyError("Search window must be positive and at most 30 days")
     projection = tokens[1:tokens.index(("syntax", "FROM"))]
     aggregated = any(token[0] == "syntax" and token[1] in AGGREGATES and
                      i + 1 < len(projection) and projection[i + 1] == ("syntax", "(")
@@ -136,7 +137,7 @@ def check_query(query: str, justification: str = "") -> dict[str, Any]:
     # SELECT * can include payload even when combined with an aggregate.
     wildcard_selected = ("syntax", "*") in top[1:from_pos]
     if hours > 24 and (not aggregated or payload_selected or wildcard_selected or not justification.strip()):
-        raise ValueError("Windows over 24 hours require aggregation, no payload, and a justification")
+        raise AQLPolicyError("Windows over 24 hours require aggregation, no payload, and a justification")
     return {"database": table[1].lower(), "query_limit": row_limit, "window": window,
             "window_hours": hours, "aggregated": aggregated, "justification": justification.strip()}
 
@@ -150,7 +151,7 @@ async def validate_query(qradar: Any, query: str, justification: str = "") -> di
     policy = check_query(query, justification)
     validation = await qradar.call("validate_aql", {"query_expression": query})
     if not isinstance(validation, dict) or validation.get("valid") is not True:
-        raise ValueError("QRadar did not confirm that the AQL is valid; search was not created")
+        raise AQLValidationError("QRadar did not confirm that the AQL is valid; search was not created")
     return {"valid": True, "query_expression": query, "scope": policy}
 
 
@@ -158,7 +159,7 @@ async def start_query(qradar: Any, query: str, justification: str = "") -> dict[
     validated = await validate_query(qradar, query, justification)
     created = await qradar.call("create_ariel_search", {"query_expression": query})
     if not isinstance(created, dict):
-        raise ValueError("Unexpected Ariel search creation response")
+        raise ResponseFormatError("Unexpected Ariel search creation response")
     sid = created.get("search_id")
     _search_id(sid)
     return {**validated, "search_id": sid, "status": created.get("status", "WAIT"),
@@ -171,7 +172,7 @@ async def search_status(qradar: Any, search_id: str, wait_seconds: int = 3) -> d
         raise ValueError("wait_seconds must be between 0 and 10")
     status = await qradar.call("get_ariel_search_status", {"search_id": search_id, "wait_seconds": wait_seconds})
     if not isinstance(status, dict) or not isinstance(status.get("status"), str):
-        raise ValueError("Unexpected Ariel search status response")
+        raise ResponseFormatError("Unexpected Ariel search status response")
     return {"search_id": search_id, "status": status["status"].upper(),
             "record_count": status.get("record_count"), "progress": status.get("progress")}
 
@@ -187,15 +188,15 @@ async def search_results(qradar: Any, search_id: str, start: int = 0, limit: int
                 "warning": "Results not retrieved: search is not COMPLETED. Poll this same search_id."}
     result = await qradar.call("get_ariel_search_results", {"search_id": search_id, "start": start, "limit": limit})
     if not isinstance(result, dict):
-        raise ValueError("Unexpected Ariel results: expected an events or flows object")
+        raise ResponseFormatError("Unexpected Ariel results: expected an events or flows object")
     keys = [key for key in ("events", "flows") if key in result]
     if len(keys) != 1 or not isinstance(result[keys[0]], list):
-        raise ValueError("Unexpected Ariel results: expected exactly one events or flows array")
+        raise ResponseFormatError("Unexpected Ariel results: expected exactly one events or flows array")
     rows, truncated_fields = [], []
     size = 0
     for index, row in enumerate(result[keys[0]][:limit]):
         if not isinstance(row, dict):
-            raise ValueError("Unexpected Ariel row format")
+            raise ResponseFormatError("Unexpected Ariel row format")
         truncated: list[str] = []
 
         def bounded(value: Any, path: str) -> Any:
@@ -219,7 +220,7 @@ async def search_results(qradar: Any, search_id: str, start: int = 0, limit: int
         size += row_size
     total = status["record_count"]
     if not rows and isinstance(total, int) and start < total:
-        raise ValueError("Ariel returned an empty page before record_count; do not infer absent activity or repeat a non-advancing page")
+        raise ResponseFormatError("Ariel returned an empty page before record_count; do not infer absent activity or repeat a non-advancing page")
     next_start = start + len(rows)
     more = next_start < total if isinstance(total, int) else len(rows) < len(result[keys[0]]) or len(rows) == limit
     warnings = []

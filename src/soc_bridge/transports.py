@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from .diagnostics import MCPToolFailure, failure_reason, unavailable
+from .aql_errors import AQLValidationError
 from .aql_search import AQL_RESOURCES
 
 
@@ -64,7 +65,7 @@ class RestrictedMCP:
                     return {"valid": True}
             if result.content and getattr(result.content[0], "text", "").startswith("✓ AQL query is valid"):
                 return {"valid": True}
-            raise ValueError("QRadar did not confirm that AQL is valid")
+            raise AQLValidationError("QRadar did not confirm that AQL is valid")
         if name == "get_rule":
             # IBM's get_rule formatter appends its JSON object after a fixed heading.
             for block in result.content:

@@ -4,18 +4,27 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import re
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from .aql_search import run_query, search_results
+from . import focused_queries, integrity_evidence, process_chain
+from .aql_fields import EVENT_COLUMNS, FLOW_COLUMNS, LOGICAL_FIELDS, load_catalog, plan_select
+from .ariel_collection import Budget, collect_query, number
 from .core import address, instant
+from .offense_assessment import assess, gap, query_gaps
+from .windows_events import extract
 
 SEARCH_LIMIT = 5000
 PAGE_LIMIT = 500
-MAX_PAGES = 10
 MAX_RULES = 20
+MAX_PARENT_LOOKUPS = 4
+RELEVANT_IDS = set(process_chain.CREATION_IDS) | set(process_chain.SCRIPT_IDS) | set(integrity_evidence.INTEGRITY_IDS)
+
+__all__ = ["Budget", "collect_query", "collect_offense_evidence", "verify_offense", "render_evidence",
+           "event_summary", "flow_summary", "host_summary", "query_tail", "utc"]
 
 
 def utc(value: Any) -> str | None:
@@ -27,15 +36,6 @@ def interval(rows: list[dict], key: str) -> dict:
     stamps = [stamp for row in rows if (stamp := instant(row.get(key))) is not None]
     return {"start": utc(min(stamps)) if stamps else None,
             "end": utc(max(stamps)) if stamps else None, "clock": key}
-
-
-def number(value: Any) -> int | None:
-    if isinstance(value, bool):
-        return None
-    try:
-        return int(value) if str(value).lstrip("-").isdigit() else None
-    except (TypeError, ValueError):
-        return None
 
 
 def value(row: dict, key: str) -> Any:
@@ -50,7 +50,8 @@ def query_tail(start: datetime, end: datetime, offset: int, verified: bool,
     if timedelta(0) <= now - start < timedelta(hours=24) and end <= now:
         return "LAST 24 HOURS", {**scope, "mode": "relative", "search_window": "LAST 24 HOURS",
             "relative_anchor_utc": utc(now), "search_start_utc": utc(now - timedelta(hours=24)),
-            "search_end_utc": utc(now), "bounds_note": "Approximate anchor; LAST is evaluated when each job starts"}
+            "search_end_utc": utc(now), "offset_dependency": "none: LAST and epoch predicates do not use the local offset",
+            "bounds_note": "Approximate anchor; LAST is evaluated when each job starts"}
     if not verified:
         return None, {**scope, "reason": "Historical/future window requires a verified QRadar timezone"}
     begin = start - timedelta(minutes=1)
@@ -60,52 +61,8 @@ def query_tail(start: datetime, end: datetime, offset: int, verified: bool,
     local_start, local_end = begin + timedelta(hours=offset), stop + timedelta(hours=offset)
     tail = f"START '{local_start:%Y-%m-%d %H:%M:%S}' STOP '{local_end:%Y-%m-%d %H:%M:%S}'"
     return tail, {**scope, "mode": "absolute", "search_window": tail,
+                  "offset_dependency": "START/STOP are console-local: requires the verified offset",
                   "search_start_utc": utc(begin), "search_end_utc": utc(stop)}
-
-
-async def collect_query(qradar: Any, query: str, database: str, scope: str) -> dict:
-    """Follow pages on one search ID, with an explicit search/page/budget ceiling."""
-    finding: dict = {"aql": query, "database": database, "scope": scope,
-                     "query_limit": SEARCH_LIMIT, "state": "unavailable", "rows": [],
-                     "warnings": [], "truncated_fields": [], "result_set_complete": False}
-    try:
-        page = await run_query(qradar, query, limit=PAGE_LIMIT)
-        finding.update(search_id=page.get("search_id"), state=page.get("status"),
-                       record_count=page.get("record_count"), pages=0)
-        while page.get("results_available"):
-            if page.get("database") != database:
-                raise ValueError("Ariel returned the wrong database")
-            finding["pages"] += 1
-            finding["rows"].extend(page["rows"])
-            finding["warnings"].extend(page.get("warnings", []))
-            finding["truncated_fields"].extend(
-                f"page {finding['pages']}: {field}" for field in page.get("truncated_fields", []))
-            if not page.get("has_more"):
-                total = number(page.get("record_count"))
-                finding["result_set_complete"] = (
-                    total is not None and total == len(finding["rows"]) and total < SEARCH_LIMIT)
-                break
-            next_start = page.get("next_start")
-            if (finding["pages"] >= MAX_PAGES or len(finding["rows"]) >= SEARCH_LIMIT
-                    or not isinstance(next_start, int) or next_start <= page.get("start", -1)):
-                finding["next_start"] = next_start
-                finding["warnings"].append("Collection budget reached; continue the same search ID")
-                break
-            page = await search_results(qradar, finding["search_id"], next_start, PAGE_LIMIT)
-        if not page.get("results_available"):
-            finding["state"] = page.get("status", "unavailable")
-            finding["warnings"].append(page.get("warning", "Results unavailable; not a negative search"))
-        if number(finding.get("record_count")) == SEARCH_LIMIT:
-            finding["warnings"].append("AQL LIMIT reached; partition/refine to include excluded rows or groups")
-    except Exception as exc:
-        finding["state"] = "unavailable"
-        finding["result_set_complete"] = False
-        finding["warnings"].append(f"Collection failed ({type(exc).__name__}); inspect upstream permissions/schema")
-    finding["returned_rows"] = len(finding["rows"])
-    # Earlier pages had more results; this is not an unresolved gap once they were fetched.
-    finding["warnings"] = list(dict.fromkeys(w for w in finding["warnings"]
-        if not (finding["result_set_complete"] and w.startswith("More results may exist"))))
-    return finding
 
 
 def event_summary(rows: list[dict]) -> dict:
@@ -151,6 +108,7 @@ def flow_summary(rows: list[dict]) -> dict:
             "observed_interval": interval(rows, "firstpackettime"),
             "dhcp_port_pattern": dhcp,
             "interpretation": "Ports describe compatibility only; destination roles and authorization are unverified",
+            "zero_rows_note": "Zero INOFFENSE flows does not show the host or a process had no communication",
             "return_bytes_semantics": "Zero destinationbytes means no return bytes observed by this flow source"}
 
 
@@ -189,9 +147,37 @@ def host_summary(rows: list[dict]) -> dict:
             "no_anomaly_claim_permitted": False}
 
 
+def _records(name: str, finding: dict, property_map: dict, seen: dict) -> list[dict]:
+    """Parse relevant Windows records with provenance; the same record from two queries is kept once."""
+    out = []
+    for index, row in enumerate(finding.get("rows", [])):
+        record = extract(row, property_map, finding.get("truncated_rows", {}).get(str(index), []))
+        if record["event_id"] not in RELEVANT_IDS:
+            continue
+        number_field = record["fields"].get("RecordNumber", {}).get("value")
+        computer = record["fields"].get("Computer", {}).get("value", "").lower()
+        key = ((record["event_id"], computer, number_field) if number_field else
+               (record["event_id"], row.get("starttime"),
+                hashlib.sha256(str(row.get("raw_payload")).encode("utf-8", "replace")).hexdigest()))
+        provenance = {"query": name, "scope": finding["scope"], "search_id": finding.get("search_id"),
+                      "result_row_index": index, "starttime": row.get("starttime"),
+                      "starttime_utc": utc(row.get("starttime")), "devicetime_utc": utc(row.get("devicetime")),
+                      "qid_name": row.get("event_name"), "log_source": row.get("log_source"),
+                      "event_id_source": record["event_id_source"], "payload_format": record["payload_format"]}
+        if key in seen:
+            seen[key]["provenance"].setdefault("also_returned_by", []).append(
+                {"query": name, "result_row_index": index})
+            continue
+        record["provenance"] = provenance
+        seen[key] = record
+        out.append(record)
+    return out
+
+
 async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int = -3,
-                                   timezone_verified: bool = False, now: datetime | None = None) -> dict:
-    """Collect linked records, flow census, rule metadata and a contextual host pivot."""
+                                   timezone_verified: bool = False, now: datetime | None = None,
+                                   budget: Budget | None = None) -> dict:
+    """Collect linked records, flow census, rules, host context and evidence-triggered pivots."""
     oid = offense.get("id")
     if isinstance(oid, bool) or not isinstance(oid, int) or oid < 1:
         raise ValueError("Positive integer offense ID required")
@@ -199,6 +185,9 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
         raise ValueError("QRadar offset must be an integer between -12 and 14")
     if not isinstance(timezone_verified, bool):
         raise ValueError("timezone_verified must be a boolean")
+    if budget is not None and not isinstance(budget, Budget):
+        raise ValueError("budget must be a Budget")
+    budget = budget or Budget()
     now = now or datetime.now(timezone.utc)
     start = instant(offense.get("start_time") or offense.get("first_event_flow_seen"))
     end = instant(offense.get("last_updated_time") or offense.get("last_event_flow_seen")) or start
@@ -207,30 +196,47 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
             "severity", "credibility", "relevance", "event_count", "flow_count", "start_time",
             "last_updated_time", "close_time", "closing_reason_id", "rules", "offense_source")},
         "metadata_interval": {"start": utc(start), "end": utc(end), "padding_seconds": 0},
-        "queries": {}, "rules": [], "warnings": [], "gaps": []}
-    for resource in ("events", "flows"):
-        try:
-            await qradar.read_aql_resource(resource)
-        except Exception:
-            result["warnings"].append(f"{resource} field resource unavailable; canonical SELECT still requires QRadar validation")
+        "queries": {}, "rules": [], "warnings": [], "gaps": [], "gap_details": [],
+        "field_catalogs": {}, "focused_queries": {}, "continuation_plan": []}
+
+    def add_gap(text: str, gap_id: str, scope: str, state: str, blocks: list[str], action: str = "",
+                evidence: dict | None = None) -> None:
+        result["gaps"].append(text)
+        result["gap_details"].append(gap(gap_id, scope, state, blocks, evidence, action, text))
+
+    catalogs = {db: await load_catalog(qradar, db) for db in ("events", "flows")}
+    for db, catalog in catalogs.items():
+        result["field_catalogs"][db] = catalog.describe()
+        if catalog.state != "available":
+            result["warnings"].append(f"{db} field resource unavailable or unparsed; optional properties not "
+                                      "requested; canonical SELECT still requires QRadar validation")
+    event_plan = plan_select(EVENT_COLUMNS, catalogs["events"], tuple(LOGICAL_FIELDS))
+    flow_plan = plan_select(FLOW_COLUMNS, catalogs["flows"])
+    plans: dict[str, Any] = {}
+
+    async def run(name: str, query: str, database: str, scope: str, plan: Any, fallback: str | None) -> dict:
+        finding = await collect_query(qradar, query, database, scope, budget, fallback, plan)
+        result["queries"][name] = finding
+        plans[name] = plan
+        return finding
+
     tail = None
     if start and end and end >= start:
         tail, result["linked_window"] = query_tail(start, end, offset_hours, timezone_verified, now)
     else:
         result["linked_window"] = {"reason": "Missing or invalid offense metadata interval"}
     if tail:
-        expressions = {
-            "events": "SELECT starttime, devicetime, sourceip, sourceport, destinationip, destinationport, username, qid, QIDNAME(qid) AS event_name, LOGSOURCENAME(logsourceid) AS log_source, UTF8(payload) AS raw_payload FROM events",
-            "flows": "SELECT firstpackettime, lastpackettime, sourceip, sourceport, destinationip, destinationport, protocolid, sourcebytes, destinationbytes, sourcepackets, destinationpackets FROM flows",
-            "flow_census": "SELECT COUNT(*) AS total_rows, UNIQUECOUNT(destinationip) AS distinct_destinations FROM flows",
-        }
-        for name, select in expressions.items():
-            database = "events" if name == "events" else "flows"
-            # INOFFENSE association, never a source-IP substitute. No local offset for recent cases.
-            query = f"{select} WHERE INOFFENSE({oid}) LIMIT {SEARCH_LIMIT} {tail}"
-            result["queries"][name] = await collect_query(qradar, query, database, "offense_linked")
+        # INOFFENSE association, never a source-IP substitute. No local offset for recent cases.
+        where = f"WHERE INOFFENSE({oid}) LIMIT {SEARCH_LIMIT} {tail}"
+        await run("events", f"{event_plan.select()} FROM events {where}", "events", "offense_linked",
+                  event_plan, f"{event_plan.select(False)} FROM events {where}" if event_plan.optional else None)
+        await run("flows", f"{flow_plan.select()} FROM flows {where}", "flows", "offense_linked", flow_plan, None)
+        await run("flow_census", "SELECT COUNT(*) AS total_rows, UNIQUECOUNT(destinationip) AS "
+                  f"distinct_destinations FROM flows {where}", "flows", "offense_linked", None, None)
     else:
-        result["gaps"].append(result["linked_window"]["reason"])
+        add_gap(result["linked_window"]["reason"], "linked-window", "offense_linked", "not_collected",
+                ["benign_verdict", "complete_offense_record_review", "offense_network_claims"],
+                "Confirm the console timezone (timezone_verified=true) or partition the interval")
 
     events = result["queries"].get("events", {}).get("rows", [])
     flows = result["queries"].get("flows", {}).get("rows", [])
@@ -238,6 +244,9 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
     result["flows"] = flow_summary(flows)
     census = result["queries"].get("flow_census", {})
     result["flows"]["census"] = census.get("rows", [])[:1]
+    result["flows"]["census_record_count"] = census.get("record_count")
+    result["flows"]["census_semantics"] = ("record_count counts aggregation groups; total_rows is the COUNT(*) "
+                                           "column. Without a returned row no numeric value is inferred.")
     if census.get("result_set_complete") and len(census.get("rows", [])) == 1:
         census_row = census["rows"][0]
         result["flows"]["distinct_destinations_in_search"] = number(value(census_row, "distinct_destinations"))
@@ -245,9 +254,15 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
         if (result["queries"].get("flows", {}).get("result_set_complete") and
                 (number(value(census_row, "total_rows")) != len(flows) or
                  number(value(census_row, "distinct_destinations")) != result["flows"]["distinct_destinations_in_collected_rows"])):
-            result["gaps"].append("Flow census and fetched rows differ; reconcile snapshots/coverage")
+            add_gap("Flow census and fetched rows differ; reconcile snapshots/coverage", "census:mismatch",
+                    "offense_linked", "unreconciled", ["offense_network_claims", "dhcp_pattern"],
+                    "Compare windows/snapshots; do not assign a cause")
     elif census:
-        result["gaps"].append("Flow COUNT/UNIQUECOUNT census unavailable or invalid")
+        result["flows"]["distinct_destinations_in_search"] = None
+        result["flows"]["total_rows_in_search"] = None
+        add_gap("Flow COUNT/UNIQUECOUNT census unavailable or invalid", "census:unavailable", "offense_linked",
+                census.get("outcome", "unavailable"), ["offense_network_claims", "dhcp_pattern"],
+                (census.get("continuation") or {}).get("note", "Resume or re-run the census when it can change a conclusion"))
     result["count_comparison"] = {database: {"metadata_count": offense.get(f"{singular}_count"),
         "collected_ariel_rows": len(result["queries"].get(database, {}).get("rows", [])),
         "status": "unresolved", "explanation": "Different units/windows/snapshots; no assumed coalescing cause"}
@@ -258,16 +273,18 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
         if finding.get("result_set_complete") and comparison["metadata_count"] == comparison["collected_ariel_rows"]:
             comparison["status"] = "numbers_match_in_window; unit equivalence not proven"
         else:
-            result["gaps"].append(f"{database} coverage/count reconciliation unresolved")
+            add_gap(f"{database} coverage/count reconciliation unresolved", f"count:{database}", "offense_linked",
+                    "unreconciled", ["benign_verdict"], "Reconcile units, window and snapshot before comparing")
     refs = offense.get("rules")
     if not isinstance(refs, list) or not refs:
-        result["gaps"].append("Contributing rule IDs not returned in offense metadata")
+        add_gap("Contributing rule IDs not returned in offense metadata", "rules:ids", "rules", "not_returned",
+                ["benign_verdict", "detection_error_assessment"], "Read the offense in the console")
         refs = []
     if len(refs) > MAX_RULES:
-        result["gaps"].append("Contributing rule metadata cap reached")
+        add_gap("Contributing rule metadata cap reached", "rules:cap", "rules", "limited", ["benign_verdict"])
     for ref in refs[:MAX_RULES]:
         if not isinstance(ref, dict) or number(ref.get("id")) is None or number(ref.get("id")) < 0:
-            result["gaps"].append("Invalid contributing rule reference")
+            add_gap("Invalid contributing rule reference", "rules:invalid", "rules", "invalid", ["benign_verdict"])
             continue
         entry = {"id": number(ref["id"]), "type": ref.get("type"), "state": "unavailable"}
         try:
@@ -278,11 +295,14 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
         except Exception as exc:
             entry["reason"] = f"Rule metadata unavailable ({type(exc).__name__})"
         result["rules"].append(entry)
-    result["gaps"].append("Rule metadata/event text does not establish the complete active CRE tests or responses")
+    add_gap("Rule metadata/event text does not establish the complete active CRE tests or responses",
+            "rules:cre-definition", "rules", "outside_bridge", ["benign_verdict"],
+            "Read the active rule tests/responses in the QRadar rule editor")
 
     observed = result["events"]["observed_interval"]
     host_start, host_end = instant(observed["start"]), instant(observed["end"])
     ip = address(offense.get("offense_source"))
+    host_tail = None
     if ip and host_start and host_end:
         host_start, host_end = host_start - timedelta(minutes=15), host_end + timedelta(minutes=15)
         requested_end = utc(host_end)
@@ -291,43 +311,117 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
         result["host_window"]["requested_end_utc"] = requested_end
         result["host_window"]["future_margin_not_observable"] = requested_end != utc(host_end)
         if host_tail:
-            numeric = f"starttime >= {int(host_start.timestamp() * 1000)} AND starttime <= {int(host_end.timestamp() * 1000)}"
+            numeric = focused_queries.epoch_predicate("starttime", int(host_start.timestamp() * 1000),
+                                                      int(host_end.timestamp() * 1000))
             predicate = (f"(sourceip = '{ip}' OR destinationip = '{ip}') AND {numeric} AND "
                 "(QIDNAME(qid) ILIKE '%logon%' OR QIDNAME(qid) ILIKE '%authentication%' OR "
                 "QIDNAME(qid) ILIKE '%credential%' OR QIDNAME(qid) ILIKE '%ticket%' OR "
                 "QIDNAME(qid) ILIKE '%Process Create%' OR QIDNAME(qid) ILIKE '%ProcessCreate%' OR "
-                "QIDNAME(qid) ILIKE '%ProcessAccess%')")
-            query = ("SELECT starttime, devicetime, sourceip, destinationip, username, qid, "
-                "QIDNAME(qid) AS event_name, LOGSOURCENAME(logsourceid) AS log_source, UTF8(payload) AS raw_payload "
-                f"FROM events WHERE {predicate} ORDER BY starttime ASC LIMIT {SEARCH_LIMIT} {host_tail}")
-            result["queries"]["host_context"] = await collect_query(qradar, query, "events", "host_ip_time_context")
+                "QIDNAME(qid) ILIKE '%ProcessAccess%' OR UTF8(payload) ILIKE '%Process Create:%' OR "
+                "UTF8(payload) ILIKE '%A new process has been created%')")
+            tail_sql = f"FROM events WHERE {predicate} ORDER BY starttime ASC LIMIT {SEARCH_LIMIT} {host_tail}"
+            await run("host_context", f"{event_plan.select()} {tail_sql}", "events", "host_ip_time_context",
+                      event_plan, f"{event_plan.select(False)} {tail_sql}" if event_plan.optional else None)
         else:
-            result["gaps"].append("Host pivot needs a verified historical timezone")
+            add_gap("Host pivot needs a verified historical timezone", "host:timezone", "host_ip_time_context",
+                    "not_collected", ["host_activity_absence_claims"], "Confirm the console timezone")
     else:
-        result["gaps"].append("No offense source IP/linked event time to anchor host pivot")
-    host = result["queries"].get("host_context", {})
-    result["host"] = host_summary(host.get("rows", []))
-    result["host"]["groups"] = event_summary(host.get("rows", []))["groups"]
+        add_gap("No offense source IP/linked event time to anchor host pivot", "host:anchor",
+                "host_ip_time_context", "not_collected", ["host_activity_absence_claims"],
+                "Pivot on a verified host identifier with qradar_run_aql")
+
+    seen: dict = {}
+    records = []
+    for name in list(result["queries"]):
+        if result["queries"][name]["database"] == "events":
+            records += _records(name, result["queries"][name], (plans.get(name) or event_plan).property_map(), seen)
+    analysis = process_chain.analyze(records)
+    if host_tail:
+        window = (int(host_start.timestamp() * 1000), int(host_end.timestamp() * 1000))
+        hosts = sorted({p["host_norm"] for p in analysis["process_creations"] if p.get("host_norm")})
+        looked: set[str] = set()
+        for round_number in range(3):
+            wanted = process_chain.wanted_parents(analysis, looked)
+            if not wanted or len(looked) >= MAX_PARENT_LOOKUPS:
+                break
+            for missing in wanted[:MAX_PARENT_LOOKUPS - len(looked)]:
+                parent = process_chain.guid(missing["parent_guid"])
+                looked.add(parent)
+                spec = focused_queries.parent_lookup(event_plan, host_tail, *window, parent)
+                name = f"parent_lookup_{len(looked)}"
+                result["focused_queries"][name] = focused_queries.describe(spec, f"missing parent {parent}")
+                if isinstance(spec, dict):
+                    finding = await run(name, spec["query"], "events", spec["scope"], event_plan, spec["fallback"])
+                    records += _records(name, finding, event_plan.property_map(), seen)
+            analysis = process_chain.analyze(records)
+        triggers = []
+        powershell = analysis["powershell_processes"]
+        if powershell:
+            triggers.append(("script_blocks", focused_queries.script_blocks(event_plan, host_tail, *window, ip, hosts),
+                             f"{len(powershell)} PowerShell process creation(s) observed"))
+        if any(p.get("image") for p in analysis["process_creations"]):
+            triggers.append(("integrity", focused_queries.integrity(event_plan, host_tail, *window, ip, hosts),
+                             "Observed process images: test for code-integrity failures on the same host"))
+        flow_finding = result["queries"].get("flows", {})
+        if analysis["process_creations"] and (not flow_finding.get("result_set_complete") or not flows):
+            triggers.append(("host_flows", focused_queries.host_flows(host_tail, *window, ip),
+                             "Process activity observed while INOFFENSE flows are empty or incomplete"))
+        for name, spec, why in triggers:
+            result["focused_queries"][name] = focused_queries.describe(spec, why)
+            if isinstance(spec, dict):
+                plan = event_plan if spec["database"] == "events" else flow_plan
+                finding = await run(name, spec["query"], spec["database"], spec["scope"], plan, spec["fallback"])
+                if spec["database"] == "events":
+                    records += _records(name, finding, plan.property_map(), seen)
+        analysis = process_chain.analyze(records)
+    elif records:
+        result["focused_queries"]["all"] = {"state": "not_built",
+                                            "reason": "No verified host window; focused pivots need a bounded window"}
+    result["processes"] = analysis
+    result["integrity"] = integrity_evidence.analyze(records, analysis["process_creations"])
+    if result["queries"].get("host_flows"):
+        result["host_flows"] = flow_summary(result["queries"]["host_flows"]["rows"])
+        result["host_flows"]["attribution"] = "Host IP flows; no process attribution"
+    for missing in analysis["missing_parents"][:20]:
+        add_gap(f"Parent {missing['parent_guid']} not found in the collected window/filters",
+                f"parent:{missing['parent_guid']}", "parent_process_lookup", "not_found_in_window",
+                ["process_ancestry_root"], "Search a wider verified window or the endpoint telemetry source")
+    if "script_blocks" in result["queries"] and not analysis["script_blocks"]:
+        add_gap("No 4104/4103 record returned in the inspected filters/window", "powershell:script-blocks",
+                "host_script_block_context", "not_returned_in_filters_window", ["powershell_content_claims"],
+                "Check logging policy, collection and forwarding at the source; this result does not show which applies")
+    if any(row.get("username") for finding in result["queries"].values() for row in finding.get("rows", [])):
+        add_gap("Account nature (service/admin/human) not established by event usernames", "identity:account-nature",
+                "identity", "outside_bridge", ["account_nature"], "Consult the identity source (AD/IdP/PAM inventory)")
+
+    result["host"] = host_summary(result["queries"].get("host_context", {}).get("rows", []))
+    result["host"]["groups"] = event_summary(result["queries"].get("host_context", {}).get("rows", []))["groups"]
     if result["flows"]["dhcp_port_pattern"]:
-        result["gaps"].extend(["Destination roles and authorized DHCP scopes/relays unverified",
-            "Firewall anti-spoofing policy and packet-originating service unverified"])
+        add_gap("Destination roles and authorized DHCP scopes/relays unverified", "dhcp:roles", "offense_linked",
+                "outside_bridge", ["benign_verdict", "dhcp_pattern"], "Check DHCP scope/relay inventory")
+        add_gap("Firewall anti-spoofing policy and packet-originating service unverified", "dhcp:origin",
+                "offense_linked", "outside_bridge", ["benign_verdict", "dhcp_pattern"],
+                "Check firewall policy and the service owning the packets")
     else:
-        result["gaps"].append("Application authorization and host/process attribution not established by port/IP context")
+        add_gap("Application authorization and host/process attribution not established by port/IP context",
+                "attribution:host-process", "offense_linked", "outside_bridge", ["benign_verdict"],
+                "Use same-record identifiers or the authorization source")
     for name, finding in result["queries"].items():
-        if not finding["result_set_complete"]:
-            result["gaps"].append(f"{name}: query coverage incomplete or unavailable")
-        if finding["truncated_fields"]:
-            result["gaps"].append(f"{name}: bridge truncated fields; original content unavailable in this response")
+        for item in query_gaps(name, finding):
+            result["gaps"].append(item["summary"])
+            result["gap_details"].append(item)
+        if finding.get("continuation"):
+            result["continuation_plan"].append({"query": name, **finding["continuation"]})
         # Keep witness rows explicitly bounded; full pages remain retrievable by search ID.
         samples = []
         rows = finding.pop("rows")
         # Include distinct event/log-source witnesses before filling remaining slots.
-        witnesses, seen = [], set()
+        witnesses, witness_keys = [], set()
         for index, row in enumerate(rows):
             key = (str(row.get("event_name")), str(row.get("log_source")))
-            if key not in seen:
+            if key not in witness_keys:
                 witnesses.append(index)
-                seen.add(key)
+                witness_keys.add(key)
             if len(witnesses) == 8:
                 break
         witnesses.extend(i for i in range(min(8, len(rows))) if i not in witnesses)
@@ -344,18 +438,25 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
             sample["devicetime_utc"] = utc(row.get("devicetime"))
             samples.append(sample)
         finding["samples"] = samples
+    result["gaps"] = list(dict.fromkeys(result["gaps"]))
+    result["budget"] = budget.describe()
     linked_complete = all(result["queries"].get(name, {}).get("result_set_complete") for name in ("events", "flows"))
     result["assessment"] = {
-        "status": "preliminary", "final_benign_verdict_permitted": False,
         "statement": ("Traffic compatible with DHCP; pending destination, anti-spoofing, CRE and host attribution validation"
                       if linked_complete and result["flows"]["dhcp_port_pattern"] else
                       "Evidence collected with unresolved gaps; no benign or malicious verdict established"),
         "confidence_in_port_pattern": "moderate" if linked_complete and result["flows"]["dhcp_port_pattern"] else "insufficient",
-        "required_before_final_verdict": list(dict.fromkeys(result["gaps"])),
+        "required_before_final_verdict": list(result["gaps"]),
         "prohibited_inferences": ["CLOSED/magnitude imply false positive", "4648 proves successful authentication or DHCP service",
             "zero return bytes prove nobody replied", "IP .1 proves relay", "decoded Base64 proves complete command",
             "field length plateau identifies WinCollect", "CRE event name is the full rule definition",
-            "no Workbench alert proves no endpoint activity"],
+            "no Workbench alert proves no endpoint activity", "a file named as an argument was executed",
+            "PID/IP/time proximity proves a parent/child link", "no IEX in the launch command line excludes IEX",
+            "no 4104 result shows logging or forwarding was disabled", "repeated hash or vendor path proves integrity",
+            "5038 proves corruption or compromise", "all queries completed proves a false positive",
+            "zero INOFFENSE flows proves no communication", "missing truncated_fields proves a complete source payload",
+            "Windows session ID identifies a PSM recording", "username alone shows account nature"],
+        **assess(result),
     }
     return result
 
@@ -370,26 +471,41 @@ async def verify_offense(qradar: Any, offense_id: int, qradar_utc_offset_hours: 
     return await collect_offense_evidence(qradar, offense, qradar_utc_offset_hours, timezone_verified)
 
 
+def _clip(text: Any, size: int = 600) -> str:
+    text = str(text).replace("\n", " ")
+    return text if len(text) <= size else text[:size] + " …[preview cut]"
+
+
 def render_evidence(evidence: dict) -> list[str]:
     """Compact provenance and an explicitly provisional assessment for the Kiro report."""
     lines = ["", "## Offense-linked evidence (INOFFENSE)", "",
              f"Metadata interval without padding: {evidence['metadata_interval']}",
              f"Ariel linked search window: {evidence.get('linked_window')}",
-             f"Observed linked-event interval (starttime, not metadata duration): {evidence['events']['observed_interval']}"]
+             f"Observed linked-event interval (starttime, not metadata duration): {evidence['events']['observed_interval']}",
+             f"Field catalogs (live AQL resources): {evidence.get('field_catalogs')}",
+             f"Collection budget: {evidence.get('budget')}"]
     for name, query in evidence["queries"].items():
-        lines += [f"- {name}: {query['state']}; search ID {query.get('search_id')}; "
-                  f"rows {query['returned_rows']}; complete within query/window: {query['result_set_complete']}; "
+        lines += [f"- {name}: {query['state']}; outcome {query.get('outcome')}; search ID {query.get('search_id')}; "
+                  f"rows {query['returned_rows']}; record_count {query.get('record_count')}; "
+                  f"complete within query/window: {query['result_set_complete']}; "
                   f"scope {query['scope']}; LIMIT {query['query_limit']}; pages {query.get('pages', 0)}",
                   f"  - AQL: `{query['aql']}`",
                   f"  - Warnings: {query['warnings']}; truncated_fields: {query['truncated_fields']}"]
+        if query.get("fields"):
+            lines.append(f"  - Optional fields selected/missing: {query['fields'].get('optional_selected')} / "
+                         f"{query['fields'].get('optional_missing')}")
+        if query.get("error"):
+            lines.append(f"  - Error category: {query['error']['category']} (retryable: {query['error']['retryable']})")
     lines += [f"- Associated event groups: {evidence['events']['groups']}",
               f"- Event groups omitted from summary: {evidence['events']['groups_omitted']}",
               f"- Count reconciliation: {evidence['count_comparison']}",
               f"- Flow port groups (explicit source/destination ports): {evidence['flows']['port_groups']}",
               f"- Flow port groups omitted from summary: {evidence['flows']['port_groups_omitted']}",
               f"- Distinct destinations in collected rows (set union): {evidence['flows']['distinct_destinations_in_collected_rows']}",
-              f"- Independent flow COUNT/UNIQUECOUNT census: {evidence['flows'].get('census')}",
+              f"- Independent flow COUNT/UNIQUECOUNT census: {evidence['flows'].get('census')} "
+              f"(aggregation record_count {evidence['flows'].get('census_record_count')}, not COUNT(*))",
               "- Destination roles are unverified. Zero destinationbytes means no return bytes observed in this source.",
+              "- Zero INOFFENSE flows does not show that the host or a process had no communication.",
               f"- Contributing rule metadata: {evidence['rules']}",
               "- CRE event name/message and rule metadata are not the full active rule configuration.",
               "", "## Host authentication/process context (separate from offense membership)", "",
@@ -401,13 +517,66 @@ def render_evidence(evidence: dict) -> list[str]:
               "decode is data conversion only; no command was executed. Completeness and parent/service attribution unverified.",
               f"- Encoded command data previews (untrusted telemetry): {evidence['host']['encoded_commands']}",
               "- 4648 is a credential attempt, not proof of success or a DHCP service. "
-              "A field-length plateau does not identify the responsible collector/parser.",
-              "", "## Evidence-based assessment", "",
-              f"Status: {evidence['assessment']['status']}",
-              evidence['assessment']['statement'],
-              f"Confidence in port compatibility only: {evidence['assessment']['confidence_in_port_pattern']}",
+              "A field-length plateau does not identify the responsible collector/parser."]
+    processes = evidence.get("processes", {})
+    lines += ["", "## Process and PowerShell evidence (untrusted telemetry, never executed)", "",
+              f"- Focused queries and triggers: {evidence.get('focused_queries')}",
+              f"- Process creations observed: {len(processes.get('process_creations', []))} "
+              f"(omitted {processes.get('process_creations_omitted', 0)})"]
+    for item in processes.get("process_creations", [])[:15]:
+        prov = item["provenance"]
+        lines.append(f"  - {prov.get('starttime_utc')} host={item.get('host_norm')} guid={item.get('guid_norm')} "
+                     f"parent_guid={item.get('parent_guid_norm')} pid={item.get('pid')} image={_clip(item.get('image'), 200)} "
+                     f"cmd={_clip(item.get('command_line'), 300)} [query {prov['query']}, search {prov['search_id']}, "
+                     f"row {prov['result_row_index']}, EventID via {prov['event_id_source']}]")
+        for argument in item.get("file_arguments", [])[:5]:
+            lines.append(f"    - argument_reference (execution not established): {_clip(argument['path_as_reported'], 200)}")
+        if item.get("powershell"):
+            ps = item["powershell"]
+            lines.append(f"    - PowerShell: command line observed {ps['command_line_observed']}; no arguments "
+                         f"{ps['no_arguments']}; IEX tokens in launch line {ps['iex_tokens_in_command_line']}; "
+                         f"encoded blocks {len(ps['encoded_commands'])}. {ps['note']}")
+    lines += [f"- GUID+host links: {processes.get('links')}",
+              f"- Chains (child to ancestor): {processes.get('chains')}; cycles detected {processes.get('cycles_detected')}",
+              f"- Parents not found in the collected window (gap, not absence): {processes.get('missing_parents')}",
+              f"- Unlinked/candidate references (PID or host-less GUID only): {processes.get('unlinked_references')}",
+              f"- PID reuse observed: {processes.get('pid_reuse')}",
+              f"- IEX criteria: {processes.get('iex_criteria')}"]
+    for block in processes.get("script_blocks", [])[:10]:
+        prov = block["provenance"]
+        lines.append(f"  - {block['event_id']} {prov.get('starttime_utc')} host={block['host_norm']} part={block['message_part']} "
+                     f"IEX tokens={block['iex_tokens']} possibly cut={block['text_possibly_truncated_at_source_or_bridge']} "
+                     f"candidates={block['candidate_processes']} text={_clip(block['text_preview'], 400)}")
+    integrity = evidence.get("integrity", {})
+    lines += ["", "## Code integrity and hashes", ""]
+    for event in integrity.get("integrity_events", [])[:10]:
+        lines.append(f"- {event['event_id']} file={_clip(event['file_as_reported'], 200)} host={event['host']}: "
+                     f"{event['interpretation']} Relationship: {event['relationship_to_process_chain']}")
+    lines += [f"- Repeated hashes: {integrity.get('repeated_hashes')}",
+              f"- Non-comparable (abbreviated/invalid) hashes: {integrity.get('non_comparable_hashes')}",
+              f"- {integrity.get('vendor_path_note')}"]
+    if evidence.get("host_flows"):
+        lines.append(f"- Host IP flow context (no process attribution): {evidence['host_flows']['port_groups'][:20]}")
+    assessment = evidence["assessment"]
+    lines += ["", "## Continuation plan", ""]
+    lines.extend(f"- {item['query']}: {item['action']} ({item['reason']}); search ID {item['search_id']}; "
+                 f"cursor {item['cursor']}; tools {item['tools']}" for item in evidence.get("continuation_plan", []))
+    if not evidence.get("continuation_plan"):
+        lines.append("- No pending job or page cursor; re-run only with a hypothesis that can change the conclusion.")
+    lines += ["", "## Evidence-based assessment", "",
+              f"Status: {assessment['status']}",
+              assessment['statement'],
+              f"Confidence in port compatibility only: {assessment['confidence_in_port_pattern']}",
+              f"Collection completeness: {assessment['collection_completeness']}",
+              f"Confirmed facts (observations, not causes): {assessment['confirmed_facts']}",
+              f"Hypotheses: {assessment['hypotheses']}",
+              f"final_benign_verdict_permitted={assessment['final_benign_verdict_permitted']}: "
+              f"{assessment['final_benign_verdict_permitted_meaning']}",
+              f"Reportable now: {assessment['reportable_now']}",
               "A final benign/false-positive verdict and tuning are not authorized by this collection alone.",
-              "", "### Required before a final verdict", ""]
-    lines.extend(f"- {gap}" for gap in evidence["assessment"]["required_before_final_verdict"])
+              "", "### Blocking gaps by conclusion", ""]
+    lines.extend(f"- {conclusion}: {ids}" for conclusion, ids in assessment["blocking_gaps_by_conclusion"].items())
+    lines += ["", "### Required before a final verdict", ""]
+    lines.extend(f"- {gap_text}" for gap_text in assessment["required_before_final_verdict"])
     lines.extend(f"- Collection warning: {warning}" for warning in evidence["warnings"])
     return lines

@@ -56,6 +56,8 @@ See [custom AQL setup, examples and limits](docs/dynamic-aql.md). Offense invest
 
 > Use `qradar_verify_offense` with the offense ID. Resume pending search IDs and collect missing evidence before assessing the case. For a historical case, confirm the actual QRadar timezone before setting `timezone_verified=true`.
 
+The verification reads live field metadata and uses optional Windows/Sysmon properties only when they are listed. It polls pending jobs by the same search ID within an explicit time/job/page budget and returns a `continuation_plan` (search ID, cursor, AQL, scope, reason) instead of recreating searches. When linked records show processes, it reports process creations with GUID+host parent links, PowerShell 4104/4103 content and 5038 code-integrity records as separate evidence classes, with structured gaps per conclusion. Collected telemetry is parsed as data and never executed.
+
 A DHCP-compatible port pattern supports a preliminary hypothesis. It does not establish authorization, successful authentication, endpoint health or a false positive. See [verification workflow and decision limits](docs/offense-verification.md).
 
 ## Scope and safety

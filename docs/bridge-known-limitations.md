@@ -33,6 +33,21 @@ necessariamente os testes/respostas completos da regra ativa.
   exigem inventário LDAP/AD ou outra fonte com autoridade sobre esse escopo.
 - Flows, quando coletados, não demonstram conteúdo de aplicação ou o processo
   responsável. Muitos destinos UDP/67/68 não comprovam DHCP legítimo.
+- A extração de processos reconhece propriedades listadas nos resources e três
+  formatos de payload (XML de evento Windows, JSON e texto Sysmon/4688/4104/5038).
+  Formatos de DSM diferentes podem deixar campos ausentes; isso é lacuna, não
+  ausência no registro original. Rótulo repetido no texto torna o campo ambíguo.
+- Vínculos pai/filho dependem de ProcessGuid/ParentProcessGuid e host no mesmo
+  registro; Security 4688 sem GUID não gera vínculo. A busca de pai fica na janela
+  do host (±15 min dos eventos INOFFENSE) e se limita a quatro consultas.
+- O critério de IEX não detecta ofuscação (backticks, concatenação, aliases
+  criados em tempo de execução). Associação de 4104 a processo por host+PID+tempo
+  é candidata. Nenhum 4104 retornado não indica o estado do logging na origem.
+- O orçamento padrão (60 s, 12 jobs, 40 páginas) pode encerrar a coleta antes
+  das consultas focadas; o `continuation_plan` indica o que retomar.
+- A ponte não consulta inventário de identidade, DHCP, PSM ou política de
+  firewall. Natureza de conta, gravação de sessão e autorização continuam
+  dependendo dessas fontes.
 - A ponte não fecha offenses, altera regras, cria notas, isola endpoints nem
   executa contenção. As buscas AQL criam jobs de consulta no Ariel.
 
