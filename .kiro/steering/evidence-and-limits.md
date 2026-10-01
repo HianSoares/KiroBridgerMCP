@@ -19,5 +19,6 @@ inclusion: always
 - Um `action=accept` do FortiGate confirma a ação registrada para aquela sessão, não entrega de conteúdo, processo originador ou falha do filtro Trend. Um `action=blocked` não prova que todas as tentativas foram bloqueadas.
 - `policyAction: Collect UAC actions` do EPM é coleta; não prova concessão de elevação. `updater.exe` isolado ou hash ausente não identifica um binário.
 - Distinga detecção próxima a um Workbench alert de vínculo verificado com seu View event. Campos colados pelo analista em `investigate_vision_event` não foram confirmados pelo MCP.
+- Quando fontes divergem (host do Workbench ≠ host da detecção, host EPM ≠ host Trend, horário fora da janela, usuários diferentes na mesma sessão), registre cada valor como `confirmado` **na sua fonte**, marque o vínculo como `não verificado` e trate a divergência como achado. Não escolha a fonte que fecha a narrativa; diga qual dado desempataria (ID do evento, GUID, DHCP histórico, Log Source Time).
 - Nunca declare falso positivo apenas pelo estado fechado, score baixo ou disposição de produto. Cite eventos e justificativa independente, indique confiança e explicite a hipótese alternativa.
 - Cada resposta deve expor as consultas e os limites devolvidos pela ferramenta. Não complete janelas, caps, contagens nem resultados ausentes usando valores de outras execuções.
