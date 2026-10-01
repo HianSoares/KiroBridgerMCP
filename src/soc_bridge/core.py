@@ -178,12 +178,16 @@ async def investigate(qradar: ToolCaller, vision: ToolCaller, offense_id: int,
         "offense": offense,
         "searched_ips": chosen,
         "search_window": {"start": iso(begin), "end": iso(end)},
+        "search_window_padding_seconds": 3600,
         "alerts": [e.__dict__ for e in evidence],
         "warnings": list(dict.fromkeys(warnings)),
         "method": "Exact IP server-side filters; one hour padding; bounded first-page results; read-only MCP calls",
     }
     if deep:
+        from .offense_evidence import collect_offense_evidence
         from .offense_context import collect_offense_context
+        report["offense_evidence"] = await collect_offense_evidence(
+            qradar, offense, ariel_offset_hours)
         report["offense_context"] = await collect_offense_context(
             qradar, vision, offense, chosen, ariel_offset_hours)
     return report
@@ -196,7 +200,7 @@ def render_markdown(report: dict[str, Any]) -> str:
              f"QRadar summary: {offense.get('description') or 'No description'}", "",
              "## Scope and method", "",
              f"Searched IPs: {', '.join(report['searched_ips']) or 'none'}",
-             f"Window: {report['search_window']['start'] or 'unbounded'} to {report['search_window']['end'] or 'unbounded'}",
+             f"Workbench collection window (offense interval with ±1h padding): {report['search_window']['start'] or 'unbounded'} to {report['search_window']['end'] or 'unbounded'}",
              report["method"], "", "## Vision One leads", ""]
     if not report["alerts"]:
         lines.append("No matching alert in the inspected results.")
@@ -209,11 +213,17 @@ def render_markdown(report: dict[str, Any]) -> str:
     if "offense_context" in report:
         context = report["offense_context"]
         lines += ["## QRadar offense metadata", ""]
-        for key in ("status", "magnitude", "event_count", "flow_count", "offense_source",
-                    "source_network", "assigned_to"):
+        for key in ("status", "magnitude", "severity", "credibility", "relevance", "event_count", "flow_count", "offense_source",
+                    "source_network", "assigned_to", "closing_reason_id"):
             if key in offense and offense[key] is not None:
                 lines.append(f"- {key}: {str(offense[key]).replace(chr(10), ' ')[:160]}")
-        lines += ["", "## QRadar Ariel event sample", ""]
+        lines += [f"- Original start_time: {offense.get('start_time')} / {iso(instant(offense.get('start_time')))}",
+                  f"- Original last_updated_time: {offense.get('last_updated_time')} / {iso(instant(offense.get('last_updated_time')))}",
+                  "- Magnitude is product priority; CLOSED is workflow state. Neither establishes benign activity."]
+        if "offense_evidence" in report:
+            from .offense_evidence import render_evidence
+            lines.extend(render_evidence(report["offense_evidence"]))
+        lines += ["", "## QRadar Ariel host context (IP sample, not offense-linked events)", ""]
         if not context["ariel"]:
             lines.append("Not collected: no usable offense source IP/time or Ariel was unavailable.")
         for batch in context["ariel"]:

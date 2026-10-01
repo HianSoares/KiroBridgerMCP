@@ -2,6 +2,7 @@
 
 import json
 import sys
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from mcp.server.fastmcp import FastMCP
@@ -9,6 +10,21 @@ from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("Synthetic QRadar", host="127.0.0.1", port=int(sys.argv[1]), stateless_http=True)
 jobs = {}
+epoch = int((datetime.now(timezone.utc) - timedelta(hours=1)).timestamp() * 1000)
+
+
+@mcp.tool()
+def get_offense(offense_id: int) -> dict:
+    return {"id": offense_id, "offense_source": "192.0.2.10", "event_count": 2,
+            "flow_count": 1, "start_time": epoch, "last_updated_time": epoch + 60000,
+            "rules": [{"id": 12, "type": "CRE_RULE"}]}
+
+
+@mcp.tool()
+def get_rule(rule_id: int) -> str:
+    # IBM returns formatted text, including when FastMCP wraps strings in structuredContent.result.
+    return 'Rule ID: ' + str(rule_id) + '\n\nFull JSON:\n' + json.dumps(
+        {"id": rule_id, "name": "Synthetic DHCP rule", "enabled": True})
 
 
 @mcp.resource("qradar://aql/events/fields")
@@ -42,6 +58,18 @@ def create_ariel_search(query_expression: str) -> dict:
     table = "flows" if "FROM flows" in query_expression else "events"
     jobs[sid] = {"database": table, "rows": [{"RawPayload": "synthetic event", "devicetime": 1790255701000},
                                                {"RawPayload": "second synthetic event", "devicetime": 1790255702000}]}
+    if "UNIQUECOUNT" in query_expression:
+        jobs[sid]["rows"] = [{"total_rows": 1, "distinct_destinations": 1}]
+    elif "INOFFENSE" in query_expression and table == "flows":
+        jobs[sid]["rows"] = [{"sourceip": "192.0.2.10", "destinationip": "198.51.100.1",
+            "sourceport": 67, "destinationport": 68, "protocolid": 17, "firstpackettime": epoch,
+            "sourcebytes": 100, "destinationbytes": 0}]
+    elif "INOFFENSE" in query_expression:
+        jobs[sid]["rows"] = [{"starttime": epoch, "event_name": "Synthetic firewall", "raw_payload": "Drop"},
+            {"starttime": epoch + 60000, "event_name": "Synthetic CRE", "raw_payload": "Synthetic DHCP rule"}]
+    elif "ORDER BY starttime" in query_expression:
+        jobs[sid]["rows"] = [{"starttime": epoch, "event_name": "Success using explicit credentials",
+            "raw_payload": "EventID=4648 ProcessName=svchost.exe"}]
     return {"search_id": sid, "status": "WAIT"}
 
 

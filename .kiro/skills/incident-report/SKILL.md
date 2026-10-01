@@ -24,4 +24,4 @@ Nenhuma nova chamada é necessária se um relatório real completo já foi forne
 
 ## Critério de conclusão
 
-Todas as seções têm fonte ou a indicação “não informado”; consultas não executadas não aparecem como vazias. O documento é revisável por outro analista sem depender de suposições ocultas.
+Todas as seções têm fonte ou a indicação “não informado”; consultas não executadas não aparecem como vazias. O documento é revisável por outro analista sem depender de suposições ocultas. Em offense, siga offense-verification: preserve assessment preliminar, horários originais versus padding, registros INOFFENSE versus contexto, e lacunas de contagem/payload/atribuição. Classifique como final somente quando evidências adicionais citadas resolverem os impedimentos relevantes. “Compatível com DHCP” não equivale a “falso positivo confirmado”.

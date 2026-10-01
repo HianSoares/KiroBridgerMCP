@@ -1,7 +1,8 @@
 # SOC Bridge — pacote Kiro
 
 Kiro continua conectado somente a `soc-bridge-readonly`. A ponte oferece sete
-tools de investigação e seis tools `qradar_*` de AQL personalizada. Estas
+tools de investigação, seis tools `qradar_*` de AQL personalizada e duas de
+verificação (`qradar_verify_offense`, `qradar_get_rule`), totalizando 15. Estas
 permitem ler os resources do QRadar, validar/iniciar buscas, recuperar payload,
 flows e campos selecionados, e acompanhar/paginar o mesmo search ID.
 
@@ -10,7 +11,7 @@ antigas dos agents, steering e skills proíbem AQL e descrevem payload como
 inacessível. Não sobrescreva um `mcp.json` funcional nem suas preferências de
 `autoApprove`: o configurador continua preservando as escolhas existentes.
 
-`case-investigator` e `threat-hunter` incluem as seis novas tools em suas listas.
+`case-investigator` e `threat-hunter` incluem AQL e verificação em suas listas.
 `report-writer` mantém as duas tools de redação/coleta inicial e encaminha
 lacunas para o investigador. `response-advisor` mantém `tools: []` e nenhum
 MCP carregado; planos de resposta continuam sujeitos à execução humana.
@@ -19,3 +20,8 @@ Teste `investigate_demo` sem credenciais. Para consultas reais, siga
 [atualização, exemplos e limites de AQL](docs/dynamic-aql.md) e confirme os
 campos disponíveis no deployment. Os testes automatizados usam dados fictícios,
 incluindo um servidor MCP HTTP local; não representam validação no QRadar real.
+
+Leia [verificação e critérios de conclusão](docs/offense-verification.md).
+Atualize/reconecte o MCP e abra um chat novo no Kiro para recarregar schemas e
+instruções. O assessment da coleta inicial permanece preliminar quando houver
+lacunas de cobertura, regra, autorização ou atribuição.
