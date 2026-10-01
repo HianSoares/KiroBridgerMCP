@@ -42,6 +42,14 @@ After completing the live setup in the guide, give Kiro a QRadar offense number 
 
 The bridge exposes seven investigation tools to Kiro: `investigate_case`, `investigate_offense`, `investigate_vision_alert`, `investigate_vision_event`, `investigate_epm_uac`, `investigate_web_reputation`, and `investigate_demo`. Project steering, skills, and agents under `.kiro/` provide focused investigation workflows. Kiro only needs the `soc-bridge-readonly` MCP entry; the bridge connects to the upstream servers.
 
+## Run custom AQL from Kiro
+
+Six additional `qradar_*` tools let Kiro read live field/function metadata, validate and execute custom AQL, inspect events/flows and selected `UTF8(payload)`, and resume/paginate an existing search ID. These tools use QRadar alone and do not require Trend credentials. Read-only mode permits Ariel search jobs.
+
+> Read AQL metadata, then use `qradar_run_aql` to collect the missing evidence for this case. Keep the search ID, use the verified time window, and report pagination and truncation.
+
+See [custom AQL setup, examples and limits](docs/dynamic-aql.md). Existing investigation tools keep their fixed initial samples; the new tools provide follow-up queries.
+
 ## Scope and safety
 
 - Investigations use limited searches. No Workbench alert or no result on an inspected page does **not** mean there was no endpoint activity.

@@ -4,7 +4,7 @@ inclusion: always
 
 # Guardrails do SOC Bridge
 
-- O pacote expõe somente `soc-bridge-readonly`. As sete tools listadas foram descritas como somente leitura; **essa é a declaração dos schemas, não uma auditoria do código**. Antes de `autoApprove` em produção, verifique no código implantado a allowlist de tools upstream, transporte, endpoints e chamadas de mutação; repita a verificação após upgrades.
+- O pacote expõe somente `soc-bridge-readonly`. As tools listadas foram descritas como somente leitura; **essa é a declaração dos schemas, não uma auditoria do código**. Antes de `autoApprove` em produção, verifique no código implantado a allowlist de tools upstream, transporte, endpoints e chamadas de mutação; repita a verificação após upgrades.
 - Não execute nem instrua o Kiro a executar bloqueio de domínio/IP, isolamento de host, desativação de conta, fechamento de offense, alteração de regra, política, configuração, resposta da Trend ou qualquer contenção. Um plano de contenção/erradicação/recuperação é recomendação para revisão humana fora do Kiro.
 - Não envie mensagens à equipe de rede, e-mails, tickets ou alertas automaticamente. Um rascunho para revisão não é autorização de envio.
 - Não coloque tokens, senhas, URLs internas autenticadas, dados reais de incidentes, relatórios, IPs, hosts, usuários ou hashes do ambiente em steering, skills, agents, hooks, exemplos ou repositório público. Credenciais ficam em variáveis de ambiente ou no mecanismo de segredos já adotado pelo projeto; configuração contém apenas nomes das variáveis.
