@@ -15,7 +15,7 @@ Há `lastEventId` e `lastEventDate` de um registro UacAudit EPM_API; a intençã
 2. Liste campos do EPM observados: nome, caminho, hash, publisher, host, agente, usuário, `policyAction`, primeiro/último horário, arrival e estado de agregação, sem inferir contagem de concessões a partir de `totalEvents`, `skipped` ou `Collect UAC actions`.
 3. Descreva busca suplementar por agente, quantidade de hosts distintos e qualidade desse vínculo. Se o relatório trouxer buscas por pasta temporária na Trend, reporte cada consulta, janela, linhas e se houve **caminho completo exato + horário**. Conclusão de consulta sem linha não é prova de inexistência.
 4. Se surgir candidato, separe host/hash do EPM versus da Trend. `updater.exe` ou outro nome genérico nunca confirma identidade do binário. Pergunte por ação efetiva, assinatura, hash, processo pai e linha de comando em fonte apropriada se faltarem.
-5. Formule hipóteses: atualizador legítimo, tentativa não concedida, elevação efetiva, execução maliciosa; anote o evento necessário para refutar ou confirmar cada uma.
+5. Formule hipóteses: atualizador legítimo, tentativa não concedida, elevação efetiva, execução maliciosa; anote o evento necessário para refutar ou confirmar cada uma. Não mapeie T1548.002 (Bypass User Account Control) a partir de um UacAudit: o registro indica pedido de elevação pelo caminho do UAC, e bypass é justamente evitar esse caminho. T1548.002 exige evidência de bypass (binário auto-elevado como `fodhelper.exe`/`eventvwr.exe` com chave de registro sequestrada, processo elevado sem prompt correspondente).
 
 ## Tool permitida
 
