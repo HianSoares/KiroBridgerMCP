@@ -2,6 +2,13 @@
 
 # Sugestão de melhoria da ponte soc-bridge-readonly
 
+**Implementada:** as seis tools `qradar_*` permitem SELECT personalizado,
+filtro por QID, propriedades reais do DSM, `devicetime`, `UTF8(payload)`, flows,
+agregações e paginação. Veja [uso e limites](docs/dynamic-aql.md). A coleta
+inicial de `investigate_offense` permanece fixa; seus search IDs agora aparecem
+no relatório. Dados ausentes continuam não verificados. O texto abaixo registra
+o requisito original, não uma limitação atual de todas as tools.
+
 **Origem:** limite observado na offense 90210 (exemplo); eventos “PAM Su User Impersonation” e “Privilege Escalation Succeeded” retornaram `username` vazio.
 
 **Mudança proposta, fora das configurações do Kiro:** oferecer pivô de leitura limitado por QID/`event_name` com janela e `LIMIT` obrigatórios; nas consultas de escalação, ampliar o SELECT para incluir `sourceUserName`, `targetUserName` e payload bruto (além de hostname quando disponível). Validar nomes e disponibilidade reais dessas propriedades na implantação QRadar antes de implementá-las. Rotular campo ausente, dado truncado e identidade não verificada separadamente.

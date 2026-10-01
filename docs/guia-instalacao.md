@@ -5,7 +5,7 @@ Este guia tem dois marcos independentes:
 1. **Demo:** instala a ponte e comprova que o Kiro consegue chamar `soc-bridge-readonly`. Não requer Docker nem acesso a QRadar ou Trend.
 2. **Caso real:** conecta a ponte ao [IBM QRadar MCP](https://github.com/IBM/qradar-mcp) e ao [Trend Vision One MCP](https://github.com/trendmicro/vision-one-mcp-server). Requer acesso autorizado aos dois produtos.
 
-Arquitetura: `Kiro → soc-bridge-readonly (Python/stdio) → QRadar MCP (HTTP local) + Vision One MCP (Docker/stdio)`. **Configure apenas `soc-bridge-readonly` no Kiro.** A própria ponte inicia o contêiner Trend quando você chama uma investigação real; o contêiner QRadar deve estar em execução antes disso. As sete tools expostas ao Kiro são `investigate_case`, `investigate_offense`, `investigate_vision_alert`, `investigate_vision_event`, `investigate_epm_uac`, `investigate_web_reputation` e `investigate_demo`.
+Arquitetura: `Kiro → soc-bridge-readonly (Python/stdio) → QRadar MCP (HTTP local) + Vision One MCP (Docker/stdio)`. **Configure apenas `soc-bridge-readonly` no Kiro.** A própria ponte inicia o contêiner Trend quando você chama uma investigação real; o contêiner QRadar deve estar em execução antes disso. As sete tools de investigação são `investigate_case`, `investigate_offense`, `investigate_vision_alert`, `investigate_vision_event`, `investigate_epm_uac`, `investigate_web_reputation` e `investigate_demo`. Além delas, seis tools `qradar_*` expõem AQL personalizada, resources, status e paginação de eventos/flows/payload. Veja [atualização, exemplos e limites](dynamic-aql.md). Essas consultas usam somente QRadar, sem iniciar o Trend.
 
 > **Dados reais:** somente pessoas autorizadas devem acessar os ambientes. Uma resposta MCP com telemetria real entra no contexto do modelo configurado no Kiro. Confirme a política de dados da sua organização antes de investigar incidentes reais. Não publique relatórios ou credenciais.
 
@@ -194,4 +194,4 @@ Para testar o pacote localmente após atualizar o código:
 & .\.venv\Scripts\python.exe -m unittest discover -s tests -q
 ```
 
-Veja [README](../README.md) e [limitações conhecidas](bridge-known-limitations.md) para entender o alcance das sete tools e como interpretar uma correlação.
+Veja [README](../README.md) e [limitações conhecidas](bridge-known-limitations.md) para entender o alcance das tools de investigação e AQL e como interpretar uma correlação.

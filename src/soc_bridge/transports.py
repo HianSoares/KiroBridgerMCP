@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from .diagnostics import MCPToolFailure, failure_reason, unavailable
+from .aql_search import AQL_RESOURCES
 
 
 QRADAR_TOOLS = {"get_offense", "list_source_addresses", "list_local_destination_addresses",
@@ -56,10 +57,80 @@ class RestrictedMCP:
         if result.isError:
             raise MCPToolFailure(self.source, name, "upstream returned a tool error; check API permissions and local MCP logs")
         if name == "validate_aql":
+            structured = getattr(result, "structuredContent", None)
+            if isinstance(structured, dict):
+                value = structured.get("result", structured)
+                if isinstance(value, dict) and value.get("valid") is True:
+                    return {"valid": True}
             if result.content and getattr(result.content[0], "text", "").startswith("✓ AQL query is valid"):
                 return {"valid": True}
             raise ValueError("QRadar did not confirm that AQL is valid")
         return unpack(result)
+
+    async def read_aql_resource(self, resource: str) -> Any:
+        """Read only the four documented upstream AQL metadata resources."""
+        if resource not in AQL_RESOURCES:
+            raise ValueError("resource must be events, flows, functions or guide")
+        try:
+            result = await self.session.read_resource(AQL_RESOURCES[resource])
+        except Exception as exc:
+            raise MCPToolFailure(self.source, "read_aql_resource", failure_reason(exc)) from None
+        parts = [block.text for block in result.contents if hasattr(block, "text")]
+        if len(parts) != 1:
+            raise ValueError("AQL resource returned no single readable text document")
+        if resource == "guide":
+            return {"resource": AQL_RESOURCES[resource], "text": parts[0]}
+        try:
+            metadata = json.loads(parts[0])
+        except json.JSONDecodeError:
+            raise ValueError("AQL metadata resource returned non-JSON text") from None
+        return {"resource": AQL_RESOURCES[resource], "metadata": metadata}
+
+
+async def live_qradar_query(operation: str, parameters: dict[str, Any], url: str,
+                            token: str | None) -> dict[str, Any]:
+    """QRadar-only query session. Does not require Trend credentials or Docker."""
+    from contextlib import AsyncExitStack
+    from urllib.parse import urlparse
+    from mcp import ClientSession
+    from mcp.client.streamable_http import streamable_http_client
+    import httpx
+    from .aql_search import validate_query, start_query, search_status, search_results, run_query
+
+    parsed = urlparse(url)
+    if (parsed.scheme != "http" or parsed.hostname not in ("localhost", "127.0.0.1", "::1")
+            or parsed.path != "/mcp" or parsed.username or parsed.password or parsed.query or parsed.fragment):
+        raise ValueError("QRadar MCP URL must be a local http://127.0.0.1:<port>/mcp endpoint")
+    operations = {"validate": validate_query, "start": start_query, "status": search_status,
+                  "results": search_results, "run": run_query}
+    if operation not in {*operations, "resource"}:
+        raise ValueError("Unknown QRadar query operation")
+    required = {"validate": {"validate_aql"},
+                "start": {"validate_aql", "create_ariel_search"},
+                "status": {"get_ariel_search_status"},
+                "results": {"get_ariel_search_status", "get_ariel_search_results"},
+                "run": {"validate_aql", "create_ariel_search", "get_ariel_search_status", "get_ariel_search_results"},
+                "resource": set()}[operation]
+    stage = "QRadar MCP connection"
+    try:
+        async with AsyncExitStack() as stack:
+            # This is always loopback: never route telemetry/tokens through an environment proxy.
+            http = await stack.enter_async_context(httpx.AsyncClient(headers={"SEC": token} if token else {}, timeout=30.0, trust_env=False))
+            stream = await stack.enter_async_context(streamable_http_client(url, http_client=http))
+            session = await stack.enter_async_context(ClientSession(stream[0], stream[1]))
+            stage = "QRadar MCP initialization"
+            await session.initialize()
+            stage = "QRadar MCP tool listing"
+            available = {tool.name for tool in (await session.list_tools()).tools}
+            client = RestrictedMCP(session, QRADAR_TOOLS, available, required, "QRadar")
+            stage = f"QRadar AQL {operation}"
+            if operation == "resource":
+                return await client.read_aql_resource(**parameters)
+            return await operations[operation](client, **parameters)
+    except (ValueError, MCPToolFailure):
+        raise
+    except Exception as exc:
+        raise MCPToolFailure("QRadar", operation, f"{stage}: {failure_reason(exc)}") from None
 
 
 async def live_investigation(offense_id: int, url: str, token: str | None,

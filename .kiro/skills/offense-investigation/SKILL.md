@@ -16,17 +16,17 @@ Quando o analista fornecer um número positivo de offense ou pedir investigaçã
    - `description` reflete os nomes de regra/evento conforme a nomenclatura configurada nas regras (ex.: “… preceded by …”, “… containing …”); descreve o que disparou, não prova a atividade nem a técnica.
    - `magnitude` é a prioridade que o QRadar calcula a partir de relevance, severity e credibility, ponderada por volume de eventos/flows, log sources, idade e peso dos ativos; não é probabilidade de comprometimento. O relatório não traz severity, credibility e relevance separadas; não as infira da magnitude.
    - `status` é `OPEN`, `HIDDEN` ou `CLOSED`. Offense fechada não reabre: eventos novos com o mesmo índice geram outra offense. Fechada não significa falso positivo nem fim da atividade; o motivo de fechamento não consta do relatório.
-   - Compare `event_count` com a amostra Ariel (≤100 linhas, SELECT fixo por IP). Se o evento de gatilho citado em `description` não aparece em “Event names in sample”, diga que a amostra não capturou os eventos que dispararam a regra (limitação conhecida: sem filtro por QID) e indique o Log Activity filtrado pela offense.
+   - Compare `event_count` com a amostra Ariel (≤100 linhas, SELECT fixo por IP). Se o evento de gatilho citado em `description` não aparece em “Event names in sample”, diga que a amostra não capturou os eventos que dispararam a regra (limite da coleta inicial fixa; use QID na consulta adicional) e consulte eventos contribuintes por AQL com INOFFENSE e janela explícita usando as tools qradar_*.
    Depois extraia origem dos IPs, janela UTC e horário local, log sources, consultas Ariel executadas, seus estados, linhas/página/limite, detecções/atividades Trend Search e alertas Workbench. Não preencha campos não retornados.
 3. Mesmo se Workbench não trouxer alerta, examine se houve buscas de atividade/detecção de endpoint e eventos Ariel. Caso alguma não tenha ocorrido, relate a razão ou “razão não informada”; não conclua que o endpoint estava inativo.
 4. Para cada possível vínculo QRadar↔Trend, compare entidade, IP de origem, destino/porta, host, timestamp e identificação histórica da interface conforme disponíveis. Rótulo padrão: `candidato`; só descreva o que cada fonte confirmou de modo separado.
 5. Monte hipóteses concorrentes (atividade maliciosa, administração autorizada, ruído/detecção equivocada) e uma observação que refutaria cada uma. Investigue “por quês” até onde os dados permitirem, sem fabricar causa raiz.
 6. Entregue relatório: consultas de Ariel e Trend que realmente constam da saída; estado, janela, limite, resultados; fatos/candidatos/não verificados; impacto, confiança, próximos pivôs; recomendações humanas de contenção → erradicação → recuperação, se cabíveis.
-   Se `username` vier vazio em eventos PAM, não reexecute a mesma tool esperando colunas diferentes. Identifique a lacuna e indique inspeção manual no Log Activity do QRadar de `Username`, propriedades customizadas de usuário do DSM (nomes a confirmar na implantação), Log Source Time e payload, conforme o “Limite da ponte” de `investigation-methodology`.
+   Se `username` vier vazio em eventos PAM, não reexecute a mesma tool esperando colunas diferentes. Leia os resources e consulte `Username`, propriedades customizadas reais do DSM, `devicetime` e `UTF8(payload)` por AQL focada conforme `qradar-aql-conventions`. Use janela/limite explícitos, search ID, páginas e avisos. Sem dado corroborado, mantenha a identidade não verificada.
 
 ## Tools permitidas
 
-`investigate_offense(offense_id: integer)`; `investigate_case(reference: string)` apenas para referência de origem ambígua. A ponte executa as consultas internas; o Kiro não escreve AQL.
+`investigate_offense(offense_id: integer)`; `investigate_case(reference: string)` apenas para referência de origem ambígua. As seis tools qradar_* permitem consultas adicionais com AQL personalizada, validação automática, status e paginação conforme qradar-aql-conventions. A investigação inicial continua fixa.
 
 ## Critério de conclusão
 

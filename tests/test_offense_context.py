@@ -19,11 +19,11 @@ class QRadar:
     async def call(self, name, args):
         self.calls.append((name, args))
         if name == "get_offense":
-            return {"id": 90212, "description": "Synthetic UDP scanner", "offense_source": "10.6.102.239",
+            return {"id": 90212, "description": "Synthetic UDP scanner", "offense_source": "192.0.2.10",
                     "start_time": MS - 2000, "last_updated_time": MS + 24000,
                     "magnitude": 5, "event_count": 32}
         if name == "list_source_addresses":
-            return {"items": [{"source_ip": "10.6.102.239", "offense_ids": [90212]}]}
+            return {"items": [{"source_ip": "192.0.2.10", "offense_ids": [90212]}]}
         if name == "list_local_destination_addresses":
             return {"items": []}
         if name == "validate_aql":
@@ -34,7 +34,7 @@ class QRadar:
         if name == "get_ariel_search_status":
             return {"status": "COMPLETED", "record_count": (100 if self.capped and "starttime >=" not in self.query else 1)}
         if name == "get_ariel_search_results":
-            event = {"starttime": MS, "sourceip": "10.6.102.239",
+            event = {"starttime": MS, "sourceip": "192.0.2.10",
                      "destinationip": "203.0.113.9", "destinationport": 53,
                      "event_name": "Firewall Deny", "payload": "SENSITIVE PAYLOAD"}
             return {"events": [event] * (100 if self.capped and "starttime >=" not in self.query else 1)}
@@ -52,7 +52,7 @@ class Vision:
             return {"items": []}
         if name == "search_endpoint_activities_list":
             return {"items": [{"uuid": "synthetic-event-123", "eventTime": T,
-                     "endpointIp": ["10.6.102.239"], "endpointHostName": "TEST-PC",
+                     "endpointIp": ["192.0.2.10"], "endpointHostName": "TEST-PC",
                      "endpointGUID": "11111111-2222-3333-4444-555555555555",
                      "dst": "203.0.113.9" if self.include_network else "198.51.100.7",
                      "dpt": 53, "eventName": "Synthetic network event",
@@ -71,6 +71,7 @@ class OffenseContextTests(unittest.IsolatedAsyncioTestCase):
         output = render_markdown(report)
         self.assertIn("magnitude: 5", output)
         self.assertIn("event_count: 32", output)
+        self.assertIn("Search ID: synthetic-123", output)
         self.assertIn("Cross-source network leads", output)
         self.assertNotIn("PRIVATE COMMAND", output)
         self.assertNotIn("SENSITIVE PAYLOAD", output)

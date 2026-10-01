@@ -224,6 +224,7 @@ def render_markdown(report: dict[str, Any]) -> str:
                 lines.append(f"- {search['pivot']}: {search['state']}, "
                              f"sample {search.get('sample_count', 0)}/100, "
                              f"reported total {search.get('total')}; AQL: `{search['aql']}`")
+                lines.append(f"  - Search ID: {search.get('search_id') or 'not provided'}")
                 if search.get("top_events"):
                     lines.append(f"  - Event names in sample: {search['top_events']}")
                 for row in search.get("rows", [])[:8]:
