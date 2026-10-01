@@ -19,7 +19,6 @@ Quando o analista fornecer um número positivo de offense ou pedir investigaçã
    - Compare `event_count` com a amostra Ariel (≤100 linhas, SELECT fixo por IP). Se o evento de gatilho citado em `description` não aparece em “Event names in sample”, diga que a amostra não capturou os eventos que dispararam a regra (limitação conhecida: sem filtro por QID) e indique o Log Activity filtrado pela offense.
    Depois extraia origem dos IPs, janela UTC e horário local, log sources, consultas Ariel executadas, seus estados, linhas/página/limite, detecções/atividades Trend Search e alertas Workbench. Não preencha campos não retornados.
 3. Mesmo se Workbench não trouxer alerta, examine se houve buscas de atividade/detecção de endpoint e eventos Ariel. Caso alguma não tenha ocorrido, relate a razão ou “razão não informada”; não conclua que o endpoint estava inativo.
-   A correção desse fluxo foi validada no caso de exemplo 90210. O caso de exemplo 90211 permanece não testado para essa validação.
 4. Para cada possível vínculo QRadar↔Trend, compare entidade, IP de origem, destino/porta, host, timestamp e identificação histórica da interface conforme disponíveis. Rótulo padrão: `candidato`; só descreva o que cada fonte confirmou de modo separado.
 5. Monte hipóteses concorrentes (atividade maliciosa, administração autorizada, ruído/detecção equivocada) e uma observação que refutaria cada uma. Investigue “por quês” até onde os dados permitirem, sem fabricar causa raiz.
 6. Entregue relatório: consultas de Ariel e Trend que realmente constam da saída; estado, janela, limite, resultados; fatos/candidatos/não verificados; impacto, confiança, próximos pivôs; recomendações humanas de contenção → erradicação → recuperação, se cabíveis.
@@ -31,4 +30,4 @@ Quando o analista fornecer um número positivo de offense ou pedir investigaçã
 
 ## Critério de conclusão
 
-O relatório mostra a offense e todas as fontes consultadas, inclusive buscas vazias ou indisponíveis, com limites do próprio retorno. A melhoria de contexto Ariel/endpoint foi validada no caso de exemplo 90210; se faltar na execução atual, descreva a falha ou diferença de versão observada, sem atribuir uma causa sem evidência.
+O relatório mostra a offense e todas as fontes consultadas, inclusive buscas vazias ou indisponíveis, com limites do próprio retorno. Se a seção de contexto Ariel/endpoint faltar na execução atual, descreva a falha ou diferença de versão observada, sem atribuir uma causa sem evidência.

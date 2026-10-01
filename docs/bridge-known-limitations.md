@@ -31,7 +31,9 @@ Consequências:
   Traffic) e pode atingir o cap de 100 antes de exibir os eventos PAM.
 - O único campo de usuário no SELECT é `username` (propriedade normalizada), que
   veio vazio para os eventos PAM/escalação do caso de exemplo 90210.
-- Não há `sourceUserName`, `targetUserName` nem payload bruto no retorno — logo,
+- Não há propriedades customizadas de usuário do DSM (nomes variam por
+  implantação, ex.: "Source Username"/"Target Username") nem payload bruto no
+  retorno — logo,
   quem executou `su`/root (origem) e a conta-alvo (destino) não são recuperáveis
   pela ponte, mesmo que existam no evento QRadar.
 
@@ -39,8 +41,9 @@ Consequências:
 
 Investigações de escalação de privilégio / sessão PAM não conseguem, apenas pela
 ponte, atribuir usuário de origem e conta-alvo. Hoje esses campos exigem consulta
-manual no QRadar Log Activity (Username, Source Username, Target Username,
-propriedades custom de usuário do DSM e o Payload bruto do evento).
+manual no QRadar Log Activity (Username normalizado, propriedades custom de
+usuário do DSM — ex.: Source Username/Target Username, nomes a confirmar na
+implantação — e o Payload bruto do evento).
 
 ### Melhoria proposta (a avaliar, mantendo read-only e limites)
 

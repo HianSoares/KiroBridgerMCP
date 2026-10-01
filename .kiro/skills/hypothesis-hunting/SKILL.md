@@ -30,7 +30,9 @@ O analista quer testar uma hipótese de comportamento adversário, com uma offen
 
 ## Tools permitidas
 
-`investigate_case`, `investigate_offense`, `investigate_vision_alert`, `investigate_vision_event`, `investigate_epm_uac`, `investigate_web_reputation` conforme referência e campos disponíveis; `investigate_demo` só para demonstração.
+`investigate_case`, `investigate_offense`, `investigate_vision_alert`, `investigate_epm_uac`, `investigate_web_reputation` conforme referência e campos disponíveis; `investigate_demo` só para demonstração.
+
+A correlação por IP e timestamp exatos copiados de um View event (`investigate_vision_event`) é escopo do `case-investigator`, não do hunting. Quando a hipótese depender desse pivô, registre-o como próximo passo e indique que o analista o execute no `case-investigator` com `alert_id`, IP exato e horário com fuso explícito; não simule o resultado.
 
 ## Critério de conclusão
 

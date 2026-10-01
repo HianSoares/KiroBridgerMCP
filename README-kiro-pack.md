@@ -10,7 +10,7 @@ Na offense QRadar **90210 (exemplo)**, `investigate_offense` distinguiu corretam
 
 ## Limite observado
 
-Na mesma investigação apareceram eventos “PAM Su User Impersonation” e “Privilege Escalation Succeeded” com `username` vazio. O AQL interno de `investigate_offense` possui SELECT fixo de `starttime`, `sourceip`, `sourceport`, `destinationip`, `destinationport`, `username`, `QIDNAME(qid)` e `LOGSOURCENAME(logsourceid)`. As sete tools não aceitam AQL livre, filtro por QID/tipo, outras colunas ou payload bruto. Portanto, a identidade da escalação deve permanecer **não verificada** até inspeção manual dos eventos no QRadar Log Activity, especialmente `sourceUserName`, `targetUserName`, hostname e payload.
+Na mesma investigação apareceram eventos “PAM Su User Impersonation” e “Privilege Escalation Succeeded” com `username` vazio. O AQL interno de `investigate_offense` possui SELECT fixo de `starttime`, `sourceip`, `sourceport`, `destinationip`, `destinationport`, `username`, `QIDNAME(qid)` e `LOGSOURCENAME(logsourceid)`. As sete tools não aceitam AQL livre, filtro por QID/tipo, outras colunas ou payload bruto. Portanto, a identidade da escalação deve permanecer **não verificada** até inspeção manual dos eventos no QRadar Log Activity, especialmente `Username`, as propriedades customizadas de usuário que o DSM expuser (nomes variam por implantação, ex.: “Source Username”/“Target Username”), Log Source Time, hostname e payload.
 
 ## Instalação do bloco 3
 
