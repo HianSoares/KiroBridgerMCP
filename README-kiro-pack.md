@@ -21,7 +21,10 @@ Teste `investigate_demo` sem credenciais. Para consultas reais, siga
 campos disponíveis no deployment. Os testes automatizados usam dados fictícios,
 incluindo um servidor MCP HTTP local; não representam validação no QRadar real.
 
-Leia [verificação e critérios de conclusão](docs/offense-verification.md).
+Leia [verificação e critérios de conclusão](docs/offense-verification.md). A
+coleta de offense agora devolve `continuation_plan`, classes de evidência de
+processo/PowerShell/integridade e lacunas estruturadas; as instruções em
+`.kiro/` explicam como continuá-la e concluir proporcionalmente.
 Atualize/reconecte o MCP e abra um chat novo no Kiro para recarregar schemas e
 instruções. O assessment da coleta inicial permanece preliminar quando houver
 lacunas de cobertura, regra, autorização ou atribuição.

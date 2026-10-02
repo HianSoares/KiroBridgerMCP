@@ -25,6 +25,46 @@ metadados das regras pelos IDs que a offense retorna.
    como dados UTF-16LE para análise, sem executar comandos ou garantir completude.
 8. Retorna assessment preliminar com impedimentos explícitos. Porta/protocolo
    compatíveis com DHCP não bastam para classificar a atividade como autorizada.
+9. Lê os resources de campos e usa propriedades Windows/Sysmon opcionais só
+   quando estão listadas (`field_catalogs`, `queries.*.fields`). Campo opcional
+   ausente mantém a coleta; se o QRadar rejeitar os opcionais, a consulta é
+   validada de novo sem eles, preservando INOFFENSE.
+10. Extrai EventID, Computer, UtcTime, ProcessGuid, ParentProcessGuid, ProcessId,
+    ParentProcessId, Image, ParentImage, CommandLine, ParentCommandLine, User,
+    LogonId, LogonGuid, TerminalSessionId, Hashes e RecordNumber quando presentes,
+    com proveniência (consulta, search ID, linha, propriedade ou formato do payload).
+11. Reconstrói vínculos pai/filho por GUID normalizado e host, com até quatro
+    buscas de pai, prevenção de ciclos e registro de reutilização de PID.
+12. Com gatilho registrado, roda consultas focadas: 4104/4103 quando há
+    PowerShell, 5038/6281 quando há imagens observadas, flows do host quando os
+    flows INOFFENSE estão vazios ou incompletos.
+
+## Continuidade e orçamento
+
+A coleta usa um orçamento explícito (`budget`): 60 s, 12 jobs, 60 consultas de
+status e 40 páginas de 500 linhas por padrão. Jobs pendentes são consultados pelo
+mesmo search ID; a ponte nunca recria a pesquisa para retomar resultados. Cada
+consulta informa `outcome` (`pending`, `error`, `unavailable`, `empty`,
+`complete_in_window`, `limited`, `partial`, `not_started`) e, quando há erro,
+`error.category` (política local, validação QRadar, conexão, timeout, permissão,
+formato). Ao fim do orçamento, `continuation_plan` traz search ID, cursor, AQL,
+escopo, motivo e as tools para continuar. LIMIT atingido gera
+`new_partitioned_query`, porque paginar o mesmo job não devolve linhas excluídas.
+
+O orçamento é um prazo compartilhado: catálogos, validação, criação, polling,
+páginas e metadados de regras rodam com o tempo restante e nada começa depois do
+prazo. O orçamento é conferido de novo entre validação e criação. Se a criação
+não terminar no prazo, a consulta fica `creation_uncertain` com a ação
+`verify_creation_before_retry`: o job pode existir sem search ID conhecido, e a
+ponte não o recria. Falha numa página preserva as linhas lidas e o cursor daquela
+página; falha no polling preserva o search ID, inclusive quando o prazo expira
+entre a checagem do orçamento e o início da chamada. Um job com search ID
+conhecido nunca é planejado como nova busca (`start_planned_query`).
+
+Registros devolvidos por mais de uma consulta só são unificados quando log
+source, horários, EventID, host/provider/channel/RecordNumber (quando presentes)
+e conteúdo coincidem; a proveniência de cada consulta fica em `also_returned_by`.
+Sem identidade suficiente, os registros permanecem separados.
 
 ## Como pedir ao Kiro
 
@@ -43,15 +83,20 @@ precisa de offense_source com IP válido e eventos associados com timestamp.
 
 ## Cobertura e conclusão
 
-A coleta automática usa LIMIT 5000, páginas de até 500 e orçamento de 10 páginas
-por consulta. LIMIT atingido ou record_count desconhecido impede alegar resultado
-integral. O retorno conserva até oito testemunhos por consulta e até 2000
+A coleta automática usa LIMIT 5000, páginas de até 500 e o orçamento global
+descrito acima. LIMIT atingido ou record_count desconhecido impede alegar resultado
+integral. Em agregações, record_count conta grupos, não o valor de COUNT(*). O retorno conserva até oito testemunhos por consulta e até 2000
 caracteres de payload por testemunho; previews cortados são marcados. Use as
 páginas do search ID para inspeção detalhada. Limites de caracteres das páginas
 AQL também são reportados. Resultados indisponíveis não viram zero eventos.
 
 `assessment.final_benign_verdict_permitted=false` significa que a coleta inicial
-não estabelece falso positivo. Para avançar, o analista/Kiro precisa citar
+não estabelece falso positivo. Não proíbe relatar fatos sustentados por evidência,
+não indica atividade maliciosa e não é forçado para true para encerrar o caso.
+O assessment separa `collection_completeness`, `confirmed_facts`, `hypotheses` e
+`final_verdict_possible`; `gap_details` e `blocking_gaps_by_conclusion` distinguem
+impedimentos de cada conclusão de pendências secundárias (um censo de flows
+pendente não impede relatar uma cadeia de processos observada). Para avançar, o analista/Kiro precisa citar
 validações adicionais dos impedimentos pertinentes. Para DHCP, isso inclui
 papéis dos destinos/scopes/relays, regra CRE ativa, anti-spoofing e processo/serviço
 responsável pelo tráfego. Nem svchost.exe, conta de serviço, 4648, status CLOSED,

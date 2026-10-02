@@ -89,13 +89,16 @@ async def qradar_run_aql(query_expression: str, justification: str = "", limit: 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def qradar_verify_offense(offense_id: int, qradar_utc_offset_hours: int = -3,
                                timezone_verified: bool = False) -> dict:
-    """Collect INOFFENSE events/flows, explicit ports, UNIQUECOUNT, rules and host context.
+    """Collect INOFFENSE events/flows, census, rules, host context and evidence-triggered pivots.
 
-    QRadar only; no Trend key required. Recent cases use LAST 24 HOURS. Historical
-    cases need timezone_verified=True only after confirming the actual console
-    offset. Reports original metadata times separately from padded context,
-    search IDs, full AQL, coverage, truncation, credential attempts and gaps.
-    A compatible DHCP pattern is preliminary, never proof of authorized activity.
+    QRadar only; no Trend key required. Recent cases use LAST 24 HOURS (no local
+    offset). Historical START/STOP needs timezone_verified=True after confirming
+    the console offset. Optional Windows/Sysmon properties are used only when the
+    live field resources list them. Pending jobs are polled by the same search ID
+    within a time/query/page budget; leftovers come back as continuation_plan.
+    Reports process creations with GUID+host links, PowerShell 4104/4103 content,
+    5038 integrity records, structured gaps and a proportional assessment.
+    Telemetry is never executed. final_benign_verdict_permitted stays false.
     """
     return await live_qradar_query("verify_offense", {"offense_id": offense_id,
         "qradar_utc_offset_hours": qradar_utc_offset_hours,

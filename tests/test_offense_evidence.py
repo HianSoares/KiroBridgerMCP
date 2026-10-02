@@ -4,12 +4,12 @@ import base64
 import unittest
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from unittest.mock import ANY, AsyncMock, patch
+from unittest.mock import AsyncMock, patch
 
 from mcp.types import CallToolResult, TextContent
 
 from soc_bridge.core import window
-from soc_bridge.offense_evidence import (collect_offense_evidence, collect_query,
+from soc_bridge.offense_evidence import (Budget, collect_offense_evidence, collect_query,
     event_summary, flow_summary, host_summary, query_tail, render_evidence, utc, verify_offense)
 from soc_bridge.transports import QRADAR_TOOLS, RestrictedMCP
 
@@ -67,6 +67,27 @@ class QRadar:
         if name == "get_ariel_search_results":
             database, rows = self.jobs[args["search_id"]]
             return {database: rows[args["start"]:args["start"] + args["limit"]]}
+        raise AssertionError(name)
+
+
+class Pages:
+    """One synthetic job whose rows are served page by page."""
+    def __init__(self, rows, total="rows", database="events"):
+        self.rows, self.database = rows, database
+        self.total = len(rows) if total == "rows" else total
+        self.created, self.result_starts = 0, []
+
+    async def call(self, name, args):
+        if name == "validate_aql":
+            return {"valid": True}
+        if name == "create_ariel_search":
+            self.created += 1
+            return {"search_id": "synthetic-job-1", "status": "WAIT"}
+        if name == "get_ariel_search_status":
+            return {"status": "COMPLETED", "record_count": self.total}
+        if name == "get_ariel_search_results":
+            self.result_starts.append(args["start"])
+            return {self.database: self.rows[args["start"]:args["start"] + args["limit"]]}
         raise AssertionError(name)
 
 
@@ -174,41 +195,30 @@ class OffenseEvidenceTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_follows_one_search_and_records_budget_or_limit(self):
         query = "SELECT * FROM events LIMIT 5000 LAST 1 HOURS"
-        first = {"status": "COMPLETED", "search_id": "synthetic-job-1", "record_count": 501,
-                 "results_available": True, "database": "events", "rows": [{}] * 500,
-                 "has_more": True, "next_start": 500, "start": 0}
-        final = {**first, "rows": [{}], "has_more": False, "start": 500}
-        with patch("soc_bridge.offense_evidence.run_query", AsyncMock(return_value=first)) as run, \
-                patch("soc_bridge.offense_evidence.search_results", AsyncMock(return_value=final)) as page:
-            collected = await collect_query(object(), query, "events", "offense_linked")
-            self.assertEqual(run.await_count, 1)
-            page.assert_awaited_once_with(ANY, "synthetic-job-1", 500, 500)
-            self.assertTrue(collected["result_set_complete"])
-        first.update(record_count=5000, rows=[{}] * 5000, has_more=False)
-        with patch("soc_bridge.offense_evidence.run_query", AsyncMock(return_value=first)):
-            capped = await collect_query(object(), query, "events", "offense_linked")
-            self.assertFalse(capped["result_set_complete"])
-            self.assertTrue(any("LIMIT reached" in w for w in capped["warnings"]))
+        qr = Pages([{"n": i} for i in range(501)])
+        collected = await collect_query(qr, query, "events", "offense_linked")
+        self.assertEqual(qr.created, 1)
+        self.assertEqual(qr.result_starts, [0, 500])
+        self.assertTrue(collected["result_set_complete"])
+        self.assertEqual(collected["outcome"], "complete_in_window")
+        capped = await collect_query(Pages([{}] * 5000), query, "events", "offense_linked")
+        self.assertFalse(capped["result_set_complete"])
+        self.assertEqual(capped["outcome"], "limited")
+        self.assertTrue(any("LIMIT reached" in w for w in capped["warnings"]))
 
     async def test_missing_count_and_page_budget_are_not_complete(self):
-        page = {"status": "COMPLETED", "search_id": "synthetic-job-1", "record_count": None,
-                "results_available": True, "database": "events", "rows": [{}],
-                "has_more": False, "start": 0}
         query = "SELECT * FROM events LIMIT 5000 LAST 1 HOURS"
-        with patch("soc_bridge.offense_evidence.run_query", AsyncMock(return_value=page)):
-            self.assertFalse((await collect_query(object(), query, "events", "offense_linked"))["result_set_complete"])
-        page.update(record_count=501, rows=[{}] * 500, has_more=True, next_start=500)
-        with patch("soc_bridge.offense_evidence.MAX_PAGES", 1), \
-                patch("soc_bridge.offense_evidence.run_query", AsyncMock(return_value=page)), \
-                patch("soc_bridge.offense_evidence.search_results", AsyncMock()) as fetch:
-            finding = await collect_query(object(), query, "events", "offense_linked")
-            self.assertFalse(finding["result_set_complete"])
-            self.assertEqual(finding["next_start"], 500)
-            fetch.assert_not_awaited()
+        unknown = await collect_query(Pages([{}], total=None), query, "events", "offense_linked")
+        self.assertFalse(unknown["result_set_complete"])
+        qr = Pages([{}] * 501)
+        finding = await collect_query(qr, query, "events", "offense_linked", Budget(max_pages=1))
+        self.assertFalse(finding["result_set_complete"])
+        self.assertEqual(finding["next_start"], 500)
+        self.assertEqual(qr.result_starts, [0])
 
     async def test_permission_failure_is_not_a_negative_search(self):
         query = "SELECT * FROM events LIMIT 5000 LAST 1 HOURS"
-        with patch("soc_bridge.offense_evidence.run_query", AsyncMock(side_effect=RuntimeError("permission"))):
+        with patch("soc_bridge.ariel_collection.validate_query", AsyncMock(side_effect=RuntimeError("permission"))):
             finding = await collect_query(object(), query, "events", "offense_linked")
         self.assertEqual(finding["state"], "unavailable")
         self.assertFalse(finding["result_set_complete"])
