@@ -58,6 +58,26 @@ inclusion: always
 - LAST relativo e filtros epoch não dependem do offset local padrão. START/STOP local exige fuso verificado (`timezone_verified=true`).
 - Contenção e tuning são recomendações humanas condicionadas às evidências. Não tire conclusão absoluta da ausência de impacto observado.
 
+## Linux: sudo, su/PAM e SSH
+
+- Leia `linux.offense`: o censo de atores, alvos e comandos sudo percorre todas as linhas coletadas, antes do limite dos testemunhos. Preserve `sudo_command_groups_omitted`, payloads cortados e registros não interpretados. Um comando registrado pelo sudo não comprova seu resultado, autorização ou natureza da conta.
+- `linux.ssh_window` e `linux.identity_window` são buscas distintas, por host/IP, com predicados epoch no intervalo dos metadados sem margem (`linux.strict_window`). São contexto, não associação INOFFENSE. Leia os payloads: `sshd: Accepted ... for root` é autenticação aceita na fonte; `su (to ...)`, PAM session e `[preauth]` não são esse mesmo evento.
+- O nome de uma regra SSH, QID ou username normalizado não prova SSH root nem herança do usuário de outro evento. Uma mensagem PAM descreve o usuário daquele registro; não generalize a partir de uma amostra para todo o QID.
+- `linux.host_context` pode incluir registros anteriores/posteriores ao intervalo estrito. Cite `relation_to_metadata_window` e a antecedência calculada por epoch; mantenha esses registros como contexto sem vínculo demonstrado. Mesmo IP privado em origem/destino e portas zero não demonstram loopback.
+- `negative_claim` só vale para a consulta SSH, nas fontes, filtros e janela indicados, com cobertura e interpretação completas. Query vazia não prova completude do logging. Um resultado parcial, payload cortado ou formato desconhecido impede excluir autenticação root.
+
+## Decisão, motivo e nota de fechamento
+
+- Sempre entregue uma decisão recomendada e sua justificativa, mesmo quando ela for **manter aberta / pendente de validação**. Leia `closure_assessment`, `closing_reasons` e a avaliação por conclusão. A ponte devolve uma proposta inicial, não uma classificação final automática.
+- Continue os pivôs autorizados capazes de resolver impedimentos. Antes de sugerir fechamento, explicite como cada impedimento relevante foi resolvido, citando fonte, identificador e horário. Dados do dono/change/inventário e definição ativa da CRE podem ser fornecidos pelo analista: identifique sua origem e grau de verificação. Não transforme todo item secundário em bloqueio, nem ignore evidência contraditória relevante.
+- Se houver base suficiente após essas validações, recomende o motivo específico do catálogo real e explique por que ele se aplica melhor que as alternativas. Mantenha os flags da coleta original; descreva separadamente a conclusão adicional do Kiro e suas novas fontes. Não escolha um ID de exemplo, de memória ou ausente do catálogo. Se o catálogo não foi lido ou foi limitado, sinalize isso e peça validação do motivo no console.
+- **Non-Issue**: comportamento esperado e autorizado demonstrado, investigação pertinente suficiente e sem contradição relevante pendente. **Not an Issue** e outros motivos customizados exigem sua definição local. Nome de script, fornecedor ou conta não substitui autorização.
+- **False-Positive, Tuned**: erro de detecção comprovado contra a CRE ativa e tuning **já aplicado e verificado** por fonte citada. Tuning apenas recomendado não atende esse motivo.
+- **Duplicate** exige offense principal, vínculo e transferência de responsabilidade/evidência. **Policy Violation** exige política aplicável e violação comprovadas, com encerramento conforme o fluxo de resposta. **Misconfiguration** exige configuração comprovada e disposição acordada com o responsável. **Resolved** exige remediação e verificação posterior. **Unresolved** exige decisão administrativa explícita, com risco e pendências registrados; não significa benigno.
+- Se os metadados já estiverem CLOSED, apresente o motivo registrado como metadado e avalie a justificativa; não proponha reabrir nem trate CLOSED como confirmação de benignidade. A ponte não recupera automaticamente todas as notas históricas.
+- Na saída, inclua: **Decisão recomendada | Classificação e confiança justificada | Motivo do catálogo (nome e ID, ou não selecionado) | Evidências decisivas | Impedimentos relevantes e próxima fonte | Nota sugerida**. A nota deve ser um texto em pt-BR pronto para revisão, com offense, janela/relógio, comportamento observado, search IDs, validações de autorização/regra, fundamento da decisão e pendências. Não invente nota numérica de risco.
+- A nota é um rascunho, não foi publicada. Não execute fechamento, postagem de nota, tuning ou contenção. O analista decide e registra a ação no QRadar.
+
 ## Conclusão e recomendações
 
 - `assessment.status=preliminary` e `final_benign_verdict_permitted=false` delimitam a coleta inicial. Preserve a conclusão e os impedimentos retornados. Só avance com evidências adicionais citadas que resolvam os impedimentos relevantes; não mude o rótulo por insistência, magnitude baixa ou status CLOSED.

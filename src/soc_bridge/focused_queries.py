@@ -13,6 +13,9 @@ SCRIPT_MARKERS = ("%scriptblock%", "%<EventID>4103</EventID>%", "%<EventID>4104<
                   "%CommandInvocation(%")
 INTEGRITY_MARKERS = ("%code integrity%", "%<EventID>5038</EventID>%", "%<EventID>6281</EventID>%",
                      "%EventID=5038%", "%EventID=6281%", "%EventCode=5038%", "%EventCode=6281%")
+LINUX_SSH_MARKERS = ("%sshd[%", "%sshd:%", "% sshd %", "%pam_unix(sshd:%", "%pam_sss(sshd:%")
+LINUX_IDENTITY_MARKERS = ("%su[%", "%su:%", "% su %", "%pam_unix(su:%", "%pam_sss(su:%")
+LINUX_CONTEXT_MARKERS = LINUX_SSH_MARKERS + LINUX_IDENTITY_MARKERS + ("%sudo[%", "%sudo:%", "% sudo %")
 
 
 def _any_payload(markers: tuple[str, ...]) -> str:
@@ -84,6 +87,20 @@ def host_flows(tail: str, start_ms: int, end_ms: int, ip: str | None) -> dict | 
              f"{epoch_predicate('firstpackettime', start_ms, end_ms)} LIMIT 1000 {tail}")
     return {"database": "flows", "query": query, "fallback": None, "scope": "host_network_context",
             "criteria": "Host IP flows in the observed window; flows carry no process attribution."}
+
+
+def linux_auth(plan: SelectPlan, tail: str, start_ms: int, end_ms: int,
+               ip: str | None, hosts: list[str], identity: bool = False) -> dict | str:
+    """Separate sshd from su/PAM noise; epoch bounds are the frozen metadata snapshot."""
+    scope = host_predicate(ip, hosts)
+    if not scope:
+        return "No validated host IP/name for Linux authentication context"
+    markers = LINUX_IDENTITY_MARKERS if identity else LINUX_SSH_MARKERS
+    where = f"{scope} AND {epoch_predicate('starttime', start_ms, end_ms)} AND {_any_payload(markers)}"
+    query, fallback = _events(plan, where, 5000, tail)
+    return {"database": "events", "query": query, "fallback": fallback,
+            "scope": "linux_identity_strict_window" if identity else "linux_ssh_strict_window",
+            "criteria": "Linux daemon payload markers, not fixed QIDs; exact starttime epoch bounds plus bounded LAST/START/STOP"}
 
 
 def describe(spec: dict | str, trigger: str) -> dict[str, Any]:

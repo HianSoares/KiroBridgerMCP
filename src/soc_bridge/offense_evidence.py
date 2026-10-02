@@ -11,7 +11,7 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from . import focused_queries, integrity_evidence, process_chain
+from . import focused_queries, integrity_evidence, process_chain, linux_evidence, closure_assessment
 from .aql_fields import EVENT_COLUMNS, FLOW_COLUMNS, LOGICAL_FIELDS, FieldCatalog, load_catalog, plan_select
 from .ariel_collection import Budget, BudgetExhausted, collect_query, number
 from .core import address, instant
@@ -333,6 +333,40 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
             "rules:cre-definition", "rules", "outside_bridge", ["benign_verdict"],
             "Read the active rule tests/responses in the QRadar rule editor")
 
+    # Count every retrieved Linux record before witness samples are clipped.
+    linux_linked = linux_evidence.analyze(result["queries"].get("events"), "events")
+    result["linux"] = {"detected": bool(linux_linked["daemon_rows"]), "offense": linux_linked}
+    if linux_linked["daemon_rows"] and start and end and end >= start:
+        strict_end = min(end, now)
+        strict_tail, strict_window = query_tail(start, strict_end, offset_hours, timezone_verified, now)
+        if strict_end < start:
+            strict_tail = None
+            strict_window["reason"] = "Offense interval starts after collection time; no observable strict window"
+        result["linux"]["strict_window"] = {**strict_window, "basis": "Frozen offense metadata snapshot; no padding"}
+        if strict_tail:
+            bounds = (int(start.timestamp() * 1000), int(strict_end.timestamp() * 1000))
+            linux_plan = plan_select(EVENT_COLUMNS, catalogs["events"])
+            linux_hosts = sorted({r["host"] for r in linux_linked["records"] if r.get("host")})
+            for name, identity in (("linux_ssh_window", False), ("linux_identity_window", True)):
+                spec = focused_queries.linux_auth(linux_plan, strict_tail, *bounds, ip=address(offense.get("offense_source")),
+                                                 hosts=linux_hosts, identity=identity)
+                result["focused_queries"][name] = focused_queries.describe(spec, "Linux daemon record in INOFFENSE")
+                if isinstance(spec, dict):
+                    finding = await run(name, spec["query"], "events", spec["scope"], linux_plan, spec["fallback"])
+                    summary = linux_evidence.analyze(finding, name, bounds)
+                    result["linux"]["identity_window" if identity else "ssh_window"] = summary
+                    if not summary["recognized_message_census_complete"]:
+                        add_gap("Linux authentication coverage/parsing incomplete; no absence claim", f"linux:{name}",
+                                spec["scope"], "incomplete", ["linux_authentication_claims"],
+                                "Resume the same job/pages or inspect unparsed original records")
+                else:
+                    add_gap(spec, f"linux:{name}:anchor", "linux_authentication", "not_built",
+                            ["linux_authentication_claims", "benign_verdict"],
+                            "Obtain a verified host IP/name before a focused authentication query")
+        else:
+            add_gap("Strict Linux authentication window unavailable", "linux:window", "linux_authentication",
+                    "not_collected", ["linux_authentication_claims"], "Confirm historical timezone or partition the window")
+
     observed = result["events"]["observed_interval"]
     host_start, host_end = instant(observed["start"]), instant(observed["end"])
     ip = address(offense.get("offense_source"))
@@ -353,6 +387,9 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
                 "QIDNAME(qid) ILIKE '%Process Create%' OR QIDNAME(qid) ILIKE '%ProcessCreate%' OR "
                 "QIDNAME(qid) ILIKE '%ProcessAccess%' OR UTF8(payload) ILIKE '%Process Create:%' OR "
                 "UTF8(payload) ILIKE '%A new process has been created%')")
+            if linux_linked["daemon_rows"]:
+                predicate = (f"(sourceip = '{ip}' OR destinationip = '{ip}') AND {numeric} AND "
+                             + focused_queries._any_payload(focused_queries.LINUX_CONTEXT_MARKERS))
             tail_sql = f"FROM events WHERE {predicate} ORDER BY starttime ASC LIMIT {SEARCH_LIMIT} {host_tail}"
             await run("host_context", f"{event_plan.select()} {tail_sql}", "events", "host_ip_time_context",
                       event_plan, f"{event_plan.select(False)} {tail_sql}" if event_plan.optional else None)
@@ -430,6 +467,14 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
 
     result["host"] = host_summary(result["queries"].get("host_context", {}).get("rows", []))
     result["host"]["groups"] = event_summary(result["queries"].get("host_context", {}).get("rows", []))["groups"]
+    if linux_linked["daemon_rows"]:
+        result["linux"]["host_context"] = linux_evidence.analyze(result["queries"].get("host_context"), "host_context")
+        for record in result["linux"]["host_context"]["accepted_root_ssh_records"]:
+            moment = instant(record["provenance"]["starttime_epoch"])
+            if moment and start and end:
+                record["relation_to_metadata_window"] = "before" if moment < start else "after" if moment > end else "inside"
+                record["seconds_before_metadata_start"] = round((start - moment).total_seconds(), 3)
+                record["attribution"] = "Host context; no demonstrated link to offense or sudo session"
     if result["flows"]["dhcp_port_pattern"]:
         add_gap("Destination roles and authorized DHCP scopes/relays unverified", "dhcp:roles", "offense_linked",
                 "outside_bridge", ["benign_verdict", "dhcp_pattern"], "Check DHCP scope/relay inventory")
@@ -473,6 +518,7 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
             samples.append(sample)
         finding["samples"] = samples
     result["gaps"] = list(dict.fromkeys(result["gaps"]))
+    result["closing_reasons"] = await closure_assessment.closing_catalog(qradar, budget)
     result["budget"] = budget.describe()
     linked_complete = all(result["queries"].get(name, {}).get("result_set_complete") for name in ("events", "flows"))
     result["assessment"] = {
@@ -492,6 +538,7 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
             "Windows session ID identifies a PSM recording", "username alone shows account nature"],
         **assess(result),
     }
+    result["closure_assessment"] = closure_assessment.propose(result)
     return result
 
 
@@ -615,4 +662,27 @@ def render_evidence(evidence: dict) -> list[str]:
     lines += ["", "### Required before a final verdict", ""]
     lines.extend(f"- {gap_text}" for gap_text in assessment["required_before_final_verdict"])
     lines.extend(f"- Collection warning: {warning}" for warning in evidence["warnings"])
+    linux = evidence.get("linux", {})
+    if linux.get("detected"):
+        lines += ["", "## Linux authentication and command census", "",
+                  f"- Frozen strict window: {linux.get('strict_window')}",
+                  f"- INOFFENSE sudo actors/targets: {linux['offense']['sudo_actor_counts']} / {linux['offense']['sudo_target_counts']}",
+                  f"- Commands counted over all collected rows: {linux['offense']['sudo_commands']}",
+                  f"- Unparsed/cut daemon records: {linux['offense']['unparsed_daemon_rows']} / {linux['offense']['truncated_payload_rows']}"]
+        for name in ("ssh_window", "identity_window"):
+            if name in linux:
+                item = linux[name]
+                lines += [f"- {name}: search {item['search_id']}; kinds {item['kind_counts']}; "
+                          f"recognized census complete: {item['recognized_message_census_complete']}",
+                          f"  - Accepted root SSH messages parsed: {item['accepted_root_ssh_count']}; "
+                          f"negative claim for SSH query only: {item['negative_claim']}",
+                          f"  - Witness records: {item['records'][:5]}"]
+    closing = evidence.get("closure_assessment")
+    if closing:
+        lines += ["", "## Closing recommendation and analyst note (draft)", "",
+                  f"Recommendation: {closing['recommendation']}",
+                  f"Final disposition confidence: {closing['confidence']}. {closing['confidence_explanation']}",
+                  f"Live closing reason catalog: {closing['reason_catalog_state']}",
+                  f"Conditional reason options: {closing['conditional_reason_options']}",
+                  "", "### Suggested note for analyst review", "", closing["suggested_note"]]
     return lines

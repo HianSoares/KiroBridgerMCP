@@ -38,6 +38,13 @@ metadados das regras pelos IDs que a offense retorna.
 12. Com gatilho registrado, roda consultas focadas: 4104/4103 quando há
     PowerShell, 5038/6281 quando há imagens observadas, flows do host quando os
     flows INOFFENSE estão vazios ou incompletos.
+13. Quando o payload revela sudo/sshd/su, interpreta todas as linhas coletadas
+    para contar atores, alvos e comandos; distingue invocação sudo, troca su/PAM,
+    autenticação SSH aceita/falha e preauth. Faz buscas SSH e su separadas por
+    host/IP, com predicados epoch na janela original dos metadados, sem padding.
+14. Consulta opcionalmente os motivos de fechamento ativos e não reservados no
+    QRadar. Produz `closure_assessment`: decisão inicial, critérios dos motivos
+    reais, justificativa, impedimentos, confiança e nota sugerida em pt-BR.
 
 ## Continuidade e orçamento
 
@@ -74,6 +81,14 @@ Sem identidade suficiente, os registros permanecem separados.
 > pivôs que possam mudar a conclusão. Cite cobertura e lacunas; mantenha a
 > conclusão preliminar enquanto faltar validação relevante.
 
+Para obter também a proposta de encerramento:
+
+> Investigue a offense informada, retome as pesquisas pendentes e verifique os
+> payloads relevantes. Ao final, apresente decisão recomendada, justificativa,
+> confiança, motivo do catálogo real e nota sugerida para revisão. Se faltar
+> autorização, definição da regra ou outra evidência decisiva, indique manter
+> pendente e o que falta. Não feche a offense nem publique a nota.
+
 Para histórico, confirme o offset efetivo do QRadar e só então informe
 `qradar_utc_offset_hours` e `timezone_verified=true`. O default -3 não é medição.
 Casos recentes usam LAST 24 HOURS; isso limita a associação à janela de 24h,
@@ -106,6 +121,68 @@ correlação com DC exige contexto e identificadores apropriados.
 A ponte não consulta inventário DHCP/AD ou política de firewall diretamente,
 não altera regras e não executa contenção. Sem esses dados nas fontes acessíveis,
 a resposta correta continua preliminar, com a próxima fonte indicada.
+
+## Linux e limites da interpretação
+
+`linux.offense` conta os comandos sudo em todas as páginas recuperadas antes
+de reduzir os testemunhos. Até 100 grupos de comandos e 20 testemunhos são
+devolvidos, com omissões e previews indicados. Contagens descrevem registros
+coletados; comando sudo não comprova execução bem-sucedida ou autorização.
+
+`linux.ssh_window` e `linux.identity_window` usam o intervalo bruto dos metadados
+até o instante da coleta (`linux.strict_window`), com relógio `starttime` e
+predicados epoch. São contexto por host/IP, não associação à offense.
+`linux.host_context` pode ter uma janela maior e registra se cada testemunho
+SSH é anterior, interno ou posterior ao intervalo. Antecedência vem de epochs
+UTC, sem inferir fuso da string syslog. Consultas históricas ainda exigem fuso
+verificado e partições quando necessário.
+
+O parser não usa QIDNAME para provar login root. `sshd: Accepted ... for root`
+é autenticação aceita na fonte; su, PAM session e preauth são outras observações.
+Formatos não reconhecidos, payload cortado, página pendente ou timestamp fora
+da janela impedem uma conclusão negativa SSH. Mesmo com `negative_claim`, a
+afirmação é somente sobre fontes/filtros/janela consultados, sem provar logging
+completo. IP privado igual nos dois lados e portas zero não provam loopback;
+usuário, PID ou proximidade temporal não demonstram sessão comum.
+
+## Motivo e nota para revisão
+
+`closing_reasons` é uma leitura opcional de `list_offense_closing_reasons` no
+upstream, dentro do mesmo prazo. Se a tool não existir, não houver permissão ou
+o prazo acabar, a coleta continua sem inventar IDs. O catálogo é limitado a
+100 motivos; nomes customizados exigem a definição do fluxo local.
+
+`closure_assessment` inicialmente recomenda manter pendente (ou revisar a
+justificativa quando os metadados já estão CLOSED), pois telemetria sozinha não
+comprova autorização e a CRE ativa. A nota é um rascunho: resume janela, fatos,
+search IDs e impedimentos. Nunca é enviada ao QRadar e nenhum motivo é
+selecionado automaticamente. Nota significa anotação fundamentada, não escore
+numérico de risco. O status CLOSED é metadado; as notas históricas de fechamento
+não são consultadas automaticamente.
+
+As instruções do Kiro exigem continuar os pivôs úteis e, havendo validações
+adicionais citadas de autorização/regra e demais impedimentos pertinentes,
+apresentar uma recomendação específica com nome/ID real e nota fundamentada.
+Preserve a avaliação da coleta original e separe essa conclusão adicional.
+Quando faltar evidência decisiva, informe manter pendente e a próxima fonte.
+Pendências secundárias não impedem relatar fatos positivos confirmados.
+
+| Motivo | Evidência necessária para propor |
+| --- | --- |
+| Non-Issue | Comportamento esperado e autorizado, cobertura pertinente e contradições relevantes resolvidas |
+| False-Positive, Tuned | Erro de detecção contra a CRE ativa e tuning já aplicado e verificado |
+| Duplicate | Vínculo com offense principal e responsabilidade/evidência transferidas |
+| Policy Violation | Política e violação comprovadas, disposição conforme fluxo de resposta |
+| Misconfiguration | Configuração indevida demonstrada e disposição acordada com o responsável |
+| Resolved | Remediação e verificação posterior documentadas |
+| Unresolved | Decisão administrativa explícita com risco e pendências registrados |
+| Outros motivos customizados | Definição local e evidências correspondentes |
+
+Esta matriz explica critérios, não substitui o catálogo da implantação.
+A saída do Kiro deve incluir decisão, classificação/confiança justificada,
+motivo (ou não selecionado), evidências decisivas, pendências e a nota sugerida
+para revisão humana. As 15 tools e seus schemas de entrada continuam iguais;
+nenhuma escrita de nota, fechamento, alteração de regra ou contenção é exposta.
 
 ## Atualizar uma instalação Windows
 

@@ -60,6 +60,8 @@ The verification reads live field metadata and uses optional Windows/Sysmon prop
 
 A DHCP-compatible port pattern supports a preliminary hypothesis. It does not establish authorization, successful authentication, endpoint health or a false positive. See [verification workflow and decision limits](docs/offense-verification.md).
 
+Linux records now receive a census of sudo actors, targets and commands across all collected pages, plus separate SSH and su/PAM searches bounded to the original offense interval. The report reads the optional live closing-reason catalog and supplies a reviewable decision, rationale and Portuguese note draft. Kiro can recommend a specific reason after cited evidence resolves the relevant gaps; it never closes the offense or posts the note.
+
 ## Scope and safety
 
 - Investigations use limited searches. No Workbench alert or no result on an inspected page does **not** mean there was no endpoint activity.

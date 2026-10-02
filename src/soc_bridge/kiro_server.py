@@ -97,7 +97,10 @@ async def qradar_verify_offense(offense_id: int, qradar_utc_offset_hours: int = 
     live field resources list them. Pending jobs are polled by the same search ID
     within a time/query/page budget; leftovers come back as continuation_plan.
     Reports process creations with GUID+host links, PowerShell 4104/4103 content,
-    5038 integrity records, structured gaps and a proportional assessment.
+    5038 integrity records, Linux SSH/sudo/su censuses and strict epoch pivots.
+    Includes live closing reasons when the optional upstream read is available,
+    a closing recommendation and a Portuguese note draft for analyst review.
+    No offense is closed and no note is posted by this tool.
     Telemetry is never executed. final_benign_verdict_permitted stays false.
     """
     return await live_qradar_query("verify_offense", {"offense_id": offense_id,
