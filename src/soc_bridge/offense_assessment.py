@@ -13,11 +13,13 @@ BLOCKS = {
     "integrity": ["code_integrity_claims"],
     "host_flows": ["process_network_claims"],
     "parent": ["process_ancestry_root"],
+    "linux_ssh_window": ["linux_authentication_claims", "benign_verdict"],
+    "linux_identity_window": ["linux_authentication_claims"],
 }
 CONCLUSIONS = ("benign_verdict", "complete_offense_record_review", "offense_network_claims", "dhcp_pattern",
                "host_activity_absence_claims", "process_chain", "process_ancestry_root",
                "powershell_content_claims", "code_integrity_claims", "process_network_claims",
-               "account_nature")
+               "account_nature", "linux_authentication_claims")
 VERDICT_MEANING = ("false means this automatic collection alone cannot support a final benign/false-positive "
                    "verdict. It is not a ban on reporting facts supported by evidence, it does not mean the "
                    "activity is malicious, and it does not block a preliminary report with a precise hand-off. "
@@ -72,6 +74,17 @@ def assess(result: dict) -> dict:
     blocks = processes.get("script_blocks", [])
     if blocks:
         facts.append({"fact": "powershell_session_content_recorded", "records": len(blocks)})
+    linux = result.get("linux", {})
+    linked_linux = linux.get("offense", {})
+    if linked_linux.get("kind_counts", {}).get("sudo_command_record"):
+        facts.append({"fact": "sudo_invocation_records", "rows": linked_linux["kind_counts"]["sudo_command_record"],
+                      "actors": linked_linux["sudo_actor_counts"], "targets": linked_linux["sudo_target_counts"],
+                      "source": {"query": "events", "search_id": linked_linux["search_id"]},
+                      "coverage_complete": linked_linux["recognized_message_census_complete"],
+                      "meaning": "Invocation records, not proven command success or authorization"})
+    for event in linux.get("ssh_window", {}).get("accepted_root_ssh_records", [])[:10]:
+        facts.append({"fact": "accepted_root_ssh_record", "peer": event["peer"], "method": event["method"],
+                      "host": event["host"], "source": event["provenance"], "authorization": "unverified"})
     by_conclusion: dict[str, list[str]] = {c: [] for c in CONCLUSIONS}
     for item in result["gap_details"]:
         for conclusion in item["relevance"]["blocks"]:

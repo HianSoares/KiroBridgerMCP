@@ -10,7 +10,7 @@ from .aql_errors import AQLValidationError
 from .aql_search import AQL_RESOURCES
 
 
-QRADAR_TOOLS = {"get_offense", "get_rule", "list_source_addresses", "list_local_destination_addresses",
+QRADAR_TOOLS = {"get_offense", "get_rule", "list_offense_closing_reasons", "list_source_addresses", "list_local_destination_addresses",
                 "validate_aql", "create_ariel_search", "get_ariel_search_status", "get_ariel_search_results"}
 WORKBENCH_TOOLS = {"workbench_alerts_list", "workbench_alert_detail_get"}
 VISION_TOOLS = WORKBENCH_TOOLS | {"search_detections_list", "search_endpoint_activities_list",

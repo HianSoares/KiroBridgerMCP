@@ -17,6 +17,7 @@ O analista pede um relatório após uma chamada real do MCP ou apresenta um rela
 4. Monte hipóteses concorrentes e perguntas dos cinco porquês até o limite da evidência. Anote vetor e falha de controle somente quando demonstrados; caso contrário, “causa raiz indeterminada”.
 5. Classifique impacto observado versus potencial, severidade avaliada, ATT&CK sustentado e confiança qualitativa com justificativa. Não adote disposition de produto como veredito próprio.
 6. Liste lacunas com campo preciso e fonte de obtenção; depois plano para revisão humana de contenção → erradicação → recuperação e ajuste de detecção. Não execute nem envie nenhuma ação.
+7. Termine com decisão recomendada, razão fundamentada e nota de revisão em pt-BR. Leia `closure_assessment` e o catálogo real `closing_reasons`; não invente IDs. Se faltarem validações relevantes, indique manter pendente e explique o impedimento na nota. Se novas fontes citadas sustentarem fechamento, explique como resolveram esses impedimentos e por que o motivo escolhido se aplica. `False-Positive, Tuned` exige tuning aplicado e verificado; motivo customizado exige definição local. Status CLOSED e comportamento compatível não substituem justificativa.
 
 ## Tools permitidas
 
