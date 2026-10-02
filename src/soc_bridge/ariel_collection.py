@@ -243,16 +243,19 @@ def _uncertain(finding: dict, error: dict) -> dict:
 
 
 def _failed(finding: dict, exc: BaseException, stage: str, cursor: int) -> dict:
-    """Classify by stage: keep known search IDs, rows and the cursor of the page that failed."""
+    """Classify by job existence first, then stage: a known job is always resumed, never restarted."""
     if isinstance(exc, BudgetExhausted):
-        if stage == "validation" or not exc.started:
+        if not finding.get("search_id"):
+            if stage == "creation" and exc.started:
+                return _uncertain(finding, {
+                    "category": "creation_timeout", "outcome": "creation_uncertain", "retryable": False,
+                    "stage": stage, "message": str(exc),
+                    "next_action": "Check the Ariel searches for this AQL before running it again"})
+            # Validation, or creation that never began: no job can exist.
             return _not_started(finding, str(exc))
+        # The job exists whether the deadline hit before or during this call: keep its ID and cursor.
         error = {"category": "time_budget", "outcome": "unavailable", "retryable": True, "stage": stage,
-                 "message": str(exc), "next_action": "Resume within a new budget"}
-        if stage == "creation":
-            error.update(category="creation_timeout", outcome="creation_uncertain", retryable=False,
-                         next_action="Check the Ariel searches for this AQL before running it again")
-            return _uncertain(finding, error)
+                 "message": str(exc), "next_action": "Resume the same search ID within a new budget"}
         finding["error"] = error
     else:
         error = {**classify_failure(exc), "stage": stage}
@@ -273,6 +276,9 @@ def _failed(finding: dict, exc: BaseException, stage: str, cursor: int) -> dict:
         finding["outcome"] = "partial"
         finding["warnings"].append(f"Rows before cursor {cursor} kept; the page at {cursor} was not read")
         finding["continuation"] = continuation(finding, "fetch_next_page", f"{stage}: {error['category']}", cursor)
+    elif finding.get("search_id"):
+        # Defensive: any other failure with a known job resumes it rather than planning a new search.
+        finding["continuation"] = continuation(finding, "poll_same_search", f"{stage}: {error['category']}", cursor)
     elif error["retryable"]:
         finding["continuation"] = continuation(finding, "start_planned_query", f"{stage}: {error['category']}")
     return _finish(finding)

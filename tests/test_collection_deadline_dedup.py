@@ -114,6 +114,97 @@ class DeadlineTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Continuation plan", "\n".join(render_evidence(evidence)))
 
 
+class TrapBudget(Budget):
+    """Lets the Nth matching check pass, then expires the deadline before the guarded call starts."""
+
+    def __init__(self, kind=None, nth=1, **kwargs):
+        self.trap_kind, self.trap_nth, self.checks = kind, nth, 0
+        super().__init__(max_seconds=10, clock=Clock(), **kwargs)
+
+    def blocked(self, kind):
+        reason = super().blocked(kind)
+        if reason is None and kind == (self.trap_kind or kind):
+            self.checks += 1
+            if self.checks == self.trap_nth:
+                self.clock.now = 1_000.0  # deadline passes between the check and the call
+        return reason
+
+
+RESUME = {"poll_same_search", "fetch_next_page"}
+
+
+class DeadlineBetweenCheckAndCallTests(unittest.IsolatedAsyncioTestCase):
+    def assert_known_job_is_resumed(self, finding):
+        plan = finding["continuation"]
+        self.assertIn(plan["action"], RESUME, "a known job must never be planned as a new search")
+        self.assertEqual(plan["search_id"], finding["search_id"])
+
+    async def test_before_validation_or_creation_no_job_exists(self):
+        for nth in (1, 2):  # first check guards validation, second guards creation
+            with self.subTest(nth=nth):
+                qr = events_lab()
+                finding = await collect_query(qr, QUERY, "events", "manual", TrapBudget("query", nth))
+                self.assertNotIn("create_ariel_search", qr.names())
+                self.assertNotIn("search_id", finding)
+                self.assertEqual(finding["outcome"], "not_started")
+                self.assertEqual(finding["continuation"]["action"], "start_planned_query")
+
+    async def test_before_polling_known_job_stays_pending(self):
+        qr = events_lab(pending_polls=3)
+        finding = await collect_query(qr, QUERY, "events", "manual", TrapBudget("poll", 1))
+        self.assertEqual(qr.names().count("create_ariel_search"), 1)
+        self.assertNotIn("get_ariel_search_status", qr.names())
+        self.assertEqual(finding["outcome"], "pending")
+        self.assertEqual(finding["error"]["stage"], "polling")
+        self.assert_known_job_is_resumed(finding)
+        self.assertEqual(finding["continuation"]["action"], "poll_same_search")
+
+    async def test_before_next_page_known_job_keeps_rows_and_cursor(self):
+        qr = events_lab()
+        finding = await collect_query(qr, QUERY, "events", "manual", TrapBudget("page", 2, page_size=2))
+        self.assertEqual(finding["rows"], ROWS[:2])
+        self.assertEqual(finding["outcome"], "partial")
+        self.assertFalse(finding["result_set_complete"])
+        self.assert_known_job_is_resumed(finding)
+        self.assertEqual((finding["continuation"]["action"], finding["continuation"]["cursor"]), ("fetch_next_page", 2))
+        starts = [args["start"] for name, args in qr.calls if name == "get_ariel_search_results"]
+        self.assertEqual(starts, [0])  # the page at cursor 2 was never requested
+
+    async def test_every_check_position_keeps_known_jobs_resumable(self):
+        for nth in range(1, 12):
+            with self.subTest(nth=nth):
+                qr = events_lab(pending_polls=2)
+                finding = await collect_query(qr, QUERY, "events", "manual", TrapBudget(None, nth, page_size=2))
+                if finding.get("search_id"):
+                    if finding.get("continuation"):
+                        self.assert_known_job_is_resumed(finding)
+                    else:
+                        self.assertTrue(finding["result_set_complete"])
+                else:
+                    self.assertNotIn("create_ariel_search", qr.names())
+                    self.assertEqual(finding["continuation"]["action"], "start_planned_query")
+
+    async def test_offense_collection_never_plans_a_new_search_for_a_known_job(self):
+        for nth in range(1, 40):
+            with self.subTest(nth=nth):
+                evidence = await collect_offense_evidence(
+                    Lab({"FROM events": ("events", ROWS, None)}, pending_polls=1), offense(), now=NOW,
+                    budget=TrapBudget(None, nth, page_size=2))
+                for name, query in evidence["queries"].items():
+                    if query.get("search_id") and query.get("continuation"):
+                        self.assert_known_job_is_resumed(query)
+                for item in evidence["continuation_plan"]:
+                    if item["action"] == "start_planned_query":
+                        self.assertNotIn("search_id", evidence["queries"][item["query"]])
+
+    async def test_creation_cut_mid_call_stays_uncertain(self):
+        qr = events_lab(delays={"create_ariel_search": 0.2})
+        finding = await collect_query(qr, QUERY, "events", "manual", Budget(max_seconds=0.05))
+        self.assertEqual(finding["outcome"], "creation_uncertain")
+        self.assertEqual(finding["continuation"]["action"], "verify_creation_before_retry")
+        self.assertEqual(qr.names().count("create_ariel_search"), 1)
+
+
 class PageFailureTests(unittest.IsolatedAsyncioTestCase):
     async def test_second_page_failure_keeps_rows_cursor_and_search_id(self):
         failure = MCPToolFailure("QRadar", "get_ariel_search_results", "upstream MCP timed out")

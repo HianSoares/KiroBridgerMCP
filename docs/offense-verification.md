@@ -57,7 +57,9 @@ prazo. O orçamento é conferido de novo entre validação e criação. Se a cri
 não terminar no prazo, a consulta fica `creation_uncertain` com a ação
 `verify_creation_before_retry`: o job pode existir sem search ID conhecido, e a
 ponte não o recria. Falha numa página preserva as linhas lidas e o cursor daquela
-página; falha no polling preserva o search ID.
+página; falha no polling preserva o search ID, inclusive quando o prazo expira
+entre a checagem do orçamento e o início da chamada. Um job com search ID
+conhecido nunca é planejado como nova busca (`start_planned_query`).
 
 Registros devolvidos por mais de uma consulta só são unificados quando log
 source, horários, EventID, host/provider/channel/RecordNumber (quando presentes)
