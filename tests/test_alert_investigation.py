@@ -1,341 +1,223 @@
-"""Synthetic checks for alert-first correlation and its coverage limits."""
+"""Alert-first investigation end to end with synthetic Workbench, Search, OAT and QRadar data."""
 
 import asyncio
 import unittest
+from datetime import timedelta
 
-from soc_bridge.alert_investigation import alert_ips, alert_entities, investigate_vision_alert, render_alert_markdown
+from soc_bridge.alert_investigation import alert_entities, alert_ips, investigate_vision_alert, render_alert_markdown
+from soc_bridge.ariel_collection import Budget
+from soc_bridge.transports import ALERT_VISION_TOOLS
 
+from synthetic_lab import Lab
+from trend_fixtures import (ALERT, ALERT_ID, CMD, GUID, HOST, IP4, IP6, NOW, PD, FakeVision, procdump_search,
+                            sysmon_payload, z, T0, OAT_ITEM)
 
-ALERT = {"id": "WB-TEST-20260924-00001", "name": "RClone Detection",
-         "createdDateTime": "2026-09-24T12:00:00Z", "severity": "high",
-         "impactScope": [{"entityType": "ip", "entityValue": "198.51.100.24"}],
-         "indicators": [{"indicatorValue": "192.0.2.8"}],
-         "endpointName": "DEMO-PC", "processName": "rclone.exe",
-         "description": "RClone command contacted 203.0.113.5; this is narrative text only"}
-
-
-class Vision:
-    async def call(self, tool, args):
-        assert tool == "workbench_alert_detail_get"
-        assert args == {"alertId": ALERT["id"]}
-        return dict(ALERT)
+LEGACY = {"id": "WB-TEST-20260924-00001", "name": "Synthetic legacy alert", "createdDateTime": "2026-09-24T12:00:00Z",
+          "impactScope": [{"entityType": "ip", "entityValue": "198.51.100.24"}],
+          "indicators": [{"indicatorValue": "192.0.2.8"}], "endpointName": "DEMO-PC", "processName": "tool.exe",
+          "description": "contacted 203.0.113.5; narrative only"}
 
 
-class QRadar:
-    def __init__(self):
-        self.queries = []
+class QRadar(Lab):
+    def __init__(self, routes=None, offenses=None):
+        super().__init__(routes or {}, offenses=offenses or {71: {"id": 71, "description": "Synthetic offense",
+                                                                    "magnitude": 5, "start_time": z(T0),
+                                                                    "last_updated_time": z(NOW)}})
 
-    async def call(self, tool, args):
-        self.queries.append((tool, args))
-        if tool == "list_source_addresses":
-            if "198.51.100.24" in args["filter"]:
-                return [{"source_ip": "198.51.100.24", "offense_ids": [71]}]
-            return []
-        if tool == "list_local_destination_addresses":
-            # A row for a different IP must never become a lead.
+    async def call(self, name, args):
+        if name == "list_source_addresses":
+            self.calls.append((name, args))
+            return [{"source_ip": IP4, "offense_ids": [71]}] if IP4 in args["filter"] else []
+        if name == "list_local_destination_addresses":
+            self.calls.append((name, args))
             return [{"local_destination_ip": "203.0.113.10", "offense_ids": [999]}]
-        if tool == "get_offense":
-            assert args == {"offense_id": 71}
-            return {"id": 71, "description": "Test offense", "magnitude": 5,
-                    "start_time": "2026-09-24T11:58:00Z", "last_updated_time": "2026-09-24T12:10:00Z"}
-        if tool == "validate_aql":
-            return {"valid": True}
-        if tool == "create_ariel_search":
-            return {"search_id": "c643b969-2626-410e-89e4-9b1e1308aab0"}
-        if tool == "get_ariel_search_status":
-            return {"status": "COMPLETED", "record_count": 0}
-        if tool == "get_ariel_search_results":
-            return {"events": []}
-        raise AssertionError(tool)
+        return await super().call(name, args)
 
 
-class AlertInvestigationTests(unittest.TestCase):
-    def test_alert_id_alone_discovers_unique_detection_host_and_process_and_focuses_ip(self):
-        sha = "a" * 40
-        class AutoVision:
-            async def call(self, tool, args):
-                if tool == "workbench_alert_detail_get":
-                    return {"id": ALERT["id"], "model": "RClone Detection",
-                            "createdDateTime": "2026-09-24T13:23:06Z"}
-                if tool == "search_detections_list":
-                    return {"items": [{"eventTime": "2026-09-24T13:15:01Z",
-                                      "endpointHostName": "DEMO-PC", "fileHash": sha,
-                                      "fullPath": r"C:\Users\Demo\rclone.exe",
-                                      "endpointIp": ["198.51.100.24"]}]}
-                if tool == "search_endpoint_activities_list":
-                    if "endpointHostName:" in args["query"]:
-                        return {"items": [{"endpointHostName": "DEMO-PC",
-                                          "endpointIp": ["10.12.34.56", "169.254.0.1"],
-                                          "eventTime": "2026-09-24T13:16:00Z"}]}
-                    return {"items": [{"eventTime": "2026-09-24T12:48:26Z",
-                                      "processFileHashSha1": sha, "endpointHostName": "DEMO-PC",
-                                      "objectFilePath": r"C:\Demo\rclone.conf"}]}
-                raise AssertionError(tool)
+def qradar_with_sysmon():
+    row = {"starttime": int((T0.timestamp() + 2) * 1000), "devicetime": int((T0.timestamp() + 1) * 1000),
+           "sourceip": IP4, "event_name": "Process Create", "log_source": "Synthetic Sysmon",
+           "raw_payload": sysmon_payload(PD, CMD, 6000, 1)}
+    other_host = dict(row, raw_payload=sysmon_payload(PD, CMD, 6000, 1, host="ws-other.example.test"))
+    return QRadar({"FROM flows": ("flows", [], None), "FROM events WHERE (sourceip": ("events", [row, other_host], None)})
 
-        qr = QRadar()
-        report = asyncio.run(investigate_vision_alert(
-            qr, AutoVision(), ALERT["id"], ariel_offset_hours=-3, enable_vision_search=True))
-        self.assertEqual(report["auto_pivots"]["source"], "unique nearby RClone detection candidate")
-        self.assertEqual(report["auto_pivots"]["discovery_status"], "unique nearby host/hash candidate")
-        self.assertEqual(report["auto_pivots"]["search_calls"], 1)
-        self.assertEqual(report["searched_ips"], ["10.12.34.56", "198.51.100.24"])
-        self.assertEqual(report["vision_activity"]["host_ips"], ["10.12.34.56"])
-        self.assertEqual(report["ariel_process_focus"]["window"]["utc_start"], "2026-09-24T12:48:14+00:00")
-        self.assertIn("starttime >=", report["ariel_process_focus"]["searches"][0]["aql"])
-        self.assertIn("not a verified", render_alert_markdown(report))
-        self.assertIn("model-or-name-v2", render_alert_markdown(report))
 
-    def test_multiple_private_interfaces_get_separate_bounded_process_time_checks(self):
-        sha = "a" * 40
-        private = ["10.12.34.56", "172.22.240.1", "192.168.56.1"]
+def run(coro):
+    return asyncio.run(coro)
 
-        class ThreeInterfaces:
-            async def call(self, tool, args):
-                if tool == "workbench_alert_detail_get":
-                    return {"id": ALERT["id"], "model": "RClone Detection",
-                            "createdDateTime": "2026-09-24T13:23:06Z"}
-                if tool == "search_detections_list":
-                    if args["query"] != 'malName:"HZ_RCLONE64"':
-                        return {"items": []}
-                    return {"items": [{"eventTime": "2026-09-24T13:15:01Z",
-                                      "endpointHostName": "DEMO-PC", "fileHash": sha,
-                                      "fullPath": r"C:\Demo\rclone.exe", "endpointIp": "198.51.100.24"}]}
-                if tool == "search_endpoint_activities_list":
-                    if args["query"].startswith("endpointHostName:"):
-                        return {"items": [{"endpointHostName": "DEMO-PC", "endpointIp": private,
-                                          "eventTime": "2026-09-24T13:16:00Z"}]}
-                    return {"items": [{"eventTime": "2026-09-24T12:48:26Z",
-                                      "processFileHashSha1": sha, "endpointHostName": "DEMO-PC"}]}
-                raise AssertionError(tool)
 
-        qr = QRadar()
-        report = asyncio.run(investigate_vision_alert(qr, ThreeInterfaces(), ALERT["id"],
-                                                      enable_vision_search=True, ariel_offset_hours=-3))
-        self.assertEqual(report["searched_ips"], ["198.51.100.24"])
-        self.assertIsNone(report["ariel_process_focus"])
-        self.assertEqual([item["candidate_ip"] for item in report["ariel_private_focus"]], private)
-        self.assertEqual(report["auto_pivots"]["search_field"], "malName")
-        focused_aql = [a["query_expression"] for name, a in qr.queries
-                       if name == "create_ariel_search" and "starttime >=" in a["query_expression"]]
-        self.assertEqual(len(focused_aql), 3)
-        self.assertTrue(all(any(f"sourceip = '{ip}'" in q for q in focused_aql) for ip in private))
-        self.assertTrue(any("no interface was automatically attributed" in msg for msg in report["warnings"]))
-        self.assertIn("multiple candidate private IPs", render_alert_markdown(report))
+class ProcDumpScenarioTests(unittest.TestCase):
+    def investigate(self, vision=None, qradar=None, **kwargs):
+        vision = vision or FakeVision(search=procdump_search, oat=lambda a: {"items": [OAT_ITEM]})
+        return run(investigate_vision_alert(qradar or qradar_with_sysmon(), vision, ALERT_ID, enable_vision_search=True,
+                                            ariel_offset_hours=-3, now=NOW, **kwargs)), vision
 
-    def test_non_rclone_model_skips_detection_search(self):
-        from soc_bridge.auto_pivot import discover_alert_pivots
+    def test_dump_chain_separates_intent_execution_file_and_target(self):
+        report, _ = self.investigate()
+        self.assertEqual(len(report["dump_analysis"]["dumps"]), 1)  # launch, access and write: one instance
+        dump = report["dump_analysis"]["dumps"][0]
+        self.assertIn("full memory dump of 4321", dump["intent"])
+        self.assertTrue(dump["execution"].startswith("observed"))
+        self.assertEqual(dump["dump_file"]["status"], "file operation in telemetry")
+        self.assertEqual(dump["target"]["status"], "confirmed by process-instance ID")
+        self.assertTrue(dump["target"]["image"].endswith("VendorApp.exe"))
+        kinds = {r["kind"] for f in dump["followups"] for r in f["records"]}
+        self.assertIn("compression candidate", kinds)
+        self.assertTrue(any("credential extraction" in n for n in dump["not_proven"]))
+        self.assertTrue(any("non-LSASS target does not make the activity benign" in h["needs"] for h in dump["hypotheses"]))
+        self.assertTrue(any("signature, vendor path, SYSTEM" in h["needs"] for h in dump["hypotheses"]))
 
-        class VisionWithNoAllowedCalls:
-            async def call(self, tool, args):
-                raise AssertionError("Unexpected search for unrelated model")
+    def test_no_automatic_credential_dumping_or_benign_verdict(self):
+        report, _ = self.investigate()
+        assessment = report["assessment"]
+        self.assertEqual(assessment["classification"], "Inconclusive")
+        self.assertIn("authorization", assessment["justification"])
+        self.assertIn("Inconclusivo", assessment["note_pt"])
+        self.assertIn("não publicada", assessment["note_pt"])
+        self.assertIn("not a QRadar closing reason", assessment["qradar_closure_note"])
 
-        result = asyncio.run(discover_alert_pivots(VisionWithNoAllowedCalls(), {
-            "model": "Generic file detection", "description": "RClone Detection",
-            "createdDateTime": "2026-09-24T13:23:06Z"}))
-        self.assertEqual(result["source"], "none")
-        self.assertEqual(result["search_calls"], 0)
-        self.assertIn("skipped: exact RClone", result["discovery_status"])
+    def test_anchor_prefers_linked_event_time_and_keeps_clocks_apart(self):
+        report, _ = self.investigate()
+        self.assertEqual(report["anchor"]["time_utc"], z(T0.replace(second=1)))
+        self.assertFalse(report["anchor"]["provisional"])
+        clocks = report["clocks"]
+        self.assertEqual(clocks["alert"]["created"]["time_utc"], ALERT["createdDateTime"])
+        self.assertTrue(any(e["kind"] == "OAT ingestion" for e in clocks["detection_or_ingestion"]))
+        self.assertEqual(report["auto_pivots"]["record_counts"]["linked"], 1)
 
-    def test_multiple_detection_identities_do_not_autopivot(self):
-        class Ambiguous:
-            async def call(self, tool, args):
-                if tool == "workbench_alert_detail_get":
-                    return {"id": ALERT["id"], "name": "RClone Detection",
-                            "createdDateTime": "2026-09-24T13:23:06Z"}
-                if tool == "search_detections_list":
-                    return {"items": [{"eventTime": "2026-09-24T13:15:01Z", "endpointHostName": name,
-                                       "fileHash": "a" * 40, "fullPath": r"C:\rclone.exe",
-                                       "endpointIp": "10.12.34.56"} for name in ("PC-A", "PC-B")]}
-                raise AssertionError(tool)
-        qr = QRadar()
-        report = asyncio.run(investigate_vision_alert(qr, Ambiguous(), ALERT["id"],
-                                                       enable_vision_search=True, ariel_offset_hours=-3))
-        self.assertEqual(report["searched_ips"], [])
-        self.assertEqual(qr.queries, [])
-        self.assertTrue(any("No unique" in w for w in report["warnings"]))
+    def test_trend_qradar_relation_needs_host_and_identifiers(self):
+        report, _ = self.investigate()
+        relations = report["qradar_correlation"]["relations"]
+        confirmed = [r for r in relations if r["label"] == "confirmed"]
+        self.assertTrue(confirmed)
+        self.assertTrue(all(r["same_host"] for r in confirmed))
+        self.assertTrue(any("command line equal" in r["identifiers_equal"] for r in confirmed))
+        self.assertIn("not compared", confirmed[0]["criteria"])
+        self.assertFalse(any(r["label"] == "confirmed" and not r["same_host"] for r in relations))
+        query = next(q for k, q in report["qradar_correlation"]["queries"].items() if ":events:" in k)
+        self.assertIn("starttime >=", query["aql"])
+        self.assertIn("LAST 24 HOURS", query["aql"])
+        self.assertTrue(query["search_id"])
+        ips = {e["ip"]: e for e in report["qradar_correlation"]["ips"]}
+        self.assertIn(IP6, ips)
+        self.assertTrue(any("IPv6" in n for n in report["qradar_correlation"]["notes"]))
 
-    def test_detection_path_fallback_when_filename_search_empty(self):
-        from soc_bridge.auto_pivot import discover_alert_pivots
+    def test_offense_leads_stay_leads(self):
+        report, _ = self.investigate()
+        self.assertEqual([o["offense_id"] for o in report["offenses"]], [71])
+        self.assertIn("not a process link", report["offenses"][0]["relation"])
 
-        class PathOnly:
-            def __init__(self):
-                self.queries = []
+    def test_only_allowlisted_read_tools_are_called_and_model_name_never_queried(self):
+        report, vision = self.investigate()
+        self.assertTrue({tool for tool, _ in vision.calls} <= ALERT_VISION_TOOLS)
+        queries = [a.get("query", "") + a.get("filter", "") for _, a in vision.calls]
+        self.assertFalse(any("Synthetic Memory Dump" in q or "malName" in q for q in queries))
+        markdown = render_alert_markdown(report)
+        self.assertIn("Nota sugerida", markdown)
+        self.assertIn("Nothing was executed, closed, isolated, posted or submitted", markdown)
 
-            async def call(self, tool, args):
-                self.queries.append(args["query"])
-                if args["query"].startswith("fileName:"):
-                    return {"items": []}
-                return {"items": [{"eventTime": "2026-09-24T13:15:01Z",
-                                  "endpointHostName": "DEMO-PC", "fileHash": "a" * 40,
-                                  "fullPath": r"C:\Demo\rclone.exe"}]}
+    def test_historical_alert_without_verified_timezone_plans_instead_of_guessing(self):
+        report, _ = self.investigate(qradar=qradar_with_sysmon())
+        late = run(investigate_vision_alert(qradar_with_sysmon(), FakeVision(search=procdump_search), ALERT_ID,
+                                            enable_vision_search=True, ariel_offset_hours=-3,
+                                            now=NOW + timedelta(days=3)))
+        stage = late["qradar_correlation"]["stages"][0]
+        self.assertEqual(stage["state"], "not_run")
+        self.assertEqual(late["qradar_correlation"]["plan"][0]["action"], "run_with_verified_timezone")
+        self.assertIn("starttime >=", late["qradar_correlation"]["plan"][0]["epoch_predicate"])
+        self.assertNotIn("not_run", [s.get("state") for s in report["qradar_correlation"]["stages"]])
 
-        vision = PathOnly()
-        result = asyncio.run(discover_alert_pivots(vision, {
-            "name": "RClone Detection", "createdDateTime": "2026-09-24T13:23:06Z"}))
-        self.assertEqual(result["host"], "DEMO-PC")
-        self.assertEqual(len(vision.queries), 2)
 
-    def test_fullpath_fallback_recovers_detection_that_filename_fields_miss(self):
-        from soc_bridge.auto_pivot import discover_alert_pivots
+class GenericDiscoveryTests(unittest.TestCase):
+    def test_other_model_uses_entities_not_model_name(self):
+        alert = dict(ALERT, model="Any Synthetic Model", name="Any Synthetic Model")
+        vision = FakeVision(alert=alert, search=procdump_search)
+        report = run(investigate_vision_alert(QRadar(), vision, ALERT_ID, enable_vision_search=True, now=NOW))
+        self.assertEqual(report["auto_pivots"]["logic"], "alert-entities-v3")
+        self.assertGreater(report["auto_pivots"]["search_calls"], 0)
+        self.assertFalse(any("Any Synthetic Model" in a.get("query", "") for _, a in vision.calls))
 
-        class FullPathOnly:
-            def __init__(self):
-                self.queries = []
+    def test_multiple_endpoints_are_all_searched(self):
+        second = {"entityType": "host", "entityId": "ffffffff-1111-4222-8333-444444444444",
+                  "entityValue": {"name": "ws-synth-02.example.test", "guid": "ffffffff-1111-4222-8333-444444444444",
+                                  "ips": ["198.51.100.20"]}}
+        alert = dict(ALERT, impactScope={"entities": ALERT["impactScope"]["entities"] + [second]})
+        vision = FakeVision(alert=alert, search=lambda tool, args: [])
+        report = run(investigate_vision_alert(QRadar(), vision, ALERT_ID, enable_vision_search=True, now=NOW))
+        queried = " ".join(a.get("query", "") for _, a in vision.calls)
+        self.assertIn(GUID, queried)
+        self.assertIn("ffffffff-1111-4222-8333-444444444444", queried)
+        self.assertEqual(report["auto_pivots"]["host"], "")
+        self.assertTrue(any("none was chosen silently" in w for w in report["warnings"]))
 
-            async def call(self, tool, args):
-                self.queries.append(args["query"])
-                if args["query"].startswith('fullPath:'):
-                    return {"items": [{"eventTime": "2026-09-24T13:15:01Z",
-                                      "endpointHostName": "DEMO-PC", "fileHash": "a" * 40,
-                                      "fullPath": r"C:\Demo\rclone.exe"}]}
-                return {"items": []}
+    def test_alert_without_identifiers_does_not_search(self):
+        alert = {"id": ALERT_ID, "model": "Synthetic", "createdDateTime": z(T0)}
+        vision = FakeVision(alert=alert)
+        report = run(investigate_vision_alert(QRadar(), vision, ALERT_ID, enable_vision_search=True, now=NOW))
+        self.assertEqual(report["auto_pivots"]["discovery_status"], "no identifiers in the alert detail to search with")
+        self.assertFalse([t for t, _ in vision.calls if t.startswith("search_")])
+        self.assertTrue(report["anchor"]["provisional"])
+        self.assertIn("No entity extracted", report["extraction"]["extraction_note"])
 
-        vision = FullPathOnly()
-        result = asyncio.run(discover_alert_pivots(vision, {
-            "model": "RClone Detection", "createdDateTime": "2026-09-24T13:23:06Z"}))
-        self.assertEqual(result["host"], "DEMO-PC")
-        self.assertEqual(result["search_calls"], 3)
-        self.assertEqual(result["search_rows"], 1)
-        self.assertEqual(result["search_field"], "fullPath")
-        self.assertTrue(all(q.endswith('"rclone.exe"') for q in vision.queries))
+    def test_optional_enrichment_failures_do_not_break_collection(self):
+        from soc_bridge.diagnostics import MCPToolFailure
+        failures = {"endpoint_security_endpoint_get": MCPToolFailure("Vision One", "endpoint_security_endpoint_get",
+                                                                    "upstream returned HTTP 403; check API permissions"),
+                    "dmm_models_list": MCPToolFailure("Vision One", "dmm_models_list",
+                                                      "upstream returned HTTP 403; response mentions license/integration availability"),
+                    "workbench_alert_notes_list": ValueError("Unexpected shape")}
+        available = ALERT_VISION_TOOLS - {"crem_attack_surface_devices_list"}
+        vision = FakeVision(search=procdump_search, failures=failures, available=available)
+        report = run(investigate_vision_alert(QRadar(), vision, ALERT_ID, enable_vision_search=True, now=NOW))
+        enrichment = report["enrichment"]
+        self.assertEqual(enrichment[f"inventory:{GUID}"]["state"], "permission")
+        self.assertEqual(enrichment["dmm_model"]["state"], "license_or_integration")
+        self.assertEqual(enrichment[f"crem_device:{HOST}"]["state"], "tool_absent")
+        self.assertEqual(enrichment["workbench_notes"]["state"], "unavailable")
+        self.assertEqual(report["auto_pivots"]["record_counts"]["linked"], 1)
+        self.assertEqual(enrichment["insight"]["state"], "not_applicable")
+        self.assertIn("not universal reputation", next(v["purpose"] for k, v in enrichment.items()
+                                                       if k.startswith("suspicious_objects")))
 
-    def test_unsupported_fullpath_field_still_checks_filepathname(self):
-        from soc_bridge.auto_pivot import discover_alert_pivots
 
-        class FilePathNameOnly:
-            async def call(self, tool, args):
-                if args["query"].startswith('fullPath:'):
-                    raise ValueError("Sensitive upstream response omitted")
-                if args["query"].startswith('filePathName:'):
-                    return {"items": [{"eventTime": "2026-09-24T13:15:01Z",
-                                      "endpointHostName": "DEMO-PC", "fileHash": "a" * 40,
-                                      "fullPath": r"C:\Demo\rclone.exe"}]}
-                return {"items": []}
+class LegacyCompatibilityTests(unittest.TestCase):
+    def test_legacy_shapes_still_parse_without_free_text(self):
+        self.assertEqual(alert_ips(LEGACY), ["192.0.2.8", "198.51.100.24"])
+        entities = alert_entities(LEGACY)
+        self.assertEqual(entities["processes"], ["tool.exe"])
+        self.assertEqual(entities["hosts"], ["DEMO-PC"])
+        self.assertNotIn("203.0.113.5", str(entities))
 
-        result = asyncio.run(discover_alert_pivots(FilePathNameOnly(), {
-            "model": "RClone Detection", "createdDateTime": "2026-09-24T13:23:06Z"}))
-        self.assertEqual(result["search_calls"], 4)
-        self.assertEqual(result["host"], "DEMO-PC")
-        self.assertIn("1 RClone detection query field", result["warnings"][-2])
-        self.assertNotIn("Sensitive upstream", str(result))
-
-    def test_model_signature_fallback_requires_exact_rclone_executable_path(self):
-        from soc_bridge.auto_pivot import discover_alert_pivots
-
-        class ModelOnly:
-            async def call(self, tool, args):
-                if args["query"] == 'malName:"HZ_RCLONE64"':
-                    return {"items": [
-                        {"eventTime": "2026-09-24T13:15:01Z", "endpointHostName": "DEMO-PC",
-                         "fileHash": "a" * 40, "fullPath": r"C:\Demo\rclone.exe"},
-                        {"eventTime": "2026-09-24T13:15:01Z", "endpointHostName": "OTHER-PC",
-                         "fileHash": "b" * 40, "fullPath": r"C:\Demo\other.exe"},
-                    ]}
-                return {"items": []}
-
-        result = asyncio.run(discover_alert_pivots(ModelOnly(), {
-            "model": "RClone Detection", "createdDateTime": "2026-09-24T13:23:06Z"}))
-        self.assertEqual(result["host"], "DEMO-PC")
-        self.assertEqual(result["hash"], "a" * 40)
-        self.assertEqual(result["search_calls"], 5)
-        self.assertEqual(result["search_field"], "malName")
-        self.assertEqual(result["candidates"], 1)
-
-    def test_model_query_with_no_file_path_is_not_attributed(self):
-        from soc_bridge.auto_pivot import discover_alert_pivots
-
-        class NoPath:
-            async def call(self, tool, args):
-                if args["query"].startswith("malName:"):
-                    return {"items": [{"eventTime": "2026-09-24T13:15:01Z",
-                                      "endpointHostName": "DEMO-PC", "fileHash": "a" * 40}]}
-                return {"items": []}
-
-        result = asyncio.run(discover_alert_pivots(NoPath(), {
-            "model": "RClone Detection", "createdDateTime": "2026-09-24T13:23:06Z"}))
-        self.assertEqual(result["host"], "")
-        self.assertEqual(result["candidates"], 0)
-
-    def test_finds_exact_ip_and_time_and_does_not_scrape_description(self):
-        qr = QRadar()
-        report = asyncio.run(investigate_vision_alert(qr, Vision(), ALERT["id"]))
-        self.assertEqual(report["alert_ips"], ["192.0.2.8", "198.51.100.24"])
-        self.assertEqual([x["offense_id"] for x in report["offenses"]], [71])
-        self.assertEqual(report["offenses"][0]["timing"], "overlaps or within six hours")
-        self.assertEqual(report["entities"]["processes"], ["rclone.exe"])
-        self.assertNotIn("203.0.113.5", str(report["alert_ips"]))
-        self.assertIn("do not search Ariel events", render_alert_markdown(report))
-        self.assertTrue(all(args["limit"] == 100 for tool, args in qr.queries
-                            if tool in {"list_source_addresses", "list_local_destination_addresses"}))
-
-    def test_no_ip_does_not_query_qradar(self):
-        class NoIPs(Vision):
-            async def call(self, tool, args):
-                return {"id": ALERT["id"], "name": "RClone Detection", "hostName": "HOST-1"}
-
-        qr = QRadar()
-        report = asyncio.run(investigate_vision_alert(qr, NoIPs(), ALERT["id"]))
-        self.assertEqual(qr.queries, [])
-        self.assertTrue(any("no explicit IP" in x for x in report["warnings"]))
-        self.assertIn("No successful address-index query", render_alert_markdown(report))
-
-    def test_view_event_fields_are_separate_and_enable_bounded_ip_lookup(self):
-        class NoIPs(Vision):
-            async def call(self, tool, args):
-                if tool == "workbench_alert_detail_get":
-                    return {"id": ALERT["id"], "name": "RClone Detection",
-                            "createdDateTime": "2026-09-20T12:00:00Z"}
-                if tool == "search_detections_list":
-                    return {"items": [{"eventTime": "2026-09-24T12:00:01Z", "fileHash": "a" * 40}]}
-                if tool == "search_endpoint_activities_list":
-                    return {"items": []}
-                raise AssertionError(tool)
-
-        qr = QRadar()
-        report = asyncio.run(investigate_vision_alert(
-            qr, NoIPs(), ALERT["id"], event_evidence={
-                "endpoint_ip": "198.51.100.24", "event_time": "2026-09-24T12:00:00Z",
-                "endpoint_host": "DEMO-PC", "file_path": r"C:\Demo\rclone.exe",
-                "process_path": r"C:\Demo\Other.exe", "file_hash": "a" * 40},
-            ariel_offset_hours=-3, enable_vision_search=True))
-        self.assertEqual(report["alert_ips"], [])
-        self.assertEqual(report["searched_ips"], ["198.51.100.24"])
-        self.assertEqual(report["successful_queries"], 2)
+    def test_address_index_leads_and_manual_event(self):
+        class V(FakeVision):
+            pass
+        vision = V(alert=dict(LEGACY, id=ALERT_ID))
+        report = run(investigate_vision_alert(QRadar(), vision, ALERT_ID, now=NOW, event_evidence={
+            "endpoint_ip": IP4, "event_time": z(T0), "endpoint_host": "DEMO-PC"}))
+        self.assertEqual(report["searched_ips"][0], IP4)
         self.assertEqual(report["offenses"][0]["offense_id"], 71)
-        self.assertEqual(report["offenses"][0]["timing"], "overlaps or within six hours")
-        self.assertEqual(report["alert_time"], "2026-09-24T12:00:00+00:00")
+        self.assertEqual(report["anchor"]["basis"], "analyst-supplied View event time (unverified by the bridge)")
         self.assertIn("analyst-supplied", render_alert_markdown(report).lower())
-        self.assertIn("QRadar Ariel events", render_alert_markdown(report))
-        self.assertEqual(len(report["ariel"]["searches"]), 2)
-        self.assertEqual(len(report["vision_activity"]["findings"]), 3)
-        self.assertIn("Vision One Search", [e["source"] for e in report["timeline"]["entries"]])
-        self.assertIn("analyst-supplied View event", [e["source"] for e in report["timeline"]["entries"]])
-        self.assertTrue(all(args["limit"] == 100 for tool, args in qr.queries
-                            if tool in {"list_source_addresses", "list_local_destination_addresses"}))
 
-    def test_rejects_invalid_manual_event_before_qradar_lookups(self):
+    def test_rejects_bad_inputs_before_queries(self):
         qr = QRadar()
+        for bad in ("WB-", "not-an-id", "WB-x';drop"):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                run(investigate_vision_alert(qr, FakeVision(), bad))
         with self.assertRaises(ValueError):
-            asyncio.run(investigate_vision_alert(qr, Vision(), ALERT["id"],
-                        event_evidence={"endpoint_ip": "not-an-ip", "event_time": "2026-09-24T12:00:00Z"}))
-        self.assertEqual(qr.queries, [])
-
-    def test_structured_view_event_fields_if_returned_by_api(self):
-        detail = {"endpointIp": "198.51.100.24", "endpointHostName": "DEMO-PC",
-                  "fileHash": "a" * 40, "fullPath": r"C:\Demo\rclone.exe"}
-        self.assertEqual(alert_ips(detail), ["198.51.100.24"])
-        self.assertEqual(alert_entities(detail)["hosts"], ["DEMO-PC"])
-        self.assertEqual(alert_entities(detail)["hashes"], ["a" * 40])
-
-    def test_rejects_unexpected_alert_id_before_address_queries(self):
-        class WrongVision(Vision):
-            async def call(self, tool, args):
-                return {"id": "WB-OTHER", "indicatorValue": "198.51.100.24"}
-
-        qr = QRadar()
+            run(investigate_vision_alert(qr, FakeVision(), ALERT_ID, event_evidence={"endpoint_ip": "x", "event_time": z(T0)}))
+        wrong = FakeVision(alert=dict(ALERT, id="WB-OTHER-1"))
         with self.assertRaises(ValueError):
-            asyncio.run(investigate_vision_alert(qr, WrongVision(), ALERT["id"]))
-        self.assertEqual(qr.queries, [])
+            run(investigate_vision_alert(qr, wrong, ALERT_ID))
+        self.assertEqual(qr.calls, [])
+
+    def test_budget_exhaustion_preserves_progress(self):
+        vision = FakeVision(search=procdump_search)
+        report = run(investigate_vision_alert(QRadar(), vision, ALERT_ID, enable_vision_search=True, now=NOW,
+                                              budget=Budget(max_calls=3)))
+        self.assertTrue(report["auto_pivots"]["continuation"])
+        self.assertTrue(all(c["action"] in ("search_partition", "refine_filters") for c in report["auto_pivots"]["continuation"]))
+        self.assertIn("Trend search partition(s) pending", " ".join(report["assessment"]["blocking"]))
 
 
 if __name__ == "__main__":

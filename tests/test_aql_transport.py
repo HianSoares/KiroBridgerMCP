@@ -19,7 +19,8 @@ class ArielTransportTests(unittest.TestCase):
         server = subprocess.Popen([sys.executable, str(Path(__file__).with_name("fake_qradar_mcp.py")), str(port)],
                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         try:
-            deadline = time.monotonic() + 10
+            # Startup can exceed 10 s on a loaded Windows host while the full suite runs.
+            deadline = time.monotonic() + 30
             while True:
                 if server.poll() is not None:
                     self.fail("Synthetic QRadar MCP server exited before startup")

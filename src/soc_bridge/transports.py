@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from .diagnostics import MCPToolFailure, failure_reason, unavailable
@@ -15,6 +16,35 @@ QRADAR_TOOLS = {"get_offense", "get_rule", "list_offense_closing_reasons", "list
 WORKBENCH_TOOLS = {"workbench_alerts_list", "workbench_alert_detail_get"}
 VISION_TOOLS = WORKBENCH_TOOLS | {"search_detections_list", "search_endpoint_activities_list",
                                   "endpoint_security_endpoints_list"}
+# Read-only enrichment tools used by alert-first investigation. Each name was checked
+# against the upstream registry (ReadOnlyHint=true); write tools stay excluded.
+ALERT_ENRICHMENT_TOOLS = {
+    "workbench_alert_notes_list", "workbench_observed_attack_techniques_list",
+    "workbench_insight_get", "workbench_insight_impact_scope_entities_list",
+    "workbench_insight_indicators_list", "workbench_insight_matched_highlights_list",
+    "search_network_activities_list", "search_identity_activities_list", "search_email_activities_list",
+    "endpoint_security_endpoint_get",
+    "threatintel_suspicious_objects_list", "threatintel_exceptions_list",
+    "dmm_models_list", "dmm_custom_models_list", "dmm_custom_filters_list", "dmm_exceptions_list",
+    "crem_attack_surface_devices_list", "crem_high_risk_devices_list",
+    "case_management_cases_list", "audit_logs_list", "sandbox_analysis_results_list", "response_tasks_list"}
+ALERT_VISION_TOOLS = VISION_TOOLS | ALERT_ENRICHMENT_TOOLS
+# Toolsets loaded for alert-first investigation; with -readonly=true the upstream registers
+# only their read tools, and ALERT_VISION_TOOLS narrows further.
+ALERT_TOOLSETS = "workbench,search,endpoint,threatintel,dmm,crem,cases,audit,sandbox,response"
+HTTP_STATUS = re.compile(r"\(HTTP (\d{3})\)")
+LICENSE_HINT = re.compile(r"licen[cs]e|not (?:enabled|activated|entitled|subscribed)|subscription|integration|"
+                          r"not supported in your region|feature is not available", re.I)
+
+
+def tool_error_reason(result: Any) -> str:
+    """Status code and a coarse hint only; the upstream body is never copied."""
+    text = " ".join(getattr(block, "text", "") for block in (result.content or []))[:20000]
+    status = HTTP_STATUS.search(text)
+    reason = f"upstream returned HTTP {status[1]}" if status else "upstream returned a tool error"
+    if LICENSE_HINT.search(text):
+        reason += "; response mentions license/integration availability"
+    return reason + "; check API permissions and local MCP logs"
 
 
 def unpack(result: Any) -> Any:
@@ -56,7 +86,7 @@ class RestrictedMCP:
         except Exception as exc:
             raise MCPToolFailure(self.source, name, failure_reason(exc)) from None
         if result.isError:
-            raise MCPToolFailure(self.source, name, "upstream returned a tool error; check API permissions and local MCP logs")
+            raise MCPToolFailure(self.source, name, tool_error_reason(result))
         if name == "validate_aql":
             structured = getattr(result, "structuredContent", None)
             if isinstance(structured, dict):
@@ -216,8 +246,9 @@ async def live_alert_investigation(alert_id: str, url: str, token: str | None,
                                    api_key: str, region: str,
                                    event_evidence: dict[str, str] | None = None,
                                    ariel_offset_hours: int | None = None,
-                                   enable_vision_search: bool = True) -> dict[str, Any]:
-    """Investigate one Vision One alert against bounded QRadar offense address indexes."""
+                                   enable_vision_search: bool = True,
+                                   timezone_verified: bool = False) -> dict[str, Any]:
+    """Investigate one Vision One alert: Workbench, Search/OAT, read-only enrichments and QRadar."""
     from contextlib import AsyncExitStack
     import os
     from urllib.parse import urlparse
@@ -238,7 +269,9 @@ async def live_alert_investigation(alert_id: str, url: str, token: str | None,
     stage = "QRadar MCP connection"
     try:
         async with AsyncExitStack() as stack:
-            http = await stack.enter_async_context(httpx.AsyncClient(headers={"SEC": token} if token else {}, timeout=30.0))
+            # Loopback only: never route telemetry/tokens through an environment proxy.
+            http = await stack.enter_async_context(httpx.AsyncClient(headers={"SEC": token} if token else {},
+                                                                     timeout=30.0, trust_env=False))
             qr_stream = await stack.enter_async_context(streamable_http_client(url, http_client=http))
             qr = await stack.enter_async_context(ClientSession(qr_stream[0], qr_stream[1]))
             stage = "QRadar MCP initialization"
@@ -248,7 +281,7 @@ async def live_alert_investigation(alert_id: str, url: str, token: str | None,
                 command="docker",
                 args=["run", "-i", "--rm", "-e", "TREND_VISION_ONE_API_KEY",
                       "ghcr.io/trendmicro/vision-one-mcp-server", "-region", region,
-                      "-readonly=true", "-toolsets=workbench,search"],
+                      "-readonly=true", f"-toolsets={ALERT_TOOLSETS}"],
                 env={**os.environ, "TREND_VISION_ONE_API_KEY": api_key},
             )
             v_stream = await stack.enter_async_context(stdio_client(params))
@@ -262,9 +295,9 @@ async def live_alert_investigation(alert_id: str, url: str, token: str | None,
             stage = "Vision One Workbench alert retrieval and QRadar evidence collection"
             report = await investigate_vision_alert(
                 RestrictedMCP(qr, QRADAR_TOOLS, qtools, {"get_offense"}, "QRadar"),
-                RestrictedMCP(vision, VISION_TOOLS, vtools, {"workbench_alert_detail_get"}, "Vision One"), alert_id,
-                event_evidence=event_evidence, ariel_offset_hours=ariel_offset_hours,
-                enable_vision_search=enable_vision_search)
+                RestrictedMCP(vision, ALERT_VISION_TOOLS, vtools, {"workbench_alert_detail_get"}, "Vision One"),
+                alert_id, event_evidence=event_evidence, ariel_offset_hours=ariel_offset_hours,
+                enable_vision_search=enable_vision_search, timezone_verified=timezone_verified)
             stage = "MCP connection shutdown"
         return report
     except Exception as exc:
