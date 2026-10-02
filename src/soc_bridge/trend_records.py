@@ -117,3 +117,21 @@ def identity(record: dict) -> tuple:
         return ("uuid", record["tool"], str(record["uuid"]))
     body = {k: v for k, v in record.items() if k not in {"query", "partition"}}
     return ("content", record["tool"], hashlib.sha256(json.dumps(body, sort_keys=True, default=str).encode()).hexdigest())
+
+
+def endpoint_identity(record: dict) -> tuple | None:
+    """An instance ID is scoped to an identified endpoint, never to an empty name."""
+    guid = str(record.get("endpoint_guid") or "").lower().strip("{}")
+    name = str(record.get("endpoint_host") or "").lower()
+    return ("guid", guid) if guid else ("host", name) if name else None
+
+
+def same_endpoint(left: dict, right: dict) -> bool:
+    """Compare explicit identities; conflicting GUIDs take precedence over a name."""
+    a, b = endpoint_identity(left), endpoint_identity(right)
+    if not a or not b:
+        return False
+    if a[0] == b[0]:
+        return a == b
+    a_name, b_name = left.get("endpoint_host"), right.get("endpoint_host")
+    return bool(a_name and b_name and a_name.lower() == b_name.lower())

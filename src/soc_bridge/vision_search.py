@@ -140,18 +140,25 @@ async def search(vision: Any, budget: Budget, tool: str, query: str, start: date
 
 
 async def oat(vision: Any, budget: Budget, filter_expr: str, start: datetime, end: datetime,
-              top: str = "200", max_batches: int = 5) -> dict:
+              top: str = "200", max_batches: int = 5, next_batch_token: str | None = None) -> dict:
     """OAT detections paged by nextBatchToken (the token the upstream handler forwards)."""
     finding: dict = {"tool": "workbench_observed_attack_techniques_list", "filter": filter_expr,
                      "window": {"start": _iso(start), "end": _iso(end)}, "items": [], "batches": 0,
                      "state": "not_started", "continuation": None, "errors": []}
-    token = None
+    token = next_batch_token
+    seen_tokens: set[str] = set()
+
+    def resume(reason: str) -> dict:
+        return {"action": "oat_next_batch" if token else "start_oat", "tool": finding["tool"],
+                "filter": filter_expr, "detectedStartDateTime": _iso(start), "detectedEndDateTime": _iso(end),
+                "top": top, "nextBatchToken": token, "nextBatchToken_present": bool(token), "reason": reason}
+
+    finding["resumed"] = bool(next_batch_token)
+    finding["coverage_note"] = "Coverage is for the requested batches; a resumed call does not include earlier batches"
     while True:
         reason = budget.blocked("call") or budget.blocked("record")
         if reason or finding["batches"] >= max_batches:
-            if token:
-                finding["continuation"] = {"action": "oat_next_batch", "nextBatchToken_present": True,
-                                           "reason": reason or "batch cap reached"}
+            finding["continuation"] = resume(reason or "batch cap reached")
             break
         args = {"filter": filter_expr, "detectedStartDateTime": _iso(start), "detectedEndDateTime": _iso(end), "top": top}
         if token:
@@ -161,12 +168,11 @@ async def oat(vision: Any, budget: Budget, filter_expr: str, start: datetime, en
             rows = records(response)
         except BudgetExhausted as exc:
             finding["errors"].append({"category": "time_budget", "message": str(exc)})
-            if token:
-                finding["continuation"] = {"action": "oat_next_batch", "nextBatchToken_present": True,
-                                           "reason": str(exc)}
+            finding["continuation"] = resume(str(exc))
             break
         except Exception as exc:
             finding["errors"].append(classify_failure(exc))
+            finding["continuation"] = resume("batch failed; retain the failed batch token and collected items")
             break
         finding["batches"] += 1
         budget.records_seen += len(rows)
@@ -176,10 +182,15 @@ async def oat(vision: Any, budget: Budget, filter_expr: str, start: datetime, en
         token = response.get("nextBatchToken") if isinstance(response, dict) else None
         if not token:
             break
+        if token in seen_tokens:
+            finding["errors"].append({"category": "response_format", "message": "OAT repeated a continuation token"})
+            finding["continuation"] = resume("repeated token; inspect upstream before resuming")
+            break
+        seen_tokens.add(token)
     if finding["errors"] and not finding["batches"]:
         finding["state"] = "unavailable"
-    elif finding["continuation"]:
-        finding["state"] = "partial"
+    elif finding["continuation"] or finding["errors"]:
+        finding["state"] = "partial" if finding["batches"] else "not_started"
     elif finding["items"]:
         finding["state"] = "complete_in_window"
     elif finding["batches"]:

@@ -121,7 +121,8 @@ class SearchTests(unittest.TestCase):
         capped = run(vision_search.oat(vision, Budget(), "agentGuid eq 'x'", T0, T0 + timedelta(hours=1), max_batches=1))
         self.assertEqual(capped["state"], "partial")
         self.assertTrue(capped["continuation"]["nextBatchToken_present"])
-        self.assertNotIn("t1", str(capped["continuation"]))
+        self.assertEqual(capped["continuation"]["nextBatchToken"], "t1")
+        self.assertEqual(capped["continuation"]["filter"], "agentGuid eq 'x'")
 
 
 class ClockTests(unittest.TestCase):

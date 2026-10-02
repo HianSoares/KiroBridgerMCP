@@ -5,7 +5,9 @@ Benign True Positive (real detection of legitimate/authorized activity), False P
 (the detected behavior did not happen as described) and Inconclusive. The bridge never
 forces a class: Benign True Positive needs an authorization source the bridge cannot
 read, and False Positive needs evidence that the behavior did not occur, never mere
-absence in a bounded search. This is not the QRadar closing reason.
+absence in a bounded search. The current telemetry/risk readers do not verify
+malicious use or authorization, so the automated disposition remains Inconclusive;
+Kiro can reassess with cited decisive evidence. This is not the QRadar closing reason.
 """
 
 from __future__ import annotations
@@ -68,7 +70,7 @@ def assess(report: dict) -> dict:
     enrichment = report.get("enrichment") or {}
     qr = report.get("qradar_correlation") or {}
     anchor = (report.get("clocks") or {}).get("anchor", {})
-    facts, discriminators, blockers, secondary = [], [], [], []
+    facts, signals, blockers, secondary = [], [], [], []
     if counts.get("linked"):
         facts.append(f"{counts['linked']} Search record(s) linked to the alert by matchedEvents uuid")
     if counts.get("identifier_match"):
@@ -80,15 +82,15 @@ def assess(report: dict) -> dict:
         executed = executed or dump["execution"].startswith("observed")
         target = _base(dump["target"].get("image"))
         if target in CREDENTIAL_STORES and dump["target"]["status"].startswith("confirmed") and \
-                dump["dump_file"]["status"].startswith("file operation"):
-            discriminators.append("full dump of a credential store confirmed by instance and file operation")
+                dump["dump_file"].get("paths"):
+            signals.append("credential-store target and attributed dump-file reference; creation and authorization unverified")
         if dump.get("connections"):
-            discriminators.append("network connection by a dump-tool or dump-file actor instance")
+            facts.append("network connection by a dump-tool or dump-file actor instance; transferred content is not established")
         blockers.append("authorization/diagnostic source for the dump is not accessible to the bridge")
     for name, item in enrichment.items():
         if name.startswith("suspicious_objects") and item.get("state") == "collected" and any(
                 str(i.get("riskLevel", "")).lower() == "high" for i in item.get("items", [])):
-            discriminators.append("alert hash present as high risk in the configured Suspicious Object List")
+            signals.append("alert hash present as high risk in the configured Suspicious Object List; execution role and malicious use need corroboration")
         if item.get("state") in ("permission", "license_or_integration", "tool_absent", "unavailable", "format"):
             secondary.append(f"enrichment {name}: {item['state']}")
     if not counts.get("linked"):
@@ -97,28 +99,37 @@ def assess(report: dict) -> dict:
         blockers.append(f"time anchor is provisional ({anchor.get('basis')})")
     if discovery.get("continuation"):
         blockers.append(f"{len(discovery['continuation'])} Trend search partition(s) pending or limited")
+    for result in discovery.get("pivots", []) + discovery.get("instance_followups", []):
+        if result.get("state") not in ("complete_in_window", "empty"):
+            blockers.append(f"Trend Search coverage {result.get('state')}: {result.get('purpose') or result.get('tool')}")
+    for result in discovery.get("oat", []):
+        if result.get("state") not in ("complete_in_window", "empty"):
+            blockers.append(f"OAT coverage {result.get('state')}: batches pending, failed or not started")
+    for dump in dumps:
+        for follow in dump.get("followups", []):
+            if follow.get("state") not in ("complete_in_window", "empty"):
+                blockers.append(f"Dump-file followup coverage {follow.get('state')}: {follow.get('file')}")
     if qr.get("plan"):
         secondary.append(f"{len(qr['plan'])} QRadar item(s) pending (continuation or verified-timezone run)")
-    if executed and discriminators:
-        classification, confidence = "True Positive", "moderate" if len(discriminators) < 2 or blockers else "high"
-        why = "behavior confirmed and malicious discriminators observed: " + "; ".join(discriminators)
+    # Current readers expose telemetry and risk labels, not a verified finding of
+    # malicious use/authorization. Do not turn either into a final disposition.
+    classification, confidence = "Inconclusive", "low" if blockers else "moderate"
+    if executed:
+        why = ("behavior observed but the collected evidence does not establish malicious or authorized use; Benign True "
+               "Positive needs an authorization source and True Positive needs a malicious discriminator tied to this execution")
     else:
-        classification, confidence = "Inconclusive", "low" if blockers else "moderate"
-        if executed:
-            why = ("behavior confirmed but nothing accessible separates authorized from malicious use; Benign True "
-                   "Positive needs an authorization source and True Positive needs a malicious discriminator")
-        else:
-            why = ("execution of the detected behavior is not confirmed in collected records; absence in bounded "
-                   "searches is not evidence of a False Positive")
+        why = ("execution of the detected behavior is not confirmed in collected records; absence in bounded "
+               "searches is not evidence of a False Positive")
     hypotheses = [
-        {"id": "malicious", "supported_by": discriminators, "would_confirm": "malicious discriminator (credential-store "
-         "target, transfer of collected data, known-bad indicator) tied to the same instance"},
+        {"id": "malicious", "supported_by": signals, "would_confirm": "verified malicious use tied to the same execution "
+         "and artifact; target, risk label or a connection alone do not prove malicious use or transfer"},
         {"id": "authorized_or_operational", "supported_by": [], "would_confirm": "authorization/change/vendor record "
          "matching host, account, time and purpose (signature, vendor path, SYSTEM and 'No Findings' are not authorization)"},
         {"id": "detection_error", "supported_by": [], "would_confirm": "linked records showing the behavior did not occur"},
         {"id": "attribution_error", "supported_by": [], "would_confirm": "identifiers showing the records belong to a different host/process"}]
     return {"classification": classification, "confidence": confidence, "justification": why,
-            "facts": facts, "malicious_discriminators": discriminators, "blocking": list(dict.fromkeys(blockers)),
+            "facts": facts, "malicious_discriminators": [], "suspicious_indicators": signals,
+            "blocking": list(dict.fromkeys(blockers)),
             "secondary": list(dict.fromkeys(secondary)), "hypotheses": hypotheses,
             "classes": {"True Positive": "malicious activity confirmed",
                         "Benign True Positive": "real detection of authorized/legitimate activity (needs authorization source)",

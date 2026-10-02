@@ -58,7 +58,8 @@ class ProcDumpScenarioTests(unittest.TestCase):
         dump = report["dump_analysis"]["dumps"][0]
         self.assertIn("full memory dump of 4321", dump["intent"])
         self.assertTrue(dump["execution"].startswith("observed"))
-        self.assertEqual(dump["dump_file"]["status"], "file operation in telemetry")
+        self.assertEqual(dump["dump_file"]["status"], "file reference attributed to dump-tool instance")
+        self.assertFalse(dump["dump_file"]["creation_confirmed"])
         self.assertEqual(dump["target"]["status"], "confirmed by process-instance ID")
         self.assertTrue(dump["target"]["image"].endswith("VendorApp.exe"))
         kinds = {r["kind"] for f in dump["followups"] for r in f["records"]}

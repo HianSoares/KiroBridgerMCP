@@ -74,9 +74,9 @@ def _qradar_records(finding: dict, plan: Any) -> list[dict]:
 
 
 def relate(trend: dict, qr: dict) -> dict:
-    """confirmed / candidate / unverified with the identifiers that were actually equal."""
+    """File equality is a lead; confirmation needs a compatible process creation."""
     host = same_host((trend.get("endpoint_host") or "").lower() or None, (qr.get("computer") or "").lower() or None)
-    matched, roles = [], []
+    matched, roles, execution = [], [], {}
     trend_time = parse(trend.get("event_time_raw"))[0]
     qr_time = parse(qr.get("utc_time"))[0]
     for role in ("process", "object"):
@@ -86,15 +86,26 @@ def relate(trend: dict, qr: dict) -> dict:
             hits.append("image path equal")
         if group.get("cmd") and qr.get("command") and group["cmd"] == qr["command"]:
             hits.append("command line equal")
-        if (group.get("pid") is not None and qr.get("pid") and str(group["pid"]) == str(qr["pid"]) and trend_time and qr_time
-                and abs((trend_time - qr_time).total_seconds()) <= TIME_TOLERANCE):
-            hits.append(f"PID equal within {TIME_TOLERANCE:.0f}s (Trend eventTime vs Sysmon UtcTime)")
+        pid_equal = group.get("pid") is not None and qr.get("pid") is not None and str(group["pid"]) == str(qr["pid"])
+        launch_time = parse(group.get("launchTime"))[0]
+        comparable = (qr.get("event_id") == 1 and pid_equal and launch_time and qr_time and trend_time
+                      and launch_time <= trend_time and abs((launch_time - qr_time).total_seconds()) <= TIME_TOLERANCE
+                      and not trend.get("cut_by_bridge") and not qr.get("payload_truncated_by_bridge"))
+        role_execution = {"pid_equal": bool(pid_equal), "trend_launch_time_utc": utc_ms(launch_time),
+                          "qradar_utc_time": utc_ms(qr_time), "compatible_creation": bool(comparable)}
+        if comparable:
+            hits.append(f"PID and launch time equal within {TIME_TOLERANCE:.0f}s of Sysmon process creation")
         sha = str(group.get("fileHashSha256") or "").lower()
         if qr.get("sha256") and len(sha) == 64 and sha == qr["sha256"].lower():
             hits.append("full SHA-256 equal")
-        if len(hits) > len(matched):
-            matched, roles = hits, [role]
-    if host and len(matched) >= 2:
+        has_content = any(hit in hits for hit in ("image path equal", "command line equal", "full SHA-256 equal"))
+        selected_content = any(hit in matched for hit in ("image path equal", "command line equal", "full SHA-256 equal"))
+        score = (role_execution["compatible_creation"] and has_content, len(hits))
+        selected_score = (execution.get("compatible_creation", False) and selected_content, len(matched))
+        if score > selected_score:
+            matched, roles, execution = hits, [role], role_execution
+    content_match = any(hit in matched for hit in ("image path equal", "command line equal", "full SHA-256 equal"))
+    if host and execution.get("compatible_creation") and content_match:
         label = "confirmed"
     elif host and matched:
         label = "candidate"
@@ -102,8 +113,10 @@ def relate(trend: dict, qr: dict) -> dict:
         label = "unverified"
     return {"label": label, "trend_uuid": trend.get("uuid"), "trend_role": roles[0] if roles else None,
             "qradar": qr["provenance"], "qradar_event_id": qr["event_id"], "same_host": host, "identifiers_equal": matched,
-            "criteria": ("confirmed = same host and at least two independent process identifiers; candidate = same host "
-                         "and one identifier; unverified = otherwise. Trend endpoint GUID and Sysmon ProcessGuid are "
+            "execution_match": execution,
+            "criteria": ("confirmed = same host, equal PID, Trend role launchTime matching Sysmon EventID 1 UtcTime "
+                         "within 2s, and a path/command/full hash match in that same role. File identity alone, missing "
+                         "launch time or other event types remain candidates. Trend endpoint GUID and Sysmon ProcessGuid are "
                          "different identifiers and are not compared.")}
 
 

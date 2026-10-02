@@ -55,6 +55,7 @@ APP_LAUNCH = rec("ev-app-1", -60, processFilePath=APP, processPid=4321, processH
 PD_LAUNCH = rec("ev-launch-1", 1, processFilePath="C:\\Windows\\System32\\cmd.exe", processPid=5000,
                 processHashId="inst-cmd", parentFilePath=APP, parentPid=4321, objectFilePath=PD, objectCmd=CMD,
                 objectPid=6000, objectProcessHashId="inst-pd", objectFileHashSha256=SHA, eventId=1, eventSubId=2,
+                objectLaunchTime=z(T0 + timedelta(seconds=1)),
                 objectSigner=["Example Signer"], objectSignerValid=[True])
 PD_ACCESS = rec("ev-access-1", 2, processFilePath=PD, processCmd=CMD, processPid=6000, processHashId="inst-pd",
                 processLaunchTime=z(T0 + timedelta(seconds=1)), objectFilePath=APP, objectPid=4321,

@@ -65,17 +65,18 @@ class ClassificationTests(unittest.TestCase):
 
     def dump(self, image, connections):
         return {"intent": "command line requests a full memory dump of 700", "execution": "observed: records",
-                "dump_file": {"status": "file operation in telemetry"},
+                "dump_file": {"status": "file reference attributed to dump-tool instance", "paths": ["C:\\sample.dmp"]},
                 "target": {"status": "confirmed by process-instance ID", "image": image}, "connections": connections}
 
-    def test_lsass_dump_with_transfer_allows_a_true_positive_recommendation(self):
+    def test_lsass_reference_and_connection_are_suspicious_but_do_not_prove_malicious_transfer(self):
         report = self.base_report(dump_analysis={"dumps": [self.dump("C:\\Windows\\System32\\lsass.exe",
                                                                      [{"dst": "203.0.113.9"}])]})
         result = assess(report)
-        self.assertEqual(result["classification"], "True Positive")
-        self.assertEqual(len(result["malicious_discriminators"]), 2)
+        self.assertEqual(result["classification"], "Inconclusive")
+        self.assertEqual(result["malicious_discriminators"], [])
+        self.assertTrue(result["suspicious_indicators"])
         self.assertIn("authorization/diagnostic source", " ".join(result["blocking"]))
-        self.assertEqual(result["confidence"], "moderate")
+        self.assertEqual(result["confidence"], "low")
 
     def test_non_lsass_dump_without_discriminator_is_not_benign(self):
         result = assess(self.base_report(dump_analysis={"dumps": [self.dump("C:\\App\\vendor.exe", [])]}))

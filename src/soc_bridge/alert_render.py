@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 SUMMARY_KEYS = ("name", "description", "severity", "status", "investigationStatus", "investigationResult", "model",
@@ -66,6 +67,13 @@ def render(report: dict[str, Any]) -> str:
                          f"{len(pivot['partitions'])}; records {pivot.get('records_fetched')}; purpose {pivot['purpose']}")
         for result in auto.get("oat", []):
             lines.append(f"- OAT `{result['filter']}`: {result['state']}; batches {result['batches']}; items {len(result['items'])}")
+            if result.get("errors"):
+                lines.append(f"  - Batch errors: {_clip(result['errors'], 500)}")
+            if result.get("continuation"):
+                # The opaque pagination token is required for resumption. Do not
+                # clip it or pretend the failed batch was consumed.
+                lines.append("  - OAT continuation (same failed/pending batch): `" +
+                             json.dumps(result["continuation"], ensure_ascii=False) + "`")
             for item in result["items"][:8]:
                 lines.append(f"  - {item.get('detected_date_time')} {item.get('link')}: "
                              f"{[f['name'] for f in item['filters']]} MITRE {[f['mitre_technique_ids'] for f in item['filters']]}")
@@ -140,6 +148,7 @@ def render(report: dict[str, Any]) -> str:
               f"- Recommended classification: {asm['classification']} (confidence {asm['confidence']})",
               f"- Justification: {asm['justification']}", f"- Facts: {asm['facts']}",
               f"- Malicious discriminators: {asm['malicious_discriminators']}",
+              f"- Suspicious indicators requiring corroboration: {asm.get('suspicious_indicators', [])}",
               f"- Blocking items: {asm['blocking']}", f"- Secondary pending items: {asm['secondary']}",
               f"- Hypotheses: {asm['hypotheses']}", f"- {asm['qradar_closure_note']}", "",
               "### Nota sugerida (pt-BR, não publicada)", "", asm["note_pt"],

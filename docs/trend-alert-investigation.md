@@ -21,7 +21,7 @@ mantêm o mesmo schema de entrada; o enriquecimento acontece por trás delas.
 3. **Descoberta independente do modelo.** Pivôs por GUID/host/IP de cada endpoint,
    hashes por papel (`process*`, `object*`, `parent*`), nome-base de caminho com
    conferência exata depois, OAT por endpoint e seguimento da instância de processo
-   (`processHashId`). Registros são `linked` (uuid em `matchedEvents`),
+   (`processHashId` e `objectProcessHashId`, com endpoint e papel preservados). Registros são `linked` (uuid em `matchedEvents`),
    `identifier_match` (candidato forte) ou `context`.
 4. **Relógios separados.** Evento, correspondência, detecção/ingestão OAT,
    criação/atualização do alerta e coleta. `createdDateTime` só é âncora provisória.
@@ -30,7 +30,11 @@ mantêm o mesmo schema de entrada; o enriquecimento acontece por trás delas.
    `startDateTime`, `endDateTime`, `top`, `mode`, `select` e o header `TMV1-Query`:
    não há token de continuação. Página cheia é dividida em partições temporais; a fatia
    mínima ainda cheia vira `limited` com plano de refinamento. OAT pagina por
-   `nextBatchToken`. `countOnly` é uma medida independente.
+   `nextBatchToken`. Falha em qualquer lote posterior mantém o resultado `partial`,
+   os itens lidos e uma continuação com token, filtro, janela e `top`. Lote não iniciado
+   também recebe plano; token repetido interrompe a paginação. Uma retomada interna
+   com `next_batch_token` cobre apenas os lotes restantes, sem afirmar que releu os anteriores.
+   `countOnly` é uma medida independente.
 6. **Enriquecimentos opcionais em leitura** (com gatilho, limite e estado):
    notas do alerta, insight (só com ID de insight no alerta), inventário do endpoint,
    dispositivo CREM, modelo e exceções DMM, Suspicious Object/Exception List,
@@ -41,13 +45,27 @@ mantêm o mesmo schema de entrada; o enriquecimento acontece por trás delas.
    casos recentes; histórico só com fuso verificado (`QRADAR_AQL_TIMEZONE_VERIFIED=true`),
    caso contrário a consulta vira plano. Eventos, flows, pista textual de hostname e
    leads de offense ficam separados; relações são `confirmed`, `candidate` ou `unverified`.
+   `confirmed` exige mesmo host, PID igual, `launchTime` do papel Trend compatível
+   com `UtcTime` de criação Sysmon EventID 1 (≤2 s), início não posterior ao evento
+   Trend e caminho/comando/hash completo no mesmo papel, sem cortes conhecidos.
+   Mesmo binário e comando em execuções distintas permanecem candidatos.
 8. **Ferramentas de dump (ProcDump).** Intenção (linha de comando), execução observada,
-   arquivo `.dmp` confirmado e alvo (PID + endpoint + início anterior; instância quando
-   disponível) são separados; atividade posterior do `.dmp` e conexões atribuíveis são
-   buscadas. Nenhuma conclusão automática de extração de credenciais.
+   referência ao arquivo `.dmp` e alvo (PID + endpoint + início anterior; instância quando
+   disponível) são separados. Atribuição de arquivo exige endpoint, instância do ator
+   e janela compatíveis; sem instância, PID/início podem produzir apenas candidato.
+   Código `eventSubId` ou extensão `.dmp` não comprovam criação/escrita: a operação fica
+   não verificada enquanto a taxonomia não for decodificada. Pivôs posteriores usam
+   o endpoint investigado e distinguem caminho exato de nome-base candidato. Conexão
+   atribuível após a referência não comprova o conteúdo transferido. Reutilização do
+   PID pelo mesmo executável também pode tornar o alvo ambíguo.
 9. **Conclusão.** Cronologia com proveniência, hipóteses concorrentes, cobertura,
-   classificação recomendada (True Positive, Benign True Positive, False Positive ou
-   inconclusiva), confiança e nota sugerida em português, nunca publicada.
+   critérios de classificação (True Positive, Benign True Positive, False Positive ou
+   inconclusiva), confiança e nota sugerida, nunca publicada. As fontes atuais de
+   telemetria e rótulos de risco não verificam uso malicioso nem autorização: a
+   classificação automática permanece `Inconclusive`. Conexões, alvo LSASS e rótulo
+   de risco alto são observações/pistas, não vereditos. O Kiro pode reavaliar com
+   evidência decisiva citada, mantendo separada a recomendação humana da coleta.
+   Falhas/limites em OAT, Search e seguimento do dump aparecem nas pendências.
 
 ## Toolsets e allowlist
 
