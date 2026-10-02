@@ -62,6 +62,10 @@ A DHCP-compatible port pattern supports a preliminary hypothesis. It does not es
 
 Linux records now receive a census of sudo actors, targets and commands across all collected pages, plus separate SSH and su/PAM searches bounded to the original offense interval. The report reads the optional live closing-reason catalog and supplies a reviewable decision, rationale and Portuguese note draft. Kiro can recommend a specific reason after cited evidence resolves the relevant gaps; it never closes the offense or posts the note.
 
+## Investigate a Vision One alert
+
+`investigate_vision_alert` parses Workbench `impactScope` entities, typed indicators and matched rules with provenance, then searches endpoint/detection data and OAT by the alert's own identifiers (not the model name) under a shared time/call/record/partition budget. Search has no continuation token in the official MCP, so full pages are split into time partitions; OAT pages by `nextBatchToken`. Optional read-only enrichments (notes, inventory, DMM, intel lists, cases, existing sandbox results and response tasks) report missing tools, permissions and licenses separately. QRadar correlation reuses the budgeted Ariel collector with epoch predicates, and each Trend↔QRadar relation is labelled confirmed, candidate or unverified. The report ends with a recommended classification and a Portuguese note for human review; nothing is closed, posted or executed. Set `QRADAR_AQL_TIMEZONE_VERIFIED=true` only after confirming the console offset for historical windows. See [Trend alert investigation](docs/trend-alert-investigation.md).
+
 ## Scope and safety
 
 - Investigations use limited searches. No Workbench alert or no result on an inspected page does **not** mean there was no endpoint activity.

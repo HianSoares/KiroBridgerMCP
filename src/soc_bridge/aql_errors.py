@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from .diagnostics import MCPToolFailure
 
 
@@ -28,6 +30,11 @@ CATEGORIES = {
     "upstream_tool_error": ("unavailable", False, "Inspect local QRadar MCP logs; the tool reported an error"),
     "response_format": ("unavailable", False, "Upstream response shape was unexpected; inspect versions/logs"),
     "invalid_argument": ("error", False, "A bridge argument was rejected before any upstream call"),
+    "license_or_integration": ("unavailable", False, "Check the product license, entitlement or connected integration"),
+    "not_found": ("unavailable", False, "Upstream did not find the identifier; this is not proof that no activity exists"),
+    "rate_limited": ("unavailable", True, "Upstream rate limit reached; resume later"),
+    "request_rejected": ("error", False, "Upstream rejected the request parameters or query syntax"),
+    "upstream_error": ("unavailable", True, "Upstream service error; retry once later"),
     "unknown": ("unavailable", False, "Inspect local service logs"),
 }
 
@@ -43,8 +50,20 @@ def classify_failure(exc: BaseException) -> dict:
         category, message = "response_format", str(exc)
     elif isinstance(exc, MCPToolFailure):
         reason = exc.reason
-        if "HTTP 401" in reason or "HTTP 403" in reason:
+        status = re.search(r"HTTP (\d{3})", reason)
+        code = int(status[1]) if status else None
+        if "license/integration" in reason:
+            category = "license_or_integration"
+        elif code in (401, 403):
             category = "permission"
+        elif code == 404:
+            category = "not_found"
+        elif code == 429:
+            category = "rate_limited"
+        elif code in (400, 422):
+            category = "request_rejected"
+        elif code is not None and code >= 500:
+            category = "upstream_error"
         elif "timed out" in reason:
             category = "timeout"
         elif "cannot connect" in reason or "connection closed" in reason:

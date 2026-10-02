@@ -15,6 +15,11 @@ de regras. As 15 tools e as avaliações preliminares seguem o
 [fluxo de verificação](offense-verification.md). Metadados não incluem
 necessariamente os testes/respostas completos da regra ativa.
 
+Alertas Trend seguem o [fluxo de investigação de alertas](trend-alert-investigation.md),
+que também lista as lacunas que dependem do MCP oficial da Trend (Search sem token
+de continuação, notas sem paginação encaminhada, Search sem campo `uuid`, DMM sem
+filtro por nome, insights apenas por ID de insight).
+
 ## Limites que continuam relevantes
 
 - Campos customizados variam por implantação. Leia os resources; não presuma

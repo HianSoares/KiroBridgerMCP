@@ -159,10 +159,15 @@ async def investigate_offense(offense_id: int) -> str:
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def investigate_vision_alert(alert_id: str) -> str:
-    """Read a Vision One alert, discover candidate entities, and query QRadar.
+    """Investigate a Vision One Workbench alert and correlate it with QRadar (read-only).
 
-    Uses bounded read-only detection/endpoint searches when the Workbench alert
-    detail omits View event entities. A candidate is not a verified alert event.
+    Parses impactScope entities, typed indicators and matched rules with provenance;
+    searches endpoint/detection data and OAT by the alert's own identifiers within a
+    shared budget (time partitions; Search has no continuation token); reads optional
+    enrichments (notes, inventory, DMM, intel lists, cases, sandbox results, tasks);
+    runs budgeted Ariel queries with epoch predicates. Returns relations labelled
+    linked/candidate/unverified and a recommended classification with a pt-BR note
+    for human review. Nothing is closed, posted, isolated, executed or submitted.
     """
     report = await live_alert_investigation(
         alert_id,
@@ -171,8 +176,14 @@ async def investigate_vision_alert(alert_id: str) -> str:
         os.environ.get("TREND_VISION_ONE_API_KEY", ""),
         os.environ.get("TREND_VISION_ONE_REGION", "us"),
         ariel_offset_hours=int(os.environ.get("QRADAR_AQL_UTC_OFFSET_HOURS", "-3")),
+        timezone_verified=_timezone_verified(),
     )
     return render_alert_markdown(report)
+
+
+def _timezone_verified() -> bool:
+    """Historical START/STOP needs an explicitly confirmed console offset (env opt-in)."""
+    return os.environ.get("QRADAR_AQL_TIMEZONE_VERIFIED", "").strip().lower() in {"1", "true", "yes"}
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
@@ -184,9 +195,10 @@ async def investigate_vision_event(alert_id: str, endpoint_ip: str, event_time: 
 
     Requires exact event IP and ISO-8601 timestamp. The supplied event fields
     are labeled manual and are not independently verified by the MCP server.
-    Runs bounded Ariel event searches when the upstream tools are available.
-    qradar_utc_offset_hours is the QRadar console's offset from UTC (for
-    example -3 in Brazil). Never performs a response action.
+    Runs the same alert investigation (Search/OAT, enrichments, budgeted Ariel
+    with epoch predicates). qradar_utc_offset_hours is the QRadar console's
+    offset from UTC; historical START/STOP also needs it confirmed via
+    QRADAR_AQL_TIMEZONE_VERIFIED. Never performs a response action.
     """
     evidence = {"endpoint_ip": endpoint_ip, "event_time": event_time,
                 "endpoint_host": endpoint_host, "file_hash": file_hash,
@@ -197,7 +209,7 @@ async def investigate_vision_event(alert_id: str, endpoint_ip: str, event_time: 
         os.environ.get("QRADAR_MCP_TOKEN"),
         os.environ.get("TREND_VISION_ONE_API_KEY", ""),
         os.environ.get("TREND_VISION_ONE_REGION", "us"), event_evidence=evidence,
-        ariel_offset_hours=qradar_utc_offset_hours,
+        ariel_offset_hours=qradar_utc_offset_hours, timezone_verified=_timezone_verified(),
     )
     return render_alert_markdown(report)
 

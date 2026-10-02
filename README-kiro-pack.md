@@ -21,6 +21,10 @@ Teste `investigate_demo` sem credenciais. Para consultas reais, siga
 campos disponíveis no deployment. Os testes automatizados usam dados fictícios,
 incluindo um servidor MCP HTTP local; não representam validação no QRadar real.
 
+Para alertas Workbench, leia a [investigação de alertas Trend](docs/trend-alert-investigation.md):
+extração estruturada, descoberta independente do modelo, enriquecimentos em leitura,
+correlação QRadar e classificação recomendada com nota para revisão humana.
+
 Leia [verificação e critérios de conclusão](docs/offense-verification.md). A
 coleta de offense agora devolve `continuation_plan`, classes de evidência de
 processo/PowerShell/integridade e lacunas estruturadas; as instruções em

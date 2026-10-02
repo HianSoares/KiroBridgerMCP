@@ -40,7 +40,7 @@ def number(value: Any) -> int | None:
 
 @dataclass
 class Budget:
-    """Shared ceiling for one collection: wall time, jobs created, polls and pages."""
+    """Shared ceiling for one collection: wall time, jobs, polls, pages, Trend calls, records, partitions."""
     max_seconds: float = 60.0
     max_queries: int = 12
     max_pages: int = 40
@@ -48,14 +48,21 @@ class Budget:
     page_size: int = 500
     poll_wait_seconds: int = 3
     clock: Callable[[], float] = time.monotonic
+    max_calls: int = 40
+    max_records: int = 5000
+    max_partitions: int = 12
     queries_started: int = 0
     pages_fetched: int = 0
     polls: int = 0
     validation_retries: int = 0
+    calls_made: int = 0
+    records_seen: int = 0
+    partitions_used: int = 0
     started: float = field(init=False)
 
     def __post_init__(self) -> None:
-        for name in ("max_queries", "max_pages", "max_polls", "page_size", "poll_wait_seconds"):
+        for name in ("max_queries", "max_pages", "max_polls", "page_size", "poll_wait_seconds",
+                     "max_calls", "max_records", "max_partitions"):
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
                 raise ValueError(f"Budget {name} must be a nonnegative integer")
@@ -73,7 +80,10 @@ class Budget:
             return "time budget exhausted"
         limits = {"query": (self.queries_started, self.max_queries, "query budget exhausted"),
                   "page": (self.pages_fetched, self.max_pages, "page budget exhausted"),
-                  "poll": (self.polls, self.max_polls, "status polling budget exhausted")}
+                  "poll": (self.polls, self.max_polls, "status polling budget exhausted"),
+                  "call": (self.calls_made, self.max_calls, "upstream call budget exhausted"),
+                  "record": (self.records_seen, self.max_records, "record budget exhausted"),
+                  "partition": (self.partitions_used, self.max_partitions, "time-partition budget exhausted")}
         used, ceiling, reason = limits[kind]
         return reason if used >= ceiling else None
 
@@ -95,7 +105,10 @@ class Budget:
                 "max_queries": self.max_queries, "queries_started": self.queries_started,
                 "max_pages": self.max_pages, "pages_fetched": self.pages_fetched,
                 "max_polls": self.max_polls, "polls": self.polls, "page_size": self.page_size,
-                "validation_retries_without_optional_fields": self.validation_retries}
+                "validation_retries_without_optional_fields": self.validation_retries,
+                "max_calls": self.max_calls, "calls_made": self.calls_made,
+                "max_records": self.max_records, "records_seen": self.records_seen,
+                "max_partitions": self.max_partitions, "partitions_used": self.partitions_used}
 
 
 TOOLS = {"poll_same_search": ["qradar_get_search_status", "qradar_get_search_results"],
