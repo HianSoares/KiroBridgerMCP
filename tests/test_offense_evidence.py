@@ -218,7 +218,7 @@ class OffenseEvidenceTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_permission_failure_is_not_a_negative_search(self):
         query = "SELECT * FROM events LIMIT 5000 LAST 1 HOURS"
-        with patch("soc_bridge.ariel_collection.start_query", AsyncMock(side_effect=RuntimeError("permission"))):
+        with patch("soc_bridge.ariel_collection.validate_query", AsyncMock(side_effect=RuntimeError("permission"))):
             finding = await collect_query(object(), query, "events", "offense_linked")
         self.assertEqual(finding["state"], "unavailable")
         self.assertFalse(finding["result_set_complete"])

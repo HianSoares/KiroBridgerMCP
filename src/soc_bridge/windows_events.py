@@ -35,6 +35,10 @@ XML_EVENT_ID = re.compile(r"<EventID[^>]*>\s*(\d{1,6})\s*</EventID>", re.I)
 XML_COMPUTER = re.compile(r"<Computer>([^<]{1,255})</Computer>", re.I)
 XML_RECORD = re.compile(r"<EventRecordID>\s*(\d{1,20})\s*</EventRecordID>", re.I)
 XML_EXECUTION = re.compile(r"<Execution\s+ProcessID\s*=\s*[\"'](\d{1,10})[\"']", re.I)
+XML_PROVIDER = re.compile(r"<Provider\s+Name\s*=\s*[\"']([^\"']{1,200})[\"']", re.I)
+XML_CHANNEL = re.compile(r"<Channel>\s*([^<]{1,200}?)\s*</Channel>", re.I)
+TEXT_CHANNEL = re.compile(r"(?<![A-Za-z])(?:Channel|AgentLogFile)\s*=\s*\"?([^\s\"]{1,200})", re.I)
+TEXT_PROVIDER = re.compile(r"(?<![A-Za-z])(?:ProviderName|Provider|SourceName)\s*=\s*\"?([^\s\"]{1,200})", re.I)
 TEXT_EVENT_ID = re.compile(r"(?<![A-Za-z])(?:EventID|Event ID|EventCode)\s*[:=]\s*\"?(\d{1,6})", re.I)
 TEXT_COMPUTER = re.compile(r"(?<![A-Za-z])Computer(?:Name)?\s*[:=]\s*\"?([A-Za-z0-9][A-Za-z0-9._-]{0,254})", re.I)
 TEXT_RECORD = re.compile(r"(?<![A-Za-z])(?:RecordNumber|EventRecordID)\s*[:=]\s*\"?(\d{1,20})", re.I)
@@ -43,7 +47,9 @@ HASH_LENGTHS = {"MD5": 32, "SHA1": 40, "SHA256": 64, "IMPHASH": 32}
 HEX = re.compile(r"^[0-9A-Fa-f]+$")
 LOGICAL_BY_NORM = {alias: name for name, aliases in LOGICAL_FIELDS.items() for alias in aliases}
 LOGICAL_BY_NORM.update({"filename": "FileName", "scriptpath": "ScriptPath", "path": "ScriptPath",
-                        "messagenumber": "MessageNumber", "messagetotal": "MessageTotal"})
+                        "messagenumber": "MessageNumber", "messagetotal": "MessageTotal",
+                        "channel": "Channel", "provider": "Provider", "providername": "Provider",
+                        "sourcename": "Provider"})
 
 
 def _put(fields: dict, name: str | None, value: Any, source: str, cut: bool = False,
@@ -148,7 +154,8 @@ def extract(row: dict, property_map: dict | None = None, truncated: list[str] | 
         if XML_DATA.search(payload) or XML_EVENT_ID.search(payload):
             payload_format = "xml"
             _from_xml(payload, fields, ambiguous, cut)
-            for regex, name in ((XML_EVENT_ID, "EventID"), (XML_COMPUTER, "Computer"), (XML_RECORD, "RecordNumber")):
+            for regex, name in ((XML_EVENT_ID, "EventID"), (XML_COMPUTER, "Computer"), (XML_RECORD, "RecordNumber"),
+                                (XML_PROVIDER, "Provider"), (XML_CHANNEL, "Channel")):
                 match = regex.search(payload)
                 if match:
                     _put(fields, name, html.unescape(match[1]), "payload:xml")
@@ -159,7 +166,8 @@ def extract(row: dict, property_map: dict | None = None, truncated: list[str] | 
             payload_format = "json"
         else:
             payload_format = "text"
-            for regex, name in ((TEXT_EVENT_ID, "EventID"), (TEXT_COMPUTER, "Computer"), (TEXT_RECORD, "RecordNumber")):
+            for regex, name in ((TEXT_EVENT_ID, "EventID"), (TEXT_COMPUTER, "Computer"), (TEXT_RECORD, "RecordNumber"),
+                                (TEXT_PROVIDER, "Provider"), (TEXT_CHANNEL, "Channel")):
                 match = regex.search(payload)
                 if match:
                     _put(fields, name, match[1], "payload:text")

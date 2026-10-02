@@ -2,18 +2,31 @@
 
 from __future__ import annotations
 
+import asyncio
 import re
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any, Awaitable, Callable
 
 from .aql_errors import AQLPolicyError, AQLValidationError, ResponseFormatError, classify_failure
-from .aql_search import check_query, search_results, search_status, start_query
+from .aql_search import check_query, create_search, search_results, search_status, validate_query
 
 # Outcomes are mutually exclusive descriptions of one query, not of the incident.
 OUTCOMES = ("not_started", "pending", "error", "unavailable", "empty",
-            "complete_in_window", "limited", "partial")
+            "complete_in_window", "limited", "partial", "creation_uncertain")
 TRUNCATED_PATH = re.compile(r"^rows\[(\d+)\]\.?(.*)$")
+# Creation failures where QRadar demonstrably did not create a job; any other
+# creation failure leaves the job's existence uncertain.
+NOT_CREATED = {"permission", "tool_unavailable"}
+
+
+class BudgetExhausted(TimeoutError):
+    """The shared collection deadline ended before or during an upstream call."""
+
+    def __init__(self, stage: str, started: bool):
+        self.stage = stage
+        self.started = started
+        super().__init__(f"time budget exhausted {'during' if started else 'before'} {stage}")
 
 
 def number(value: Any) -> int | None:
@@ -67,6 +80,16 @@ class Budget:
     def wait(self) -> int:
         return max(0, min(self.poll_wait_seconds, int(self.remaining_seconds())))
 
+    async def run(self, operation: Callable[[], Awaitable[Any]], stage: str) -> Any:
+        """Run one upstream call under the shared deadline; never start it after the deadline."""
+        remaining = self.remaining_seconds()
+        if remaining <= 0:
+            raise BudgetExhausted(stage, started=False)
+        try:
+            return await asyncio.wait_for(operation(), timeout=remaining)
+        except asyncio.TimeoutError:
+            raise BudgetExhausted(stage, started=True) from None
+
     def describe(self) -> dict:
         return {"max_seconds": self.max_seconds, "elapsed_seconds": round(self.clock() - self.started, 3),
                 "max_queries": self.max_queries, "queries_started": self.queries_started,
@@ -78,7 +101,8 @@ class Budget:
 TOOLS = {"poll_same_search": ["qradar_get_search_status", "qradar_get_search_results"],
          "fetch_next_page": ["qradar_get_search_results"],
          "new_partitioned_query": ["qradar_read_aql_resource", "qradar_run_aql"],
-         "start_planned_query": ["qradar_run_aql"]}
+         "start_planned_query": ["qradar_run_aql"],
+         "verify_creation_before_retry": []}
 
 
 def continuation(finding: dict, action: str, reason: str, cursor: int | None = None) -> dict:
@@ -91,6 +115,10 @@ def continuation(finding: dict, action: str, reason: str, cursor: int | None = N
                         "return them. Split the window or refine filters in a new validated query.")
     elif action in ("poll_same_search", "fetch_next_page"):
         plan["note"] = "Resume this search ID; do not recreate the query to obtain these results."
+    elif action == "verify_creation_before_retry":
+        plan["note"] = ("Creation did not complete in time: QRadar may or may not have created this job and its "
+                        "search ID is unknown. The bridge did not recreate it. Check the Ariel searches for this "
+                        "AQL before running it again, to avoid a duplicate job.")
     return plan
 
 
@@ -108,18 +136,17 @@ async def collect_query(qradar: Any, query: str, database: str, scope: str,
     try:
         policy = check_query(query)
     except AQLPolicyError as exc:
-        return _failed(finding, exc)
+        return _failed(finding, exc, "policy", 0)
     finding["query_limit"] = policy["query_limit"]
     finding["record_count_semantics"] = ("groups/rows returned by the aggregation; not the value of COUNT(*)"
                                          if policy["aggregated"] else "rows in the Ariel result set")
     reason = budget.blocked("query")
     if reason:
-        finding["warnings"].append(f"Query not started: {reason}")
-        finding["continuation"] = continuation(finding, "start_planned_query", reason)
-        return finding
+        return _not_started(finding, reason)
+    stage, start = "validation", 0
     try:
         try:
-            created = await start_query(qradar, query)
+            await budget.run(lambda: validate_query(qradar, query), "validation")
         except AQLValidationError:
             if not fallback_query or fallback_query == query:
                 raise
@@ -130,14 +157,22 @@ async def collect_query(qradar: Any, query: str, database: str, scope: str,
                 finding["fields"] = plan.describe()
             finding["aql"] = fallback_query
             finding["warnings"].append("QRadar rejected optional fields; collected without them (culprit not isolated)")
-            created = await start_query(qradar, fallback_query)
+            await budget.run(lambda: validate_query(qradar, fallback_query), "validation")
+        # Validation may consume the budget: check again so no job is created after the deadline.
+        reason = budget.blocked("query")
+        if reason:
+            return _not_started(finding, f"{reason} after validation")
+        stage = "creation"
+        aql = finding["aql"]
         budget.queries_started += 1
+        created = await budget.run(lambda: create_search(qradar, aql), "creation")
         sid = created["search_id"]
         finding.update(search_id=sid, state=str(created.get("status") or "WAIT").upper())
+        stage = "polling"
         while finding["state"] != "COMPLETED":
             if finding["state"] in {"ERROR", "CANCELED"}:
                 finding["outcome"] = "error"
-                finding["error"] = {"category": "job_failed", "outcome": "error", "retryable": False,
+                finding["error"] = {"category": "job_failed", "outcome": "error", "retryable": False, "stage": stage,
                                     "message": f"Ariel job ended with {finding['state']}",
                                     "next_action": "Inspect the query/window; this is not an empty completed search"}
                 finding["warnings"].append("Ariel job failed or was canceled; this is not an empty completed search")
@@ -148,18 +183,18 @@ async def collect_query(qradar: Any, query: str, database: str, scope: str,
                 finding["warnings"].append(f"Search still {finding['state']}: {reason}; resume the same search ID")
                 finding["continuation"] = continuation(finding, "poll_same_search", reason, 0)
                 return _finish(finding)
-            status = await search_status(qradar, sid, budget.wait())
+            status = await budget.run(lambda: search_status(qradar, sid, budget.wait()), "polling")
             budget.polls += 1
             finding["polls"] += 1
             finding.update(state=status["status"], record_count=status.get("record_count"))
-        start = 0
+        stage = "results"
         while True:
             reason = budget.blocked("page")
             if reason:
                 finding["warnings"].append(f"Pages remain: {reason}; continue the same search ID")
                 finding["continuation"] = continuation(finding, "fetch_next_page", reason, start)
                 break
-            page = await search_results(qradar, sid, start, budget.page_size)
+            page = await budget.run(lambda: search_results(qradar, sid, start, budget.page_size), "results")
             budget.pages_fetched += 1
             if not page.get("results_available"):
                 finding.update(state=page.get("status", "unavailable"), outcome="pending")
@@ -188,20 +223,58 @@ async def collect_query(qradar: Any, query: str, database: str, scope: str,
                 break
             start = next_start
     except Exception as exc:
-        return _failed(finding, exc)
+        return _failed(finding, exc, stage, start)
     return _finish(finding)
 
 
-def _failed(finding: dict, exc: BaseException) -> dict:
-    error = classify_failure(exc)
-    finding["error"] = error
-    finding["outcome"] = error["outcome"]
-    # "rejected" = refused before any job existed; "unavailable" = could not be read.
-    finding["state"] = "rejected" if error["category"] in ("local_policy", "upstream_validation") else "unavailable"
-    finding["result_set_complete"] = False
-    finding["warnings"].append(f"{error['category']}: {error['message']}. {error['next_action']}")
-    if finding.get("search_id") and error["retryable"]:
-        finding["continuation"] = continuation(finding, "poll_same_search", error["category"], 0)
+def _not_started(finding: dict, reason: str) -> dict:
+    """No job exists for this query; the plan is to start it, never to resume something."""
+    finding["warnings"].append(f"Query not started: {reason}")
+    finding["continuation"] = continuation(finding, "start_planned_query", reason)
+    return _finish(finding)
+
+
+def _uncertain(finding: dict, error: dict) -> dict:
+    finding.update(outcome="creation_uncertain", state="creation_uncertain", error=error)
+    finding["warnings"].append("Job creation did not complete: QRadar may have created it, search ID unknown; "
+                               "not recreated automatically")
+    finding["continuation"] = continuation(finding, "verify_creation_before_retry", error["category"])
+    return _finish(finding)
+
+
+def _failed(finding: dict, exc: BaseException, stage: str, cursor: int) -> dict:
+    """Classify by stage: keep known search IDs, rows and the cursor of the page that failed."""
+    if isinstance(exc, BudgetExhausted):
+        if stage == "validation" or not exc.started:
+            return _not_started(finding, str(exc))
+        error = {"category": "time_budget", "outcome": "unavailable", "retryable": True, "stage": stage,
+                 "message": str(exc), "next_action": "Resume within a new budget"}
+        if stage == "creation":
+            error.update(category="creation_timeout", outcome="creation_uncertain", retryable=False,
+                         next_action="Check the Ariel searches for this AQL before running it again")
+            return _uncertain(finding, error)
+        finding["error"] = error
+    else:
+        error = {**classify_failure(exc), "stage": stage}
+        finding["error"] = error
+        if stage == "creation" and not (error["category"] in NOT_CREATED or (
+                error["category"] == "connection" and "cannot connect" in error["message"])):
+            return _uncertain(finding, error)
+        finding["outcome"] = error["outcome"]
+        # "rejected" = refused before any job existed; "unavailable" = could not be read.
+        finding["state"] = ("rejected" if error["category"] in ("local_policy", "upstream_validation")
+                            else "unavailable")
+    finding["warnings"].append(f"{stage} {error['category']}: {error['message']}. {error['next_action']}")
+    if stage == "polling":
+        finding["outcome"] = "pending" if error["category"] == "time_budget" else finding["outcome"]
+        finding["continuation"] = continuation(finding, "poll_same_search", f"{stage}: {error['category']}", 0)
+    elif stage == "results":
+        # Rows from earlier pages stay; coverage is partial from the page that failed onward.
+        finding["outcome"] = "partial"
+        finding["warnings"].append(f"Rows before cursor {cursor} kept; the page at {cursor} was not read")
+        finding["continuation"] = continuation(finding, "fetch_next_page", f"{stage}: {error['category']}", cursor)
+    elif error["retryable"]:
+        finding["continuation"] = continuation(finding, "start_planned_query", f"{stage}: {error['category']}")
     return _finish(finding)
 
 

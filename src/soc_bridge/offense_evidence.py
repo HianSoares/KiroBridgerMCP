@@ -5,14 +5,15 @@ from __future__ import annotations
 import base64
 import binascii
 import hashlib
+import json
 import re
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from . import focused_queries, integrity_evidence, process_chain
-from .aql_fields import EVENT_COLUMNS, FLOW_COLUMNS, LOGICAL_FIELDS, load_catalog, plan_select
-from .ariel_collection import Budget, collect_query, number
+from .aql_fields import EVENT_COLUMNS, FLOW_COLUMNS, LOGICAL_FIELDS, FieldCatalog, load_catalog, plan_select
+from .ariel_collection import Budget, BudgetExhausted, collect_query, number
 from .core import address, instant
 from .offense_assessment import assess, gap, query_gaps
 from .windows_events import extract
@@ -147,6 +148,33 @@ def host_summary(rows: list[dict]) -> dict:
             "no_anomaly_claim_permitted": False}
 
 
+def record_identity(row: dict, record: dict) -> tuple[tuple | None, str]:
+    """Identity of one stored record, or None when the evidence cannot tell two records apart.
+
+    Same origin (log source), stored and device times, event ID, host/provider/channel
+    and record number when present, plus identical content (payload, or the selected
+    properties for payload-less rows). Missing parts make the key stricter, never looser.
+    """
+    origin, stored = row.get("log_source"), row.get("starttime")
+    if origin in (None, "") or stored is None:
+        return None, "kept separate: log source or stored time missing"
+    payload = row.get("raw_payload")
+    if isinstance(payload, str) and payload:
+        content = "payload:" + hashlib.sha256(payload.encode("utf-8", "replace")).hexdigest()
+    else:
+        properties = sorted((k, v["value"]) for k, v in record["fields"].items() if v["source"].startswith("property:"))
+        if not properties:
+            return None, "kept separate: no payload or selected properties to compare"
+        content = "properties:" + hashlib.sha256(json.dumps(properties).encode("utf-8")).hexdigest()
+    fields = record["fields"]
+    parts = {"log_source": str(origin), "starttime": stored, "devicetime": row.get("devicetime"),
+             "event_id": record["event_id"], "content": content}
+    for name in ("Computer", "Provider", "Channel", "RecordNumber"):
+        if name in fields:
+            parts[name] = fields[name]["value"].lower()
+    return tuple(sorted((k, str(v)) for k, v in parts.items())), "matched on " + ", ".join(sorted(parts))
+
+
 def _records(name: str, finding: dict, property_map: dict, seen: dict) -> list[dict]:
     """Parse relevant Windows records with provenance; the same record from two queries is kept once."""
     out = []
@@ -154,22 +182,21 @@ def _records(name: str, finding: dict, property_map: dict, seen: dict) -> list[d
         record = extract(row, property_map, finding.get("truncated_rows", {}).get(str(index), []))
         if record["event_id"] not in RELEVANT_IDS:
             continue
-        number_field = record["fields"].get("RecordNumber", {}).get("value")
-        computer = record["fields"].get("Computer", {}).get("value", "").lower()
-        key = ((record["event_id"], computer, number_field) if number_field else
-               (record["event_id"], row.get("starttime"),
-                hashlib.sha256(str(row.get("raw_payload")).encode("utf-8", "replace")).hexdigest()))
+        key, basis = record_identity(row, record)
         provenance = {"query": name, "scope": finding["scope"], "search_id": finding.get("search_id"),
                       "result_row_index": index, "starttime": row.get("starttime"),
                       "starttime_utc": utc(row.get("starttime")), "devicetime_utc": utc(row.get("devicetime")),
                       "qid_name": row.get("event_name"), "log_source": row.get("log_source"),
-                      "event_id_source": record["event_id_source"], "payload_format": record["payload_format"]}
-        if key in seen:
+                      "event_id_source": record["event_id_source"], "payload_format": record["payload_format"],
+                      "identity": basis}
+        if key is not None and key in seen:
             seen[key]["provenance"].setdefault("also_returned_by", []).append(
-                {"query": name, "result_row_index": index})
+                {"query": name, "scope": finding["scope"], "search_id": finding.get("search_id"),
+                 "result_row_index": index})
             continue
         record["provenance"] = provenance
-        seen[key] = record
+        if key is not None:
+            seen[key] = record
         out.append(record)
     return out
 
@@ -204,7 +231,12 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
         result["gaps"].append(text)
         result["gap_details"].append(gap(gap_id, scope, state, blocks, evidence, action, text))
 
-    catalogs = {db: await load_catalog(qradar, db) for db in ("events", "flows")}
+    catalogs = {}
+    for db in ("events", "flows"):
+        try:
+            catalogs[db] = await budget.run(lambda: load_catalog(qradar, db), f"{db} field resource")
+        except BudgetExhausted:
+            catalogs[db] = FieldCatalog(db, "not_read_time_budget")
     for db, catalog in catalogs.items():
         result["field_catalogs"][db] = catalog.describe()
         if catalog.state != "available":
@@ -288,10 +320,12 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
             continue
         entry = {"id": number(ref["id"]), "type": ref.get("type"), "state": "unavailable"}
         try:
-            details = await qradar.call("get_rule", {"rule_id": entry["id"]})
+            details = await budget.run(lambda: qradar.call("get_rule", {"rule_id": entry["id"]}), "rule metadata")
             if not isinstance(details, dict) or number(details.get("id")) != entry["id"]:
                 raise ValueError("Rule metadata ID mismatch")
             entry.update(state="collected", metadata=details)
+        except BudgetExhausted as exc:
+            entry.update(state="not_read", reason=f"Rule metadata not read: {exc}")
         except Exception as exc:
             entry["reason"] = f"Rule metadata unavailable ({type(exc).__name__})"
         result["rules"].append(entry)
@@ -465,10 +499,12 @@ async def verify_offense(qradar: Any, offense_id: int, qradar_utc_offset_hours: 
                          timezone_verified: bool = False) -> dict:
     if isinstance(offense_id, bool) or not isinstance(offense_id, int) or offense_id < 1:
         raise ValueError("offense_id must be a positive integer")
-    offense = await qradar.call("get_offense", {"offense_id": offense_id})
+    budget = Budget()  # one deadline for metadata and every collection call
+    offense = await budget.run(lambda: qradar.call("get_offense", {"offense_id": offense_id}), "offense metadata")
     if not isinstance(offense, dict) or offense.get("id") != offense_id:
         raise ValueError("Unexpected offense metadata ID")
-    return await collect_offense_evidence(qradar, offense, qradar_utc_offset_hours, timezone_verified)
+    return await collect_offense_evidence(qradar, offense, qradar_utc_offset_hours, timezone_verified,
+                                          budget=budget)
 
 
 def _clip(text: Any, size: int = 600) -> str:

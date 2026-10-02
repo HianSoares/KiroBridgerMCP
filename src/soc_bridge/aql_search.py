@@ -155,15 +155,19 @@ async def validate_query(qradar: Any, query: str, justification: str = "") -> di
     return {"valid": True, "query_expression": query, "scope": policy}
 
 
-async def start_query(qradar: Any, query: str, justification: str = "") -> dict[str, Any]:
-    validated = await validate_query(qradar, query, justification)
+async def create_search(qradar: Any, query: str) -> dict[str, Any]:
+    """Create the Ariel job for an already validated query; one call, never retried here."""
     created = await qradar.call("create_ariel_search", {"query_expression": query})
     if not isinstance(created, dict):
         raise ResponseFormatError("Unexpected Ariel search creation response")
     sid = created.get("search_id")
     _search_id(sid)
-    return {**validated, "search_id": sid, "status": created.get("status", "WAIT"),
-            "source": "QRadar Ariel via IBM MCP"}
+    return {"search_id": sid, "status": created.get("status", "WAIT"), "source": "QRadar Ariel via IBM MCP"}
+
+
+async def start_query(qradar: Any, query: str, justification: str = "") -> dict[str, Any]:
+    validated = await validate_query(qradar, query, justification)
+    return {**validated, **await create_search(qradar, query)}
 
 
 async def search_status(qradar: Any, search_id: str, wait_seconds: int = 3) -> dict[str, Any]:

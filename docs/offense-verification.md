@@ -51,6 +51,19 @@ formato). Ao fim do orçamento, `continuation_plan` traz search ID, cursor, AQL,
 escopo, motivo e as tools para continuar. LIMIT atingido gera
 `new_partitioned_query`, porque paginar o mesmo job não devolve linhas excluídas.
 
+O orçamento é um prazo compartilhado: catálogos, validação, criação, polling,
+páginas e metadados de regras rodam com o tempo restante e nada começa depois do
+prazo. O orçamento é conferido de novo entre validação e criação. Se a criação
+não terminar no prazo, a consulta fica `creation_uncertain` com a ação
+`verify_creation_before_retry`: o job pode existir sem search ID conhecido, e a
+ponte não o recria. Falha numa página preserva as linhas lidas e o cursor daquela
+página; falha no polling preserva o search ID.
+
+Registros devolvidos por mais de uma consulta só são unificados quando log
+source, horários, EventID, host/provider/channel/RecordNumber (quando presentes)
+e conteúdo coincidem; a proveniência de cada consulta fica em `also_returned_by`.
+Sem identidade suficiente, os registros permanecem separados.
+
 ## Como pedir ao Kiro
 
 > Use qradar_verify_offense para a offense informada. Leia os metadados originais,
