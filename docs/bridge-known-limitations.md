@@ -60,3 +60,7 @@ Os testes são sintéticos, incluindo transporte MCP HTTP local. Disponibilidade
 das fontes, dados históricos e permissões precisam ser verificados na instalação.
 
 Descoberta por descrição e investigação em lotes: [guia](offense-batch-investigation.md). As duas novas tools são `qradar_find_offenses` e `qradar_investigate_offenses`.
+
+## Cobertura dos catálogos upstream
+
+A [matriz de cobertura](coverage-matrix.md) lista todas as tools dos MCPs oficiais com suporte, gatilho, limites, paginação e justificativa de exclusão. Presença no catálogo não garante disponibilidade na instalação. Filtros server-side não confirmados em ambiente real (assets por IP, `createdDateTime` de insights, `userDisplayName` de identidade) têm o resultado conferido localmente e, se rejeitados, aparecem como `request_rejected`. Detalhes em [cobertura investigativa](investigative-coverage.md).

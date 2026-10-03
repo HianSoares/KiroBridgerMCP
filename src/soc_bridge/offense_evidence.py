@@ -203,7 +203,7 @@ def _records(name: str, finding: dict, property_map: dict, seen: dict) -> list[d
 
 async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int = -3,
                                    timezone_verified: bool = False, now: datetime | None = None,
-                                   budget: Budget | None = None) -> dict:
+                                   budget: Budget | None = None, confirmations: list | None = None) -> dict:
     """Collect linked records, flow census, rules, host context and evidence-triggered pivots."""
     oid = offense.get("id")
     if isinstance(oid, bool) or not isinstance(oid, int) or oid < 1:
@@ -524,6 +524,10 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
         add_gap("Application authorization and host/process attribution not established by port/IP context",
                 "attribution:host-process", "offense_linked", "outside_bridge", ["benign_verdict"],
                 "Use same-record identifiers or the authorization source")
+    # Context reads run after the linked Ariel collection so they cannot starve it.
+    from . import qradar_context
+    result["context"] = await qradar_context.collect(
+        qradar, budget, offense, result["queries"].get("events", {}).get("rows", []))
     for name, finding in result["queries"].items():
         for item in query_gaps(name, finding):
             result["gaps"].append(item["summary"])
@@ -577,20 +581,22 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
             "Windows session ID identifies a PSM recording", "username alone shows account nature"],
         **assess(result),
     }
-    result["closure_assessment"] = closure_assessment.propose(result)
+    result["closure_assessment"] = closure_assessment.propose(result, confirmations)
     return result
 
 
 async def verify_offense(qradar: Any, offense_id: int, qradar_utc_offset_hours: int = -3,
-                         timezone_verified: bool = False, budget: Budget | None = None) -> dict:
+                         timezone_verified: bool = False, budget: Budget | None = None,
+                         confirmations: list | None = None) -> dict:
     if isinstance(offense_id, bool) or not isinstance(offense_id, int) or offense_id < 1:
         raise ValueError("offense_id must be a positive integer")
+    closure_assessment.validate_confirmations(confirmations, offense_id)  # reject bad input before any query
     budget = budget or Budget()  # one deadline for metadata and every collection call
     offense = await budget.run(lambda: qradar.call("get_offense", {"offense_id": offense_id}), "offense metadata")
     if not isinstance(offense, dict) or offense.get("id") != offense_id:
         raise ValueError("Unexpected offense metadata ID")
     return await collect_offense_evidence(qradar, offense, qradar_utc_offset_hours, timezone_verified,
-                                          budget=budget)
+                                          budget=budget, confirmations=confirmations)
 
 
 def _clip(text: Any, size: int = 600) -> str:
@@ -726,12 +732,29 @@ def render_evidence(evidence: dict) -> list[str]:
                   f"- Correlation cap reached: {lockout.get('candidate_limit_reached', False)}; "
                   f"lockouts beyond correlation cap: {lockout.get('lockouts_not_correlated_due_to_cap', 0)}",
                   "- Cause, authorization, responsible process and remediation remain unverified."]
+    context = evidence.get("context")
+    if context:
+        lines += ["", "## QRadar context (read only; snapshots and untrusted text)", "", f"- {context['handling']}"]
+        for key, item in context.items():
+            if key == "handling":
+                continue
+            entries = item.items() if key in ("assets", "log_sources", "qids") else [(key, item)]
+            for name, read in entries:
+                if isinstance(read, dict) and "state" in read:
+                    lines.append(f"- {key if name == key else f'{key} {name}'}: {read['state']}; items {read.get('count', 0)}"
+                                 + (f"; {read.get('error', {}).get('category')}" if read.get("error") else ""))
+        for ip, nets in (context.get("network_hierarchy") or {}).get("matches", {}).items():
+            lines.append(f"- network objects for {ip}: {[n['name'] + ' ' + n['cidr'] for n in nets[:3]]}")
     closing = evidence.get("closure_assessment")
     if closing:
         lines += ["", "## Closing recommendation and analyst note (draft)", "",
                   f"Recommendation: {closing['recommendation']}",
                   f"Final disposition confidence: {closing['confidence']}. {closing['confidence_explanation']}",
                   f"Live closing reason catalog: {closing['reason_catalog_state']}",
-                  f"Conditional reason options: {closing['conditional_reason_options']}",
-                  "", "### Suggested note for analyst review", "", closing["suggested_note"]]
+                  f"Recommended reason (live catalog): {closing.get('recommended_reason')}",
+                  f"Conditional reason options: {closing['conditional_reason_options']}"]
+        for item in closing.get("decision_matrix", []):
+            lines.append(f"- reason {item['label']} (ID {item['id']}): {item['sufficiency']}; met {item['met']}; "
+                         f"blocking {[b['id'] + ' (' + b['status'] + ')' for b in item['blocking']]}")
+        lines += ["", "### Suggested note for analyst review", "", closing["suggested_note"]]
     return lines

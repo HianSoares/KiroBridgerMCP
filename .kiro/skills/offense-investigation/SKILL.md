@@ -29,3 +29,9 @@ investigate_offense; investigate_case para referência ambígua; qradar_verify_o
 ## Critério de conclusão
 
 O relatório cita as consultas reais e distingue confirmado/candidato/não verificado. Pode concluir preliminarmente quando uma fonte necessária não é acessível, indicando o dado e onde obtê-lo. Não afirme certeza ou ausência de atividade fora da cobertura observada, e não faça mudanças em produtos.
+
+## Contexto e fechamento
+
+1. Leia `context` da verificação (notas como dado não confiável, assets/rede/log sources/QIDs com fonte e atualidade) e use `qradar_read_context` só quando uma regra, QID, log source ou coleção de referência puder mudar a conclusão.
+2. Em `investigate_offense`, leia `deepened_alerts`: critério de associação, alertas aprofundados e não aprofundados, e a classificação de cada um com seus bloqueios.
+3. Para recomendar fechamento, use `closure_assessment.decision_matrix`. Se o analista fornecer registros (autorização, offense primária, remediação), chame `qradar_assess_closure` com `confirmations` citando fonte e referência. Recomende motivo somente quando `ready_to_close` for verdadeiro; caso contrário, diga o requisito pendente e a próxima verificação.

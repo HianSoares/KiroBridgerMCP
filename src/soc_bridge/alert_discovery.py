@@ -146,34 +146,83 @@ async def discover(vision: Any, budget: Budget, parsed: dict, anchor: dict) -> d
     out["window"] = {"start": vision_search._iso(start), "end": vision_search._iso(end), "justification": why}
     seen: dict = {}
     collected: list[dict] = []
-    plans: list[dict] = []
+    broad: list[dict] = []
     for endpoint in endpoints:
         clause, basis = endpoint_clause(endpoint)
         if clause:
-            plans.append({"tool": "search_endpoint_activities_list", "query": clause,
-                          "purpose": f"endpoint activity by {basis}"})
+            broad.append({"tool": "search_endpoint_activities_list", "query": clause,
+                          "purpose": f"endpoint activity by {basis}", "priority": "broad context"})
             det_clause, _ = endpoint_clause(endpoint, detections=True)
-            plans.append({"tool": "search_detections_list", "query": det_clause, "purpose": f"detections by {basis}"})
+            broad.append({"tool": "search_detections_list", "query": det_clause, "purpose": f"detections by {basis}",
+                          "priority": "broad context"})
         else:
             out["warnings"].append(f"Endpoint from {endpoint['sources'][0]}: {basis}; not searched")
     scoped = [e for e in endpoints if endpoint_clause(e)[0]]
+    specific: list[dict] = []
     for pivot in indicator_pivots(parsed):
         # One pivot per endpoint: no endpoint is picked silently over the others.
         for endpoint in scoped or [None]:
             clause = endpoint_clause(endpoint, pivot["tool"] == "search_detections_list")[0] if endpoint else None
             query = f"{clause} and {pivot['query']}" if clause else pivot["query"]
-            plans.append({**pivot, "query": query,
-                          "purpose": pivot["purpose"] + ("" if clause else " (no endpoint scope: results are candidates)")})
-    if not plans:
+            specific.append({**pivot, "query": query, "priority": "specific identifier",
+                             "purpose": pivot["purpose"] + ("" if clause else " (no endpoint scope: results are candidates)")})
+    if not specific and not broad:
         out["discovery_status"] = "no identifiers in the alert detail to search with"
         out["warnings"].append("No endpoint, hash or file path was extracted; no bounded search is justified")
         return _finish(out, [], parsed, endpoints)
-    for plan in plans:
-        finding = await vision_search.search(vision, budget, plan["tool"], plan["query"], start, end,
-                                             purpose=plan["purpose"], count=False, seen=seen)
-        out["pivots"].append({k: v for k, v in finding.items() if k != "records"})
-        out["continuation"].extend(finding["continuation"])
-        collected.extend(finding["records"])
+    out["priority_order"] = ["alert hashes/paths on the alert endpoints", "process instances found by them",
+                             "OAT for the alert endpoints", "endpoint-wide activity and detections",
+                             "process instances found only in endpoint-wide activity"]
+    followed: set = set()
+
+    async def run(plans: list[dict]) -> None:
+        for plan in plans:
+            finding = await vision_search.search(vision, budget, plan["tool"], plan["query"], start, end,
+                                                 purpose=plan["purpose"], count=False, seen=seen)
+            out["pivots"].append({k: v for k, v in finding.items() if k != "records"} | {"priority": plan["priority"]})
+            out["continuation"].extend(finding["continuation"])
+            collected.extend(finding["records"])
+
+    async def follow() -> None:
+        instances = {}
+        for record in collected:
+            label, _ = classify(record, parsed, endpoints)
+            if label not in ("linked", "identifier_match") or not endpoint_identity(record):
+                continue
+            for role, field in (("process", "hashId"), ("object", "processHashId")):
+                hash_id = record.get(role, {}).get(field)
+                if isinstance(hash_id, str) and INSTANCE_ID.fullmatch(hash_id):
+                    key = (endpoint_identity(record), hash_id)
+                    if key in followed:
+                        continue
+                    instance = instances.setdefault(key, {"record": record, "id": hash_id, "roles": []})
+                    if role not in instance["roles"]:
+                        instance["roles"].append(role)
+        room = MAX_INSTANCES - len(followed)
+        if len(instances) > room:
+            out["warnings"].append(f"Process-instance cap: {MAX_INSTANCES} instances followed in total; "
+                                   f"{len(instances) - max(room, 0)} not followed")
+        for key, instance in list(instances.items())[:max(room, 0)]:
+            followed.add(key)
+            hash_id, record = instance["id"], instance["record"]
+            scope, _ = endpoint_clause({"guid": record.get("endpoint_guid"), "name": record.get("endpoint_host"),
+                                        "ips": record.get("endpoint_ips", [])})
+            if not scope:
+                out["warnings"].append("Process-instance followup skipped: no validated endpoint scope")
+                continue
+            when = parse(record.get("event_time_raw"))[0] or start
+            finding = await vision_search.search(vision, budget, "search_endpoint_activities_list",
+                                                 f"{scope} and {term('processHashId', hash_id)}", when - timedelta(minutes=1),
+                                                 when + timedelta(minutes=60), purpose="later activity of the same process instance",
+                                                 seen=seen)
+            out["instance_followups"].append({k: v for k, v in finding.items() if k != "records"} |
+                                             {"process_hash_id": hash_id, "source_roles": instance["roles"],
+                                              "endpoint": endpoint_identity(record)})
+            out["continuation"].extend(finding["continuation"])
+            collected.extend(finding["records"])
+
+    await run(specific)
+    await follow()
     for endpoint in endpoints:
         guid = GUID.fullmatch(endpoint.get("guid") or "")
         name = endpoint.get("name") or ""
@@ -185,37 +234,8 @@ async def discover(vision: Any, budget: Budget, parsed: dict, anchor: dict) -> d
                 item["link"] = ("linked by uuid" if item.get("uuid") in parsed["matched_event_uuids"]
                                 else "candidate (same endpoint and window)")
             out["oat"].append(result)
-    instances = {}
-    for record in collected:
-        label, _ = classify(record, parsed, endpoints)
-        if label not in ("linked", "identifier_match") or not endpoint_identity(record):
-            continue
-        for role, field in (("process", "hashId"), ("object", "processHashId")):
-            hash_id = record.get(role, {}).get(field)
-            if isinstance(hash_id, str) and INSTANCE_ID.fullmatch(hash_id):
-                key = (endpoint_identity(record), hash_id)
-                instance = instances.setdefault(key, {"record": record, "id": hash_id, "roles": []})
-                if role not in instance["roles"]:
-                    instance["roles"].append(role)
-    if len(instances) > MAX_INSTANCES:
-        out["warnings"].append(f"Process-instance cap: {MAX_INSTANCES} of {len(instances)} instances followed")
-    for instance in list(instances.values())[:MAX_INSTANCES]:
-        hash_id, record = instance["id"], instance["record"]
-        scope, _ = endpoint_clause({"guid": record.get("endpoint_guid"), "name": record.get("endpoint_host"),
-                                    "ips": record.get("endpoint_ips", [])})
-        if not scope:
-            out["warnings"].append("Process-instance followup skipped: no validated endpoint scope")
-            continue
-        when = parse(record.get("event_time_raw"))[0] or start
-        finding = await vision_search.search(vision, budget, "search_endpoint_activities_list",
-                                             f"{scope} and {term('processHashId', hash_id)}", when - timedelta(minutes=1),
-                                             when + timedelta(minutes=60), purpose="later activity of the same process instance",
-                                             seen=seen)
-        out["instance_followups"].append({k: v for k, v in finding.items() if k != "records"} |
-                                         {"process_hash_id": hash_id, "source_roles": instance["roles"],
-                                          "endpoint": endpoint_identity(record)})
-        out["continuation"].extend(finding["continuation"])
-        collected.extend(finding["records"])
+    await run(broad)
+    await follow()
     return _finish(out, collected, parsed, endpoints)
 
 

@@ -32,3 +32,10 @@ Resumo do comportamento observado; cronologia com proveniência; relações Tren
 ## Critério de conclusão
 
 Cada pivô mantém proveniência, timezone e limite. Detecção próxima não vira parte do alerta sem vínculo por uuid ou identificadores. A classificação só avança quando a evidência citada resolve os impedimentos; sem dados decisivos, explique por que continua preliminar. Nada é fechado, publicado, isolado, executado ou submetido.
+
+## Leitura do relatório ampliado
+
+1. Comece por `insights` (critério de relação) e `auto_pivots.priority_order`; depois `hypothesis_checks` e só então `enrichment`.
+2. Para cada conclusão, leia `assessment.decision_matrix`: cite os requisitos atendidos e o que bloqueia aquela conclusão específica, com o status de evidência (confirmado, compatível, candidato, não verificado, não retornou, não executado).
+3. Se `budget.phase_log` ou `lead_queries` mostrar etapa não executada, diga "não executado", nunca "nenhum resultado".
+4. Hipóteses concorrentes: registre o teste feito para cada uma (`hypotheses[].status`) e a próxima verificação que mudaria a decisão.

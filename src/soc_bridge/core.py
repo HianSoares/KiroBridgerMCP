@@ -83,9 +83,10 @@ def _escape_filter(value: str) -> str:
 
 async def investigate(qradar: ToolCaller, vision: ToolCaller, offense_id: int,
                       max_indicators: int = 8, max_alerts: int = 20,
-                      deep: bool = False, ariel_offset_hours: int = -3) -> dict[str, Any]:
+                      deep: bool = False, ariel_offset_hours: int = -3,
+                      deepen_alerts: int = 0) -> dict[str, Any]:
     """Use read-only MCP tools. No changes to either security platform."""
-    if offense_id < 1 or not 1 <= max_indicators <= 30 or not 1 <= max_alerts <= 100:
+    if offense_id < 1 or not 1 <= max_indicators <= 30 or not 1 <= max_alerts <= 100 or not 0 <= deepen_alerts <= 5:
         raise ValueError("Invalid investigation limits")
     offense = await qradar.call("get_offense", {"offense_id": offense_id})
     if not isinstance(offense, dict) or str(offense.get("id")) != str(offense_id):
@@ -182,7 +183,14 @@ async def investigate(qradar: ToolCaller, vision: ToolCaller, offense_id: int,
         "alerts": [e.__dict__ for e in evidence],
         "warnings": list(dict.fromkeys(warnings)),
         "method": "Exact IP server-side filters; one hour padding; bounded first-page results; read-only MCP calls",
+        "rank_criteria": ("Ordering aid only, not a verdict or probability: 20 base + 20 when the IP matched both indicator "
+                          "and impact-scope fields + 20 when the alert was created inside the offense interval (±1 h) + 10 "
+                          "for high/critical severity. Weights are fixed by design; severity is the vendor's label."),
     }
+    if deepen_alerts and evidence:
+        from .deepening import deepen
+        report["deepened_alerts"] = await deepen(vision, [e.__dict__ for e in evidence], offense_id,
+                                                 max_alerts=deepen_alerts)
     if deep:
         from .offense_evidence import collect_offense_evidence
         from .offense_context import collect_offense_context
@@ -210,6 +218,24 @@ def render_markdown(report: dict[str, Any]) -> str:
                       f"- Seen: {alert['created_at'] or 'unknown'}; temporal check: {alert['temporal_check']}",
                       f"- IP evidence: {', '.join(alert['indicators'])}; fields: {', '.join(alert['match_fields'])}",
                       f"- Investigation rank: {alert['score']}/70 (heuristic, not a verdict)", ""])
+    if report["alerts"]:
+        lines += [f"Rank criteria: {report.get('rank_criteria', 'heuristic ordering')}", ""]
+    deep = report.get("deepened_alerts")
+    if deep:
+        lines += ["## Related alerts investigated with the alert-first Trend flow", "",
+                  f"- Association criterion: {deep['criterion']}", f"- {deep['recursion_guard']}",
+                  f"- Shared budget/cache: {deep.get('cache')}"]
+        for item in deep["investigations"]:
+            if item["state"] != "collected":
+                lines.append(f"- {item['alert_id']}: {item['state']} ({item.get('reason') or item.get('error')})")
+                continue
+            asm = item["report"]["assessment"]
+            lines.append(f"- {item['alert_id']}: {asm['classification']} (confidence {asm['confidence']}); "
+                         f"records {item['report']['auto_pivots']['record_counts'] if item['report'].get('auto_pivots') else 'n/a'}; "
+                         f"insights {item['report']['insights'].get('state')}; blocking {asm['blocking'][:4]}")
+        for item in deep["not_deepened"][:10]:
+            lines.append(f"- not deepened {item['alert_id']}: {item['reason']}")
+        lines.append("")
     if "offense_context" in report:
         context = report["offense_context"]
         lines += ["## QRadar offense metadata", ""]

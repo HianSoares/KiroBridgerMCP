@@ -97,17 +97,44 @@ def render(report: dict[str, Any]) -> str:
                       f"- Attributable connections: {dump['connections'][:10]}",
                       f"- Hypotheses: {dump['hypotheses']}", f"- Not proven: {dump['not_proven']}",
                       f"- Needed: {dump['request']}"]
-    if report.get("enrichment"):
-        lines += ["", "## Read-only enrichments", ""]
-        for name, item in report["enrichment"].items():
+    insights = report.get("insights") or {}
+    lines += ["", "## Workbench Insights", "", f"- State: {insights.get('state')}; criterion: "
+              f"{insights.get('relation_criterion', insights.get('reason', '-'))}"]
+    for entry in insights.get("related", []):
+        lines.append(f"- Insight {entry['id']}: {entry['relation']}")
+        for name in ("entities", "indicators", "highlights"):
+            item = entry.get(name, {})
+            cut = item.get("preservation", {})
+            lines.append(f"  - {name}: {item.get('state')}; items {item.get('count', 0)} "
+                         f"(items beyond the cap: {item.get('items_omitted', 0)}; kept items uncut: {cut.get('complete')})")
+            for value in item.get("items", [])[:5]:
+                lines.append(f"    - {_clip(value, 400)}")
+    if insights.get("meaning"):
+        lines.append(f"- {insights['meaning']}")
+    for kind, values in (report.get("insight_observables") or {}).items():
+        for value in values[:5]:
+            lines.append(f"- insight {kind}: {_clip(value['value'], 120)} — {value['label']} ({_clip(value['source'], 200)})")
+    for title, section in (("Hypothesis checks (discriminating reads)", "hypothesis_checks"),
+                           ("Read-only enrichments", "enrichment")):
+        if not report.get(section):
+            continue
+        lines += ["", f"## {title}", ""]
+        for name, item in report[section].items():
             lines.append(f"- {name}: {item.get('state')} — {item.get('purpose', item.get('reason', ''))}; "
                          f"trigger: {item.get('trigger', '-')}; items {item.get('count', 0)}"
-                         + (f"; {item['error']['category']}" if item.get("error") else ""))
+                         + (f"; {item['error']['category']}" if item.get("error") else "")
+                         + (f"; not run: {item['reason']}" if item.get("state") == "not_started" and item.get("reason") else ""))
             for entry in item.get("items", [])[:5]:
                 lines.append(f"  - {_clip(entry, 500)}")
-            if item.get("handling"):
-                lines.append(f"  - {item['handling']}")
+            for key in ("handling", "limits", "empty_meaning"):
+                if item.get(key):
+                    lines.append(f"  - {item[key]}")
+            if item.get("continuation"):
+                lines.append(f"  - continuation: {_clip(item['continuation'], 400)}")
     lines += ["", "## QRadar offense leads", ""]
+    not_run = [q for q in report.get("lead_queries", []) if q["state"] != "executed"]
+    if not_run:
+        lines.append(f"- Address-index lookups not executed or failed (not empty results): {_clip(not_run, 600)}")
     for item in report["offenses"]:
         lines += [f"### Offense {item['offense_id']}", "", f"- Shared IP: {', '.join(item['shared_ips'])}",
                   f"- Time check: {item['timing']}", f"- Relation: {item['relation']}",
@@ -149,7 +176,13 @@ def render(report: dict[str, Any]) -> str:
               f"- Justification: {asm['justification']}", f"- Facts: {asm['facts']}",
               f"- Malicious discriminators: {asm['malicious_discriminators']}",
               f"- Suspicious indicators requiring corroboration: {asm.get('suspicious_indicators', [])}",
-              f"- Blocking items: {asm['blocking']}", f"- Secondary pending items: {asm['secondary']}",
+              f"- Blocking items (per conclusion): {asm['blocking']}", f"- Secondary pending items: {asm['secondary']}",
+              f"- Confidence basis: {asm.get('confidence_basis')}"]
+    for item in asm.get("decision_matrix", []):
+        lines.append(f"- {item['id']}: {item['sufficiency']}; met {item['met']}; "
+                     f"blocking {[b['id'] + ' (' + b['status'] + ')' for b in item['blocking']]}"
+                     + (f"; contradicted by {item['contradicted_by']}" if item["contradicted_by"] else ""))
+    lines += [
               f"- Hypotheses: {asm['hypotheses']}", f"- {asm['qradar_closure_note']}", "",
               "### Nota sugerida (pt-BR, não publicada)", "", asm["note_pt"],
               "", "## Coverage and analyst checks", "", f"- Method: {report['method']}", f"- Budget: {report['budget']}"]

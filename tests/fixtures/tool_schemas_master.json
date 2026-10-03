@@ -1,0 +1,480 @@
+{
+ "investigate_case": {
+  "properties": {
+   "reference": {
+    "title": "Reference",
+    "type": "string"
+   }
+  },
+  "required": [
+   "reference"
+  ],
+  "title": "investigate_caseArguments",
+  "type": "object"
+ },
+ "investigate_demo": {
+  "properties": {},
+  "title": "investigate_demoArguments",
+  "type": "object"
+ },
+ "investigate_epm_uac": {
+  "properties": {
+   "endpoint_host": {
+    "default": "",
+    "title": "Endpoint Host",
+    "type": "string"
+   },
+   "last_event_date": {
+    "title": "Last Event Date",
+    "type": "string"
+   },
+   "last_event_id": {
+    "title": "Last Event Id",
+    "type": "string"
+   },
+   "qradar_utc_offset_hours": {
+    "default": -3,
+    "title": "Qradar Utc Offset Hours",
+    "type": "integer"
+   }
+  },
+  "required": [
+   "last_event_id",
+   "last_event_date"
+  ],
+  "title": "investigate_epm_uacArguments",
+  "type": "object"
+ },
+ "investigate_offense": {
+  "properties": {
+   "offense_id": {
+    "title": "Offense Id",
+    "type": "integer"
+   }
+  },
+  "required": [
+   "offense_id"
+  ],
+  "title": "investigate_offenseArguments",
+  "type": "object"
+ },
+ "investigate_vision_alert": {
+  "properties": {
+   "alert_id": {
+    "title": "Alert Id",
+    "type": "string"
+   }
+  },
+  "required": [
+   "alert_id"
+  ],
+  "title": "investigate_vision_alertArguments",
+  "type": "object"
+ },
+ "investigate_vision_event": {
+  "properties": {
+   "alert_id": {
+    "title": "Alert Id",
+    "type": "string"
+   },
+   "endpoint_host": {
+    "default": "",
+    "title": "Endpoint Host",
+    "type": "string"
+   },
+   "endpoint_ip": {
+    "title": "Endpoint Ip",
+    "type": "string"
+   },
+   "event_time": {
+    "title": "Event Time",
+    "type": "string"
+   },
+   "file_hash": {
+    "default": "",
+    "title": "File Hash",
+    "type": "string"
+   },
+   "file_path": {
+    "default": "",
+    "title": "File Path",
+    "type": "string"
+   },
+   "process_path": {
+    "default": "",
+    "title": "Process Path",
+    "type": "string"
+   },
+   "qradar_utc_offset_hours": {
+    "default": -3,
+    "title": "Qradar Utc Offset Hours",
+    "type": "integer"
+   }
+  },
+  "required": [
+   "alert_id",
+   "endpoint_ip",
+   "event_time"
+  ],
+  "title": "investigate_vision_eventArguments",
+  "type": "object"
+ },
+ "investigate_web_reputation": {
+  "properties": {
+   "endpoint_guid": {
+    "default": "",
+    "title": "Endpoint Guid",
+    "type": "string"
+   },
+   "endpoint_host": {
+    "default": "",
+    "title": "Endpoint Host",
+    "type": "string"
+   },
+   "endpoint_ip": {
+    "default": "",
+    "title": "Endpoint Ip",
+    "type": "string"
+   },
+   "event_id": {
+    "default": "",
+    "title": "Event Id",
+    "type": "string"
+   },
+   "event_time": {
+    "title": "Event Time",
+    "type": "string"
+   },
+   "qradar_utc_offset_hours": {
+    "default": -3,
+    "title": "Qradar Utc Offset Hours",
+    "type": "integer"
+   },
+   "url_or_domain": {
+    "title": "Url Or Domain",
+    "type": "string"
+   }
+  },
+  "required": [
+   "url_or_domain",
+   "event_time"
+  ],
+  "title": "investigate_web_reputationArguments",
+  "type": "object"
+ },
+ "qradar_find_offenses": {
+  "properties": {
+   "description": {
+    "title": "Description",
+    "type": "string"
+   },
+   "limit": {
+    "default": 50,
+    "title": "Limit",
+    "type": "integer"
+   },
+   "match": {
+    "default": "exact",
+    "title": "Match",
+    "type": "string"
+   },
+   "offset": {
+    "default": 0,
+    "title": "Offset",
+    "type": "integer"
+   },
+   "start_time_from": {
+    "anyOf": [
+     {
+      "type": "integer"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "title": "Start Time From"
+   },
+   "start_time_to": {
+    "anyOf": [
+     {
+      "type": "integer"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "title": "Start Time To"
+   },
+   "status": {
+    "default": "OPEN",
+    "title": "Status",
+    "type": "string"
+   }
+  },
+  "required": [
+   "description"
+  ],
+  "title": "qradar_find_offensesArguments",
+  "type": "object"
+ },
+ "qradar_get_rule": {
+  "properties": {
+   "rule_id": {
+    "title": "Rule Id",
+    "type": "integer"
+   }
+  },
+  "required": [
+   "rule_id"
+  ],
+  "title": "qradar_get_ruleArguments",
+  "type": "object"
+ },
+ "qradar_get_search_results": {
+  "properties": {
+   "limit": {
+    "default": 100,
+    "title": "Limit",
+    "type": "integer"
+   },
+   "search_id": {
+    "title": "Search Id",
+    "type": "string"
+   },
+   "start": {
+    "default": 0,
+    "title": "Start",
+    "type": "integer"
+   }
+  },
+  "required": [
+   "search_id"
+  ],
+  "title": "qradar_get_search_resultsArguments",
+  "type": "object"
+ },
+ "qradar_get_search_status": {
+  "properties": {
+   "search_id": {
+    "title": "Search Id",
+    "type": "string"
+   },
+   "wait_seconds": {
+    "default": 3,
+    "title": "Wait Seconds",
+    "type": "integer"
+   }
+  },
+  "required": [
+   "search_id"
+  ],
+  "title": "qradar_get_search_statusArguments",
+  "type": "object"
+ },
+ "qradar_investigate_offenses": {
+  "properties": {
+   "description": {
+    "default": "",
+    "title": "Description",
+    "type": "string"
+   },
+   "match": {
+    "default": "exact",
+    "title": "Match",
+    "type": "string"
+   },
+   "max_offenses": {
+    "default": 3,
+    "title": "Max Offenses",
+    "type": "integer"
+   },
+   "offense_ids": {
+    "anyOf": [
+     {
+      "items": {
+       "type": "integer"
+      },
+      "type": "array"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "title": "Offense Ids"
+   },
+   "offset": {
+    "default": 0,
+    "title": "Offset",
+    "type": "integer"
+   },
+   "qradar_utc_offset_hours": {
+    "default": -3,
+    "title": "Qradar Utc Offset Hours",
+    "type": "integer"
+   },
+   "start_time_from": {
+    "anyOf": [
+     {
+      "type": "integer"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "title": "Start Time From"
+   },
+   "start_time_to": {
+    "anyOf": [
+     {
+      "type": "integer"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "title": "Start Time To"
+   },
+   "status": {
+    "default": "OPEN",
+    "title": "Status",
+    "type": "string"
+   },
+   "timezone_verified": {
+    "default": false,
+    "title": "Timezone Verified",
+    "type": "boolean"
+   }
+  },
+  "title": "qradar_investigate_offensesArguments",
+  "type": "object"
+ },
+ "qradar_read_aql_resource": {
+  "properties": {
+   "resource": {
+    "default": "events",
+    "title": "Resource",
+    "type": "string"
+   }
+  },
+  "title": "qradar_read_aql_resourceArguments",
+  "type": "object"
+ },
+ "qradar_run_aql": {
+  "properties": {
+   "justification": {
+    "default": "",
+    "title": "Justification",
+    "type": "string"
+   },
+   "limit": {
+    "default": 100,
+    "title": "Limit",
+    "type": "integer"
+   },
+   "query_expression": {
+    "title": "Query Expression",
+    "type": "string"
+   }
+  },
+  "required": [
+   "query_expression"
+  ],
+  "title": "qradar_run_aqlArguments",
+  "type": "object"
+ },
+ "qradar_start_aql": {
+  "properties": {
+   "justification": {
+    "default": "",
+    "title": "Justification",
+    "type": "string"
+   },
+   "query_expression": {
+    "title": "Query Expression",
+    "type": "string"
+   }
+  },
+  "required": [
+   "query_expression"
+  ],
+  "title": "qradar_start_aqlArguments",
+  "type": "object"
+ },
+ "qradar_validate_aql": {
+  "properties": {
+   "justification": {
+    "default": "",
+    "title": "Justification",
+    "type": "string"
+   },
+   "query_expression": {
+    "title": "Query Expression",
+    "type": "string"
+   }
+  },
+  "required": [
+   "query_expression"
+  ],
+  "title": "qradar_validate_aqlArguments",
+  "type": "object"
+ },
+ "qradar_verify_offense": {
+  "properties": {
+   "offense_id": {
+    "title": "Offense Id",
+    "type": "integer"
+   },
+   "qradar_utc_offset_hours": {
+    "default": -3,
+    "title": "Qradar Utc Offset Hours",
+    "type": "integer"
+   },
+   "timezone_verified": {
+    "default": false,
+    "title": "Timezone Verified",
+    "type": "boolean"
+   }
+  },
+  "required": [
+   "offense_id"
+  ],
+  "title": "qradar_verify_offenseArguments",
+  "type": "object"
+ },
+ "trend_find_alerts": {
+  "properties": {
+   "end_date_time": {
+    "default": "",
+    "title": "End Date Time",
+    "type": "string"
+   },
+   "limit": {
+    "default": 50,
+    "title": "Limit",
+    "type": "integer"
+   },
+   "severity": {
+    "default": "",
+    "title": "Severity",
+    "type": "string"
+   },
+   "start_date_time": {
+    "default": "",
+    "title": "Start Date Time",
+    "type": "string"
+   },
+   "status": {
+    "default": "OPEN",
+    "title": "Status",
+    "type": "string"
+   }
+  },
+  "title": "trend_find_alertsArguments",
+  "type": "object"
+ }
+}

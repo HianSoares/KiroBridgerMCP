@@ -161,7 +161,7 @@ class MCPExposureTests(unittest.TestCase):
         names = {"qradar_read_aql_resource", "qradar_validate_aql", "qradar_start_aql",
                  "qradar_get_search_status", "qradar_get_search_results", "qradar_run_aql"}
         self.assertTrue(names <= tools.keys())
-        self.assertEqual(len(tools), 18)
+        self.assertEqual(len(tools), 20)
         for name in ("qradar_verify_offense", "qradar_get_rule"):
             self.assertTrue(tools[name].annotations.readOnlyHint)
         for name in names:

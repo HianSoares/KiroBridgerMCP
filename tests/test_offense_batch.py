@@ -236,7 +236,7 @@ class LockoutTests(unittest.TestCase):
 class ExposureTests(unittest.IsolatedAsyncioTestCase):
     async def test_new_tools_readonly_mutations_denied(self):
         tools = {t.name: t for t in await mcp.list_tools()}
-        self.assertEqual(len(tools), 18)
+        self.assertEqual(len(tools), 20)
         for name in ('qradar_find_offenses', 'qradar_investigate_offenses'):
             self.assertTrue(tools[name].annotations.readOnlyHint)
         client = RestrictedMCP(object(), QRADAR_TOOLS, {'list_offenses'}, {'list_offenses'})
