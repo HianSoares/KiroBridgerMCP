@@ -2,7 +2,7 @@
 
 Kiro continua conectado somente a `soc-bridge-readonly`. A ponte oferece sete
 tools de investigação, seis tools `qradar_*` de AQL personalizada e duas de
-verificação (`qradar_verify_offense`, `qradar_get_rule`), totalizando 15. Estas
+verificação (`qradar_verify_offense`, `qradar_get_rule`), duas de descoberta/lotes de offenses e `trend_find_alerts`, totalizando 18. Estas
 permitem ler os resources do QRadar, validar/iniciar buscas, recuperar payload,
 flows e campos selecionados, e acompanhar/paginar o mesmo search ID.
 
@@ -32,3 +32,5 @@ processo/PowerShell/integridade e lacunas estruturadas; as instruções em
 Atualize/reconecte o MCP e abra um chat novo no Kiro para recarregar schemas e
 instruções. O assessment da coleta inicial permanece preliminar quando houver
 lacunas de cobertura, regra, autorização ou atribuição.
+
+Sem ID Trend, peça "Veja se há alertas abertos na Trend nas últimas 24 horas". Os agents de investigação expõem `trend_find_alerts`; leia [limites da descoberta](docs/trend-alert-discovery.md). Reconecte o MCP e inicie novo chat após atualizar Python e `.kiro/`.

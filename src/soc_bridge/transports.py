@@ -7,7 +7,7 @@ import re
 from typing import Any
 
 from .diagnostics import MCPToolFailure, failure_reason, unavailable
-from .aql_errors import AQLValidationError
+from .aql_errors import AQLValidationError, ResponseFormatError
 from .aql_search import AQL_RESOURCES
 
 
@@ -111,6 +111,11 @@ class RestrictedMCP:
                     if not isinstance(data, dict):
                         raise ValueError("Rule metadata must be a JSON object")
                     return data
+        if name == "workbench_alerts_list":
+            try:
+                return unpack(result)
+            except ValueError:
+                raise ResponseFormatError("Vision One listing returned unreadable JSON") from None
         return unpack(result)
 
     async def read_aql_resource(self, resource: str) -> Any:
@@ -308,6 +313,51 @@ async def live_alert_investigation(alert_id: str, url: str, token: str | None,
         return report
     except Exception as exc:
         raise unavailable(stage, exc) from None
+
+
+async def live_trend_discovery(parameters: dict[str, Any], api_key: str, region: str) -> dict[str, Any]:
+    """Trend-only discovery: no QRadar connection, token or query is needed."""
+    import asyncio
+    from contextlib import AsyncExitStack
+    import os
+    from mcp import ClientSession, StdioServerParameters
+    from mcp.client.stdio import stdio_client
+    from .trend_discovery import find_alerts, failed, parameters as validate_parameters
+
+    # Validate before Docker starts; bad arguments are distinct from collection failures.
+    selection = validate_parameters(**parameters)
+    if region not in {"au", "ca", "eu", "id", "in", "jp", "mea", "sg", "uk", "us", "za"}:
+        raise ValueError("Unsupported Vision One region")
+    if not api_key:
+        raise ValueError("TREND_VISION_ONE_API_KEY is required")
+    stage = "Vision One Docker MCP startup"
+    report = None
+    try:
+        async with asyncio.timeout(60):
+            async with AsyncExitStack() as stack:
+                params = StdioServerParameters(command="docker", args=["run", "-i", "--rm", "-e",
+                    "TREND_VISION_ONE_API_KEY", "ghcr.io/trendmicro/vision-one-mcp-server", "-region", region,
+                    "-readonly=true", "-toolsets=workbench"],
+                    env={**os.environ, "TREND_VISION_ONE_API_KEY": api_key})
+                stream = await stack.enter_async_context(stdio_client(params))
+                session = await stack.enter_async_context(ClientSession(stream[0], stream[1]))
+                stage = "Vision One MCP initialization"
+                await session.initialize()
+                stage = "Vision One MCP tool listing"
+                available = {t.name for t in (await session.list_tools()).tools}
+                client = RestrictedMCP(session, {"workbench_alerts_list"}, available, set(), "Vision One")
+                stage = "Vision One Workbench listing"
+                report = await find_alerts(client, **{k: selection[k] for k in
+                    ("status", "severity", "start_date_time", "end_date_time", "limit")})
+                report["selection"]["default_window"] = selection["default_window"]
+                stage = "Vision One MCP shutdown"
+        return report
+    except Exception as exc:
+        if report is not None:
+            report["shutdown_error"] = failed(stage, exc)["error"]
+            return report
+        return {"selection": selection, **failed(stage, exc),
+                "mcp_tool_call_attempted": None if stage == "Vision One Workbench listing" else False}
 
 
 async def live_extra_case(kind: str, parameters: dict[str, Any], url: str, token: str | None,

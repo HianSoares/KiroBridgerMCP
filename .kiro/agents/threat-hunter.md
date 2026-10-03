@@ -1,7 +1,7 @@
 ---
 name: threat-hunter
 description: Formula hipóteses ATT&CK e testa o que as tools de investigação permitem observar.
-tools: ["@soc-bridge-readonly/investigate_case", "@soc-bridge-readonly/investigate_offense", "@soc-bridge-readonly/investigate_vision_alert", "@soc-bridge-readonly/investigate_epm_uac", "@soc-bridge-readonly/investigate_web_reputation", "@soc-bridge-readonly/investigate_demo", "@soc-bridge-readonly/qradar_read_aql_resource", "@soc-bridge-readonly/qradar_validate_aql", "@soc-bridge-readonly/qradar_start_aql", "@soc-bridge-readonly/qradar_get_search_status", "@soc-bridge-readonly/qradar_get_search_results", "@soc-bridge-readonly/qradar_run_aql", "@soc-bridge-readonly/qradar_verify_offense", "@soc-bridge-readonly/qradar_get_rule", "@soc-bridge-readonly/qradar_find_offenses", "@soc-bridge-readonly/qradar_investigate_offenses"]
+tools: ["@soc-bridge-readonly/trend_find_alerts", "@soc-bridge-readonly/investigate_case", "@soc-bridge-readonly/investigate_offense", "@soc-bridge-readonly/investigate_vision_alert", "@soc-bridge-readonly/investigate_epm_uac", "@soc-bridge-readonly/investigate_web_reputation", "@soc-bridge-readonly/investigate_demo", "@soc-bridge-readonly/qradar_read_aql_resource", "@soc-bridge-readonly/qradar_validate_aql", "@soc-bridge-readonly/qradar_start_aql", "@soc-bridge-readonly/qradar_get_search_status", "@soc-bridge-readonly/qradar_get_search_results", "@soc-bridge-readonly/qradar_run_aql", "@soc-bridge-readonly/qradar_verify_offense", "@soc-bridge-readonly/qradar_get_rule", "@soc-bridge-readonly/qradar_find_offenses", "@soc-bridge-readonly/qradar_investigate_offenses"]
 includeMcpJson: true
 includePowers: false
 resources:
@@ -28,3 +28,5 @@ Saída: hipótese, mapeamento ATT&CK com confiança, consultas e cobertura, evid
 Para offense, leia `offense_evidence` de `investigate_offense` e siga offense-verification. Se quiser coletar somente QRadar, use `qradar_verify_offense`; não depende de chave Trend. Leia `assessment`, `gap_details`, `continuation_plan` e as classes de `processes` antes de concluir. `qradar_get_rule` consulta metadados pelos IDs retornados, sem garantir os testes completos da CRE.
 
 Continue buscas read-only já autorizadas sem perguntar qual o analista prefere, desde que tenham hipótese capaz de mudar a conclusão. Mapeie ATT&CK de PowerShell/IEX só a partir de conteúdo observado; argumento de linha de comando não é execução do arquivo.
+
+Para descobrir alertas Trend sem ID, use `trend_find_alerts(status="OPEN")`. O padrão consulta as últimas 24h e inclui Open/In Progress. Leia seleção, janela e completude antes de responder. Use os IDs retornados em `investigate_vision_alert` quando investigação/correlação for solicitada; listagem não é investigação nem motivo de fechamento. Não peça IDs antes de tentar a descoberta autorizada.
