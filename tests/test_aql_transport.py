@@ -64,6 +64,12 @@ class ArielTransportTests(unittest.TestCase):
                     "description": "Synthetic matching offenses", "limit": 2}, url, None)
                 self.assertEqual([r["id"] for r in found["offenses"]], [12345, 12346])
                 self.assertFalse(found["discovery_exhausted"])
+                failed = await live_qradar_query("find_offenses", {
+                    "description": "Synthetic upstream error"}, url, None)
+                self.assertEqual(failed["error"]["category"], "upstream_tool_error")
+                self.assertTrue(failed["mcp_tool_call_attempted"])
+                self.assertEqual(failed["budget"]["calls_made"], 1)
+                self.assertNotIn("private-error-body", str(failed))
                 batch = await live_qradar_query("investigate_offenses", {
                     "description": "Synthetic matching offenses", "max_offenses": 2}, url, None)
                 self.assertEqual([r["offense_id"] for r in batch["reports"]], [12345, 12346])

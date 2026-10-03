@@ -60,7 +60,7 @@ def classify_failure(exc: BaseException) -> dict:
             category = "not_found"
         elif code == 429:
             category = "rate_limited"
-        elif code in (400, 422):
+        elif code in (400, 422) or "upstream rejected request parameters" in reason:
             category = "request_rejected"
         elif code is not None and code >= 500:
             category = "upstream_error"

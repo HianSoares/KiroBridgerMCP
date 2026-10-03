@@ -94,3 +94,23 @@ Validate service/task/application credentials, ownership, active CRE tests and
 post-remediation behavior before attributing a cause or recommending closure.
 A successful audit of 4740 means the lockout was recorded, not successful login.
 No offense is closed, note posted, rule changed or response action executed.
+
+## Discovery diagnostics
+
+The IBM FastMCP adapter can return an upstream error as ordinary text while losing
+`isError`. The bridge recognizes fixed error prefixes and sanitizes the result;
+it accepts the documented JSON/string envelopes and older REST-array responses.
+Non-JSON/table responses are `response_format`, not local argument rejection.
+A ValueError inside the listing client is `upstream_client`, not proof that public
+arguments were rejected. Real local argument checks run before tool invocation.
+
+Read `mcp_tool_call_attempted`, `mcp_tool_calls_attempted`, `diagnostic_stage`,
+`decoded_response_returned`, `error.stage` and the discovery budget. These count
+attempted MCP tool invocations, not confirmed QRadar REST requests. Shared batch
+counters include the discovery call. Zero elapsed/counter values from older
+versions did not establish that the upstream was never contacted. Permission,
+upstream filter validation, malformed responses and successful empty JSON pages
+have distinct outcomes. Unknown upstream errors require local server logs; no
+response body, URL, token or description from an error is copied into diagnostics.
+Do not infer that spaces, colons or `containing` are rejected without a reported
+local validation error. Do not repeatedly rerun the same deterministic failure.
