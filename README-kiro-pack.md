@@ -34,3 +34,7 @@ instruções. O assessment da coleta inicial permanece preliminar quando houver
 lacunas de cobertura, regra, autorização ou atribuição.
 
 Sem ID Trend, peça "Veja se há alertas abertos na Trend nas últimas 24 horas". Os agents de investigação expõem `trend_find_alerts`; leia [limites da descoberta](docs/trend-alert-discovery.md). Reconecte o MCP e inicie novo chat após atualizar Python e `.kiro/`.
+
+Kiro no Windows com a ponte no WSL 2: veja o [guia WSL](docs/guia-wsl.md). O
+`mcp.json` desse caminho usa `wsl.exe`; reconecte o MCP depois de rodar
+`scripts/configure_kiro_wsl.py`.

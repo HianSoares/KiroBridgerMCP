@@ -32,6 +32,8 @@ The configurator creates `.kiro/settings/mcp.json` locally; it is not included i
 
 For macOS/Linux commands, Docker setup, QRadar and Trend credentials, and a live connection check, follow the [full installation guide (Portuguese)](docs/guia-instalacao.md).
 
+**Kiro on Windows with the bridge in WSL 2?** Follow the [WSL guide (Portuguese)](docs/guia-wsl.md). Kiro for Windows starts MCP servers as Windows processes, so it cannot run the `.venv/bin/python` path that `configure_kiro.py` writes inside WSL. `scripts/configure_kiro_wsl.py` configures `soc-bridge-readonly` to start through `wsl.exe` instead, and `scripts/wsl_preflight.py` checks the setup end to end without credentials.
+
 ## Investigate a real case
 
 After completing the live setup in the guide, give Kiro a QRadar offense number or a Vision One Workbench alert ID:

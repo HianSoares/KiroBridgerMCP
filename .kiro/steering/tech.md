@@ -6,5 +6,6 @@
 - Six qradar_* tools expose bounded custom AQL, live field/function resources, status and paginated results (including selected payload). These use QRadar alone and do not start Trend. Follow qradar-aql-conventions.
 - Offense-first live investigations also use bounded read-only Ariel and Trend Search; preserve per-query state, pagination warnings and source attribution. Never imply that a matching IP identifies an endpoint process.
 - Never add a write/response/containment MCP tool without an explicit design review. Do not switch Trend Vision One to `readonly=false`.
+- Keep stdout of the MCP server and of `soc_bridge.wsl_launch` (Kiro for Windows -> wsl.exe -> WSL) for JSON-RPC only; diagnostics go to stderr and name variable states, never values.
 - Keep credentials in environment variables, outside Git. Run `PYTHONPATH=src python -m unittest discover -s tests -v` after changes to correlation logic.
 - Avoid implying a complete search when a source is paginated, unavailable, or capped.
