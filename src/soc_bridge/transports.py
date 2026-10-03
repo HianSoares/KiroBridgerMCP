@@ -6,6 +6,7 @@ import json
 import re
 from typing import Any
 
+from .capabilities import GLOBAL_LEDGER, outcome_for, tool_names
 from .diagnostics import MCPToolFailure, failure_reason, unavailable
 from .aql_errors import AQLValidationError, ResponseFormatError
 from .aql_search import AQL_RESOURCES
@@ -95,7 +96,13 @@ class RestrictedMCP:
         self.allowed = allowed
         self.available = available
         self.source = source
+        self.ledger = GLOBAL_LEDGER
+        discovery = getattr(available, "discovery", None)
         missing = (required if required is not None else allowed) - available
+        if missing and discovery is not None and not discovery.complete:
+            # A partial tools/list never proves absence.
+            raise RuntimeError(f"Availability of required read tools unknown: tools/list discovery incomplete "
+                               f"({discovery.stop_reason}): {', '.join(sorted(missing))}")
         if missing:
             raise RuntimeError(f"MCP server is missing expected read tools: {', '.join(sorted(missing))}")
 
@@ -103,7 +110,20 @@ class RestrictedMCP:
         if name not in self.allowed:
             raise ValueError(f"Tool not permitted: {name}")
         if name not in self.available:
+            discovery = getattr(self.available, "discovery", None)
+            if discovery is not None and not discovery.complete:
+                raise RuntimeError(f"Optional MCP tool availability unknown: {name}")
             raise RuntimeError(f"Optional MCP tool unavailable: {name}")
+        try:
+            value = await self._call(name, arguments)
+        except Exception as exc:
+            from .aql_errors import classify_failure
+            self.ledger.record(name, outcome_for(classify_failure(exc)["category"]))
+            raise
+        self.ledger.record(name, "tested_ok")
+        return value
+
+    async def _call(self, name: str, arguments: dict[str, Any]) -> Any:
         try:
             result = await self.session.call_tool(name, arguments=arguments)
         except Exception as exc:
@@ -205,7 +225,7 @@ async def live_qradar_query(operation: str, parameters: dict[str, Any], url: str
             stage = "QRadar MCP initialization"
             await session.initialize()
             stage = "QRadar MCP tool listing"
-            available = {tool.name for tool in (await session.list_tools()).tools}
+            available = await tool_names(session, "QRadar")
             client = RestrictedMCP(session, QRADAR_READ_TOOLS, available, required, "QRadar")
             stage = f"QRadar AQL {operation}"
             if operation == "resource":
@@ -268,9 +288,9 @@ async def live_investigation(offense_id: int, url: str, token: str | None,
             stage = "Vision One MCP initialization"
             await vision.initialize()
             stage = "QRadar MCP tool listing"
-            qtools = {t.name for t in (await qr.list_tools()).tools}
+            qtools = await tool_names(qr, "QRadar")
             stage = "Vision One MCP tool listing"
-            vtools = {t.name for t in (await vision.list_tools()).tools}
+            vtools = await tool_names(vision, "Vision One")
             stage = "offense evidence collection"
             # Related Workbench alerts get the alert-first Trend depth (deepening.py), bounded to two.
             report = await investigate(RestrictedMCP(qr, QRADAR_READ_TOOLS, qtools, {"get_offense"}, "QRadar"),
@@ -280,6 +300,75 @@ async def live_investigation(offense_id: int, url: str, token: str | None,
                                        deepen_alerts=2)
             stage = "MCP connection shutdown"
         return report
+    except Exception as exc:
+        raise unavailable(stage, exc) from None
+
+
+async def live_case_investigation(offense_id: int, url: str, token: str | None, api_key: str, region: str,
+                                 case_id: str = "", offset_hours: int = -3, timezone_verified: bool = False,
+                                 include_trend: bool = True, rerun_queries: list[str] | None = None) -> dict[str, Any]:
+    """Persisted, resumable offense case. Trend is used when a key and Docker are available;
+    otherwise the case records Vision One as not configured instead of failing."""
+    from contextlib import AsyncExitStack
+    import os
+    import shutil
+    from urllib.parse import urlparse
+    from mcp import ClientSession, StdioServerParameters
+    from mcp.client.stdio import stdio_client
+    from mcp.client.streamable_http import streamable_http_client
+    import httpx
+    from .case_investigation import investigate_offense_case
+
+    parsed = urlparse(url)
+    if parsed.scheme != "http" or parsed.hostname not in ("localhost", "127.0.0.1", "::1") or parsed.path != "/mcp":
+        raise ValueError("QRadar MCP URL must be a local http://127.0.0.1:<port>/mcp endpoint")
+    use_trend = bool(include_trend and api_key and shutil.which("docker"))
+    if use_trend and region not in {"au", "ca", "eu", "id", "in", "jp", "mea", "sg", "uk", "us", "za"}:
+        raise ValueError("Unsupported Vision One region")
+    stage = "QRadar MCP connection"
+    try:
+        async with AsyncExitStack() as stack:
+            http = await stack.enter_async_context(httpx.AsyncClient(headers={"SEC": token} if token else {},
+                                                                     timeout=30.0, trust_env=False))
+            qr_stream = await stack.enter_async_context(streamable_http_client(url, http_client=http))
+            qr = await stack.enter_async_context(ClientSession(qr_stream[0], qr_stream[1]))
+            stage = "QRadar MCP initialization"
+            await qr.initialize()
+            stage = "QRadar MCP tool discovery"
+            qtools = await tool_names(qr, "QRadar")
+            capabilities = {"qradar": qtools.discovery.describe(QRADAR_READ_TOOLS)}
+            vision = None
+            if use_trend:
+                # Vision One is a secondary source here: its failure is recorded, the QRadar case continues.
+                trend_stage = "Vision One Docker MCP startup"
+                try:
+                    params = StdioServerParameters(command="docker", args=[
+                        "run", "-i", "--rm", "-e", "TREND_VISION_ONE_API_KEY", "ghcr.io/trendmicro/vision-one-mcp-server",
+                        "-region", region, "-readonly=true", f"-toolsets={ALERT_TOOLSETS}"],
+                        env={**os.environ, "TREND_VISION_ONE_API_KEY": api_key})
+                    v_stream = await stack.enter_async_context(stdio_client(params))
+                    vsession = await stack.enter_async_context(ClientSession(v_stream[0], v_stream[1]))
+                    trend_stage = "Vision One MCP initialization"
+                    await vsession.initialize()
+                    trend_stage = "Vision One MCP tool discovery"
+                    vtools = await tool_names(vsession, "Vision One")
+                    capabilities["vision_one"] = vtools.discovery.describe(ALERT_VISION_TOOLS)
+                    vision = RestrictedMCP(vsession, ALERT_VISION_TOOLS, vtools, WORKBENCH_TOOLS, source="Vision One")
+                except Exception as exc:
+                    capabilities["vision_one"] = {"state": "unavailable", "stage": trend_stage,
+                                                  "category": failure_reason(exc),
+                                                  "next_action": "Run bridge_diagnostics with check_trend=true"}
+            else:
+                capabilities["vision_one"] = {"state": "not_used", "reason": "include_trend disabled, key absent or Docker missing"}
+            stage = "case investigation"
+            report = await investigate_offense_case(
+                RestrictedMCP(qr, QRADAR_READ_TOOLS, qtools, {"get_offense"}, "QRadar"), vision, offense_id,
+                case_id=case_id, offset_hours=offset_hours, timezone_verified=timezone_verified,
+                include_trend=include_trend, rerun_queries=rerun_queries, capabilities=capabilities)
+            report["capabilities"]["call_outcomes"] = GLOBAL_LEDGER.describe()
+        return report
+    except (ValueError, MCPToolFailure):
+        raise
     except Exception as exc:
         raise unavailable(stage, exc) from None
 
@@ -331,9 +420,9 @@ async def live_alert_investigation(alert_id: str, url: str, token: str | None,
             stage = "Vision One MCP initialization"
             await vision.initialize()
             stage = "QRadar MCP tool listing"
-            qtools = {t.name for t in (await qr.list_tools()).tools}
+            qtools = await tool_names(qr, "QRadar")
             stage = "Vision One MCP tool listing"
-            vtools = {t.name for t in (await vision.list_tools()).tools}
+            vtools = await tool_names(vision, "Vision One")
             stage = "Vision One Workbench alert retrieval and QRadar evidence collection"
             report = await investigate_vision_alert(
                 RestrictedMCP(qr, QRADAR_READ_TOOLS, qtools, {"get_offense"}, "QRadar"),
@@ -375,7 +464,7 @@ async def live_trend_discovery(parameters: dict[str, Any], api_key: str, region:
                 stage = "Vision One MCP initialization"
                 await session.initialize()
                 stage = "Vision One MCP tool listing"
-                available = {t.name for t in (await session.list_tools()).tools}
+                available = await tool_names(session, "Vision One")
                 client = RestrictedMCP(session, {"workbench_alerts_list"}, available, set(), "Vision One")
                 stage = "Vision One Workbench listing"
                 report = await find_alerts(client, **{k: selection[k] for k in
@@ -429,8 +518,8 @@ async def live_extra_case(kind: str, parameters: dict[str, Any], url: str, token
             stage = "Vision One MCP initialization"
             await vision.initialize()
             stage = "read-only tool listing"
-            qtools = {t.name for t in (await qr.list_tools()).tools}
-            vtools = {t.name for t in (await vision.list_tools()).tools}
+            qtools = await tool_names(qr, "QRadar")
+            vtools = await tool_names(vision, "Vision One")
             q = RestrictedMCP(qr, QRADAR_READ_TOOLS, qtools,
                               {"validate_aql", "create_ariel_search", "get_ariel_search_status", "get_ariel_search_results"}, "QRadar")
             v = RestrictedMCP(vision, VISION_TOOLS, vtools, {"search_detections_list"}, "Vision One")

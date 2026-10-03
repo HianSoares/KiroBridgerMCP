@@ -2,6 +2,8 @@
 
 import asyncio
 import unittest
+
+from soc_bridge.capabilities import LOCAL_WRITE_TOOLS
 from datetime import timedelta
 
 from mcp.types import CallToolResult, TextContent
@@ -141,8 +143,8 @@ class TransportSafetyTests(unittest.TestCase):
 class ToolSchemaTests(unittest.TestCase):
     def test_fifteen_read_only_tools_with_unchanged_alert_schemas(self):
         tools = {tool.name: tool for tool in asyncio.run(mcp.list_tools())}
-        self.assertEqual(len(tools), 21)
-        self.assertTrue(all(tool.annotations.readOnlyHint for tool in tools.values()))
+        self.assertEqual(len(tools), 26)
+        self.assertTrue(all((tool.annotations.readOnlyHint or tool.name in LOCAL_WRITE_TOOLS) and not tool.annotations.destructiveHint for tool in tools.values()))
         self.assertEqual(set(tools["investigate_vision_alert"].inputSchema["properties"]), {"alert_id"})
         self.assertEqual(tools["investigate_vision_alert"].inputSchema["required"], ["alert_id"])
         self.assertEqual(set(tools["investigate_vision_event"].inputSchema["properties"]),

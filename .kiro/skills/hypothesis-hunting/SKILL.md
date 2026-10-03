@@ -37,3 +37,7 @@ A correlação por IP e timestamp exatos copiados de um View event (`investigate
 ## Critério de conclusão
 
 Há hipótese, evidência pró/contra, explicação alternativa, mapeamento ATT&CK condicionado, limite do método e ação de coleta necessária. Hunting sem referência fica como plano, não como busca supostamente executada.
+
+## Pivôs registrados no caso
+
+Quando houver caso (`get_case`), parta de `hypotheses` e `pending`: cada pivô traz hipótese, evidência motivadora, fonte, filtros, janela, custo, resultados que apoiariam/contradiriam e critério de parada. Proponha somente pivôs com possibilidade concreta de mudar a avaliação.

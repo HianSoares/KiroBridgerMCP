@@ -29,8 +29,13 @@ def requirement(rid: str, text: str, status: str, evidence: Any = None, next_che
             "evidence": evidence, "next_check": next_check, "source": source}
 
 
-def evaluate(conclusions: list[dict], requirements: dict[str, dict]) -> list[dict]:
-    """Each conclusion: {id, label, requires: [requirement ids], contradicted_by: [requirement ids]}."""
+def evaluate(conclusions: list[dict], requirements: dict[str, dict],
+             contradictions: list[dict] | None = None) -> list[dict]:
+    """Each conclusion: {id, label, requires: [requirement ids], contradicted_by: [requirement ids]}.
+
+    An unresolved contradiction blocks every conclusion that requires one of the requirements
+    it affects (or names the conclusion itself); resolved ones are only reported."""
+    open_items = [c for c in contradictions or [] if c.get("status", "unresolved") == "unresolved"]
     out = []
     for conclusion in conclusions:
         needed = [requirements[r] for r in conclusion["requires"] if r in requirements]
@@ -38,6 +43,8 @@ def evaluate(conclusions: list[dict], requirements: dict[str, dict]) -> list[dic
         unmet = [r for r in needed if r["status"] not in MET]
         contradictions = [requirements[r] for r in conclusion.get("contradicted_by", [])
                           if r in requirements and requirements[r]["status"] in MET]
+        affected = set(conclusion["requires"]) | {str(conclusion["id"])}
+        contradictions += [{"id": c["id"]} for c in open_items if affected & set(map(str, c.get("affects", [])))]
         sustained = not unmet and not missing and not contradictions
         out.append({"id": conclusion["id"], "label": conclusion["label"],
                     "sufficiency": "sustained" if sustained else

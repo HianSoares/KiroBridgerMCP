@@ -1,0 +1,108 @@
+{
+ "bridge_diagnostics": {
+  "properties": {
+   "check_trend": {
+    "default": false,
+    "title": "Check Trend",
+    "type": "boolean"
+   }
+  },
+  "title": "bridge_diagnosticsArguments",
+  "type": "object"
+ },
+ "get_case": {
+  "properties": {
+   "case_id": {
+    "title": "Case Id",
+    "type": "string"
+   }
+  },
+  "required": [
+   "case_id"
+  ],
+  "title": "get_caseArguments",
+  "type": "object"
+ },
+ "investigate_offense_case": {
+  "properties": {
+   "case_id": {
+    "default": "",
+    "title": "Case Id",
+    "type": "string"
+   },
+   "include_trend": {
+    "default": true,
+    "title": "Include Trend",
+    "type": "boolean"
+   },
+   "offense_id": {
+    "title": "Offense Id",
+    "type": "integer"
+   },
+   "qradar_utc_offset_hours": {
+    "default": -3,
+    "title": "Qradar Utc Offset Hours",
+    "type": "integer"
+   },
+   "rerun_queries": {
+    "anyOf": [
+     {
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "title": "Rerun Queries"
+   },
+   "timezone_verified": {
+    "default": false,
+    "title": "Timezone Verified",
+    "type": "boolean"
+   }
+  },
+  "required": [
+   "offense_id"
+  ],
+  "title": "investigate_offense_caseArguments",
+  "type": "object"
+ },
+ "list_cases": {
+  "properties": {},
+  "title": "list_casesArguments",
+  "type": "object"
+ },
+ "reassess_case": {
+  "properties": {
+   "case_id": {
+    "title": "Case Id",
+    "type": "string"
+   },
+   "confirmations": {
+    "anyOf": [
+     {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "type": "array"
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "default": null,
+    "title": "Confirmations"
+   }
+  },
+  "required": [
+   "case_id"
+  ],
+  "title": "reassess_caseArguments",
+  "type": "object"
+ }
+}

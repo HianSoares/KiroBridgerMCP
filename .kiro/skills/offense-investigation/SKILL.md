@@ -11,7 +11,7 @@ Use quando o analista pedir offenses por descrição, fornecer uma offense posit
 
 ## Passo a passo
 
-1. Para várias offenses pela descrição, chame `qradar_investigate_offenses(description=...)` ou descubra IDs com `qradar_find_offenses`. Continue os lotes autorizados conforme offense-verification; mantenha decisão e nota individuais. Para ID único, chame `investigate_offense(offense_id)` para QRadar e Trend. Para coletar apenas QRadar ou investigar sem credenciais Trend, use `qradar_verify_offense(offense_id)`. ID de exemplo fictício: 12345.
+1. Para uma offense ("investigue a offense X"), use `investigate_offense_case(offense_id)` e siga `case-workflow`; continue com o mesmo `case_id` e reavalie com `reassess_case`. Para várias offenses pela descrição, chame `qradar_investigate_offenses(description=...)` ou descubra IDs com `qradar_find_offenses`. Continue os lotes autorizados conforme offense-verification; mantenha decisão e nota individuais. `investigate_offense(offense_id)` continua disponível para o relatório sem persistência. Para coletar apenas QRadar ou investigar sem credenciais Trend, use `qradar_verify_offense(offense_id)`. ID de exemplo fictício: 12345.
 2. Siga offense-verification. Leia `offense_evidence`: metadados originais, janela INOFFENSE, eventos/flows, censo COUNT/UNIQUECOUNT, contagens, regras, contexto do host e assessment. A coleta antiga por IP é contexto separado.
 3. Leia `outcome` de cada consulta e `continuation_plan`. Retome pesquisas pendentes e páginas do mesmo search ID sem perguntar qual busca autorizada o analista prefere; LIMIT atingido exige nova consulta particionada. Consulte campos reais (`field_catalogs`) para pivôs AQL. Casos históricos precisam do timezone confirmado; não presuma -3. Não duplique uma coleta concluída esperando novos campos.
 4. Descreva só os campos observados: description/nome de regra não provam comportamento; magnitude é prioridade do produto; CLOSED é estado, não veredito. severity, credibility, relevance e closing_reason_id só são informados quando retornados.
@@ -24,7 +24,7 @@ Use quando o analista pedir offenses por descrição, fornecer uma offense posit
 
 ## Tools permitidas
 
-investigate_offense; investigate_case para referência ambígua; qradar_verify_offense, qradar_get_rule, qradar_find_offenses e qradar_investigate_offenses; seis tools de AQL/status/paginação descritas em qradar-aql-conventions. Respeite a lista do perfil de agente ativo.
+investigate_offense_case, reassess_case, get_case, list_cases e bridge_diagnostics; investigate_offense; investigate_case para referência ambígua; qradar_verify_offense, qradar_get_rule, qradar_find_offenses e qradar_investigate_offenses; seis tools de AQL/status/paginação descritas em qradar-aql-conventions. Respeite a lista do perfil de agente ativo.
 
 ## Critério de conclusão
 

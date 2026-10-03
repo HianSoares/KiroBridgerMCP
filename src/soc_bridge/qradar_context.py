@@ -17,6 +17,7 @@ import re
 from typing import Any
 
 from .aql_errors import classify_failure
+from .capabilities import absence_state
 from .ariel_collection import Budget, BudgetExhausted
 from .core import address, records
 from .structured import preserve
@@ -34,9 +35,10 @@ async def read(qradar: Any, budget: Budget, tool: str, args: dict, purpose: str,
     """One bounded GET (optionally paged by offset); failure classes stay distinct from empty."""
     result: dict[str, Any] = {"tool": tool, "args": dict(args), "purpose": purpose, "trigger": trigger,
                               "state": "not_started", "items": [], "count": 0, "pages_read": 0}
-    available = getattr(qradar, "available", None)
-    if available is not None and tool not in available:
-        result.update(state="tool_absent", note="Tool not exposed by the connected QRadar MCP (feature toggle or version)")
+    absent = absence_state(qradar, tool)
+    if absent:
+        result.update(state=absent, note="Tool not exposed by the connected QRadar MCP (feature toggle or version)"
+                      if absent == "tool_absent" else "tools/list discovery was incomplete; availability unknown")
         return result
     rows: list = []
     offset = int(args.get("offset", 0) or 0)
