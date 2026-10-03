@@ -7,7 +7,7 @@ import re
 from typing import Any
 
 from .diagnostics import MCPToolFailure, failure_reason, unavailable
-from .aql_errors import AQLValidationError, ResponseFormatError
+from .aql_errors import AQLValidationError
 from .aql_search import AQL_RESOURCES
 
 
@@ -85,6 +85,9 @@ class RestrictedMCP:
             result = await self.session.call_tool(name, arguments=arguments)
         except Exception as exc:
             raise MCPToolFailure(self.source, name, failure_reason(exc)) from None
+        if name == "list_offenses":
+            from .offense_response import decode_listing
+            return decode_listing(result, self.source)
         if result.isError:
             raise MCPToolFailure(self.source, name, tool_error_reason(result))
         if name == "validate_aql":
@@ -108,14 +111,7 @@ class RestrictedMCP:
                     if not isinstance(data, dict):
                         raise ValueError("Rule metadata must be a JSON object")
                     return data
-        data = unpack(result)
-        if name == "list_offenses" and isinstance(data, str):
-            # IBM FastMCP may wrap its JSON text in structuredContent.result.
-            try:
-                data = json.loads(data)
-            except ValueError:
-                raise ResponseFormatError("Offense listing returned invalid JSON") from None
-        return data
+        return unpack(result)
 
     async def read_aql_resource(self, resource: str) -> Any:
         """Read only the four documented upstream AQL metadata resources."""

@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .aql_errors import ResponseFormatError, classify_failure
-from .ariel_collection import Budget
+from .ariel_collection import Budget, BudgetExhausted
 from .offense_evidence import verify_offense
 
 FIELDS = ('id,description,status,offense_source,start_time,last_updated_time,'
@@ -56,6 +56,8 @@ async def find_offenses(qradar: Any, description: str, status: str = 'OPEN', mat
     expression, scope = selection(description, status, match, start_time_from, start_time_to)
     result = dict(scope=scope, offset=offset, limit=limit, offenses=[], outcome='unavailable',
                   page_complete=False, discovery_exhausted=False, total_count=None,
+                  mcp_tool_call_attempted=False, mcp_tool_calls_attempted=0,
+                  decoded_response_returned=False, diagnostic_stage="before_tool_call",
                   continuation_plan=[], collected_at=datetime.now(timezone.utc).isoformat(),
                   consistency_note='Live +id pagination is not an immutable snapshot. Changed descriptions/status '
                                    'can move the selected population between calls; retain seen IDs.',
@@ -64,8 +66,20 @@ async def find_offenses(qradar: Any, description: str, status: str = 'OPEN', mat
     resume = dict(tool='qradar_find_offenses', parameters=parameters)
     try:
         budget = budget or Budget(max_seconds=20)
-        data = await budget.run(lambda: qradar.call('list_offenses', dict(filter=expression, sort='+id',
-                                fields=FIELDS, offset=offset, limit=limit, format_output=False)), 'offense discovery')
+        async def request():
+            # Count an attempted tool invocation, not proof of a QRadar REST request.
+            budget.calls_made += 1
+            result['mcp_tool_call_attempted'] = True
+            result['mcp_tool_calls_attempted'] += 1
+            result['diagnostic_stage'] = 'upstream_tool_call'
+            return await qradar.call('list_offenses', dict(filter=expression, sort='+id',
+                                 fields=FIELDS, offset=offset, limit=limit, format_output=False))
+        reason = budget.blocked('call')
+        if reason:
+            raise BudgetExhausted('offense discovery: ' + reason, started=False)
+        data = await budget.run(request, 'offense discovery')
+        result['decoded_response_returned'] = True
+        result['diagnostic_stage'] = 'response_validation'
         if not isinstance(data, dict) or not isinstance(data.get('offenses'), list):
             raise ResponseFormatError('Expected raw offense list JSON')
         rows = data['offenses']
@@ -100,13 +114,26 @@ async def find_offenses(qradar: Any, description: str, status: str = 'OPEN', mat
         exhausted = len(rows) < limit if total is None else offset + len(rows) >= total
         result.update(offenses=rows, returned_count=len(rows), total_count=total,
                       outcome='empty' if not rows else 'page_collected', page_complete=True,
-                      discovery_exhausted=exhausted)
+                      discovery_exhausted=exhausted, diagnostic_stage='page_collected')
         if not exhausted:
             result['continuation_plan'] = [{**resume, 'parameters': {**parameters, 'offset': offset + len(rows)}}]
     except Exception as exc:
-        result.update(error=classify_failure(exc), returned_count=0)
+        error = classify_failure(exc)
+        if isinstance(exc, ValueError) and not isinstance(exc, ResponseFormatError):
+            # Public arguments were validated before this try block. A ValueError
+            # here cannot establish a local argument rejection or no upstream call.
+            error = {'category': 'upstream_client', 'outcome': 'unavailable', 'retryable': False,
+                     'message': 'ValueError inside the offense listing client',
+                     'next_action': 'Inspect the upstream MCP response/logs; this does not establish a local argument rejection'}
+        if isinstance(exc, ResponseFormatError) and result['diagnostic_stage'] == 'upstream_tool_call':
+            result['diagnostic_stage'] = 'upstream_response_decoding'
+        error['stage'] = result['diagnostic_stage']
+        error['mcp_tool_call_attempted'] = result['mcp_tool_call_attempted']
+        result.update(error=error, returned_count=0)
+        result['budget'] = budget.describe()
         if result['error']['retryable']:
             result['continuation_plan'] = [resume]
+    result["budget"] = budget.describe()
     return result
 
 
@@ -168,6 +195,8 @@ async def investigate_offenses(qradar: Any, description: str = '', offense_ids: 
         discovery = await find_offenses(qradar, description, status, match, offset, max_offenses,
                                         start_time_from, start_time_to,
                                         budget=Budget(max_seconds=max(.001, min(20, budget.remaining_seconds())))) if budget.remaining_seconds() > 0 else None
+        if discovery:
+            budget.calls_made += discovery.get('mcp_tool_calls_attempted', 0)
         result['discovery'] = discovery
         if discovery is None or not discovery['page_complete']:
             result.update(outcome='discovery_unavailable', consolidation=consolidate([]), budget=budget.describe())

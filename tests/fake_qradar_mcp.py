@@ -24,6 +24,8 @@ def get_offense(offense_id: int) -> dict:
 def list_offenses(filter: str = "", sort: str = "+id", fields: str = "", limit: int = 50,
                   offset: int = 0, format_output: bool = False) -> str:
     # Mimic IBM's JSON text through a FastMCP string wrapper.
+    if 'description = "Synthetic upstream error"' in filter:
+        return "Tool execution failed: synthetic private-error-body"
     assert not format_output and sort == "+id"
     assert 'description = "Synthetic matching offenses"' in filter
     rows = [get_offense(i) for i in (12345, 12346, 12347)]
