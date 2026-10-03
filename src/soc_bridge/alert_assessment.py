@@ -16,6 +16,8 @@ from typing import Any
 
 from .decision import STATUSES, evaluate, requirement
 from .trend_records import full_hashes
+from .time_anchor import parse
+from .structured import find_paths
 
 CREDENTIAL_STORES = {"lsass.exe"}
 
@@ -73,6 +75,25 @@ def _reads(report: dict) -> dict:
     return {**(report.get("enrichment") or {}), **(report.get("hypothesis_checks") or {})}
 
 
+def _executed_roles(record: dict) -> list[dict]:
+    """Actor or newly launched object only; a parent/detected/file-access target is not execution."""
+    when = parse(record.get("event_time_utc") or record.get("event_time_raw") or record.get("time_utc"))[0]
+    if not when:
+        return []
+    out = []
+    for role in ("process", "object"):
+        group = record.get(role) or {}
+        launched = parse(group.get("launchTime"))[0]
+        instance = group.get("hashId") if role == "process" else group.get("processHashId")
+        if not (group.get("filePath") and instance and group.get("pid") is not None and launched):
+            continue
+        delta = (when - launched).total_seconds()
+        if delta < 0 or (role == "object" and delta > 5):
+            continue
+        out.append(group)
+    return out
+
+
 def _requirements(report: dict, facts: list, signals: list, secondary: list) -> tuple[dict, list[str]]:
     discovery = report.get("auto_pivots") or {}
     counts = discovery.get("record_counts", {})
@@ -92,19 +113,20 @@ def _requirements(report: dict, facts: list, signals: list, secondary: list) -> 
         for follow in dump.get("followups", []):
             if follow.get("state") not in COVERED:
                 coverage_gaps.append(f"Dump-file followup coverage {follow.get('state')}: {follow.get('file')}")
-    executed = bool(counts.get("linked")) or any(d["execution"].startswith("observed") for d in dumps)
+    linked_records = (discovery.get("records") or {}).get("linked", [])
+    executed = any(_executed_roles(record) for record in linked_records)
     ran = bool(discovery.get("pivots"))
     not_run = ran and all(p.get("state") in ("not_started", "unavailable") for p in discovery.get("pivots", []))
     req: dict[str, dict] = {}
     if executed:
         req["execution_observed"] = requirement(
-            "execution_observed", "detected behavior observed in records linked to the alert", "confirmed",
+            "execution_observed", "process activity observed in records linked to the alert", "confirmed",
             facts[:3])
-    elif counts.get("identifier_match"):
+    elif counts.get("identifier_match") or counts.get("linked"):
         req["execution_observed"] = requirement(
             "execution_observed", "detected behavior observed in records linked to the alert", "candidate",
-            f"{counts['identifier_match']} identifier match(es); no search record is linked to the alert by matchedEvents uuid",
-            "Confirm the View event uuid or read the matched event in the console")
+            "Linked/identifier-matched records do not demonstrate an actor or newly launched process instance",
+            "Confirm the process role, PID, instance ID and launch time in the linked event")
     elif not_run or not ran:
         req["execution_observed"] = requirement(
             "execution_observed", "detected behavior observed in records linked to the alert", "not_executed",
@@ -116,18 +138,17 @@ def _requirements(report: dict, facts: list, signals: list, secondary: list) -> 
             "no Search record is linked to the alert by matchedEvents uuid in the inspected window",
             "Widen the window or check sensor telemetry for the endpoint")
     verdicts, unlinked = [], []
-    linked_hashes = {h for record in (discovery.get("records") or {}).get("linked", [])
-                     for role in ("process", "object", "parent", "detection_file")
-                     for h in full_hashes(record.get(role) or {}).values()}
+    linked_hashes = {h for record in linked_records for group in _executed_roles(record)
+                     for h in full_hashes(group).values()}
     for name, item in reads.items():
         if name.startswith("sandbox:") and item.get("state") == "collected":
-            prefix = name.split(":", 1)[1].lower()
+            query_hash = item.get("queried_hash")
             for entry in item.get("items", []):
                 if isinstance(entry, dict) and str(entry.get("riskLevel", "")).lower() == "high":
-                    # The verdict counts only for a hash seen in a record linked to the alert.
-                    tied = any(h.startswith(prefix) for h in linked_hashes)
+                    # Full equality in the returned artifact, not a 12-character report key or a trusted filter.
+                    tied = query_hash in linked_hashes and bool(find_paths(entry, query_hash))
                     (verdicts if tied else unlinked).append(f"{name}: existing sandbox analysis riskLevel=high"
-                                                            + ("" if tied else " (hash not in a linked record)"))
+                                                            + ("" if tied else " (full hash/executed role not verified)"))
         if name.startswith("suspicious_objects") and item.get("state") == "collected" and any(
                 isinstance(i, dict) and str(i.get("riskLevel", "")).lower() == "high" for i in item.get("items", [])):
             signals.append("alert hash present as high risk in the configured Suspicious Object List; execution role and "
@@ -218,7 +239,8 @@ def assess(report: dict) -> dict:
                    "Positive needs an authorization source and True Positive needs a malicious discriminator tied to this execution")
         else:
             why = ("execution of the detected behavior is not confirmed in collected records; absence in bounded "
-                   "searches is not evidence of a False Positive")
+                   "searches is not evidence of a False Positive. Benign True Positive needs an authorization source "
+                   "and observed execution")
     else:
         strong = req["anchor_reliable"]["status"] == "confirmed" and req["search_coverage_complete"]["status"] == "confirmed"
         confidence = "high" if strong else "moderate"

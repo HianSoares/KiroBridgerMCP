@@ -280,21 +280,27 @@ class DecisionTests(unittest.TestCase):
     def base(self, **extra):
         return {"alert_id": ALERT_ID, "alert": {}, "clocks": {"anchor": {"provisional": False}},
                 "auto_pivots": {"record_counts": {"linked": 1}, "continuation": [],
-                                "pivots": [{"state": "complete_in_window", "tool": "s"}]},
+                                "pivots": [{"state": "complete_in_window", "tool": "s"}],
+                                "records": {"linked": [{"uuid": "linked-execution", "event_time_raw": z(T0),
+                                    "process": {"filePath": "C:\\synthetic.exe", "pid": 7, "hashId": "instance-7",
+                                                "launchTime": z(T0), "fileHashSha256": SHA}}]}},
                 "dump_analysis": {"dumps": []}, "enrichment": {}, "qradar_correlation": {}, **extra}
 
     def test_true_positive_needs_execution_and_a_malicious_discriminator(self):
-        verdict = {f"sandbox:{SHA[:12]}": {"state": "collected", "items": [{"riskLevel": "high"}]}}
-        unlinked = assess(self.base(hypothesis_checks=verdict))
+        verdict = {f"sandbox:{SHA[:12]}": {"state": "collected", "queried_hash": SHA,
+                                           "items": [{"riskLevel": "high", "digest": {"sha256": SHA}}]}}
+        unlinked_report = self.base(hypothesis_checks=verdict)
+        unlinked_report["auto_pivots"]["records"] = {}
+        unlinked = assess(unlinked_report)
         self.assertEqual(unlinked["classification"], "Inconclusive")  # verdict not tied to the linked execution
         self.assertEqual(unlinked["requirements"]["malicious_discriminator"]["status"], "compatible")
         report = self.base(hypothesis_checks=verdict)
-        report["auto_pivots"]["records"] = {"linked": [{"object": {"fileHashSha256": SHA}}]}
         result = assess(report)
         self.assertEqual(result["classification"], "True Positive")
         self.assertEqual(result["confidence"], "high")
         no_exec = self.base(hypothesis_checks=verdict)
         no_exec["auto_pivots"]["record_counts"] = {"linked": 0}
+        no_exec["auto_pivots"]["records"] = {}
         self.assertEqual(assess(no_exec)["classification"], "Inconclusive")
 
     def test_benign_needs_authorization_and_false_positive_needs_positive_evidence(self):
@@ -312,7 +318,9 @@ class DecisionTests(unittest.TestCase):
     def offense_result(self, complete=True, reasons=None):
         return {"offense_id": 71, "assessment": {}, "queries": {
                     "events": {"result_set_complete": complete, "search_id": "s1", "outcome": "complete_in_window",
-                               "returned_rows": 3, "scope": "offense_linked"}},
+                               "returned_rows": 3, "scope": "offense_linked"},
+                    "flows": {"result_set_complete": True, "search_id": "s2", "outcome": "empty",
+                              "returned_rows": 0, "scope": "offense_linked"}},
                 "linux": {}, "gap_details": [{"id": "attribution:host-process", "state": "outside_bridge",
                                               "relevance": {"blocks": ["benign_verdict"]}, "summary": "x"}],
                 "metadata": {"status": "OPEN"}, "metadata_interval": {"start": "a", "end": "b"},

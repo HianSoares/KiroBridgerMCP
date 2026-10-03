@@ -184,6 +184,14 @@ async def investigate_vision_alert(qradar: Protocol, vision: Protocol, alert_id:
     if qradar_correlation and not ips:
         warnings.append("Alert detail has no explicit IP field; QRadar IP-based offense correlation cannot run")
     seen = instant(anchor.get("time_utc"))
+    # Evidence correlation has priority over potentially numerous offense leads.
+    # A lead index alone does not fulfill the reserved Ariel correlation phase.
+    correlation = None
+    if qradar_correlation and ariel_offset_hours is not None and seen:
+        from .trend_qradar import correlate
+        correlation = await correlate(qradar, budget, parsed, discovery or {"records_all": []}, anchor, now,
+                                      ariel_offset_hours, timezone_verified, manual.get("endpoint_ip"))
+        warnings.extend(correlation["notes"])
     leads: dict[int, set[str]] = {}
     successful_queries = 0
     lead_queries: list[dict] = []
@@ -241,12 +249,6 @@ async def investigate_vision_alert(qradar: Protocol, vision: Protocol, alert_id:
     if not matches and qradar_correlation:
         warnings.append("No QRadar offense lead in inspected address indexes; this does not exclude events or flows"
                         if successful_queries else "No QRadar address-index query was executed")
-    correlation = None
-    if qradar_correlation and ariel_offset_hours is not None and seen:
-        from .trend_qradar import correlate
-        correlation = await correlate(qradar, budget, parsed, discovery or {"records_all": []}, anchor, now,
-                                      ariel_offset_hours, timezone_verified, manual.get("endpoint_ip"))
-        warnings.extend(correlation["notes"])
     if enable_vision_search:
         budget.enter("enrichment")
         hypotheses = {"network_transfer": bool(dumps.get("applicable"))}

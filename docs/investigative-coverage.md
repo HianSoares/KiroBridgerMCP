@@ -93,11 +93,15 @@ O relatório usa um vocabulário fixo de status:
 
 Cada conclusão tem requisitos próprios (`decision_matrix`), e uma lacuna só bloqueia as conclusões que precisam dela:
 
-- **True Positive:** execução observada e discriminador malicioso confirmado, por exemplo um resultado de sandbox existente de alto risco para o hash.
+- **True Positive:** atividade de processo observada no registro vinculado ao alerta e resultado de sandbox de alto risco com o hash completo igual ao do processo. O processo deve ter caminho, PID, instância e horário de início observáveis. Um objeto só conta como processo recém-iniciado quando seu início coincide com o evento (até 5 s). Hash de pai, arquivo detectado ou objeto acessado sem essa evidência não comprova execução. O digest precisa aparecer no resultado retornado; o filtro enviado e o prefixo de 12 caracteres da chave do relatório não bastam.
 - **Benign True Positive:** execução observada e fonte de autorização.
 - **False Positive:** evidência positiva de que o comportamento não ocorreu, com cobertura completa.
 
 Não há pontuação numérica na decisão. A confiança segue os requisitos: requisitos atendidos, âncora confiável e cobertura completa resultam em confiança alta. O rank de alertas na offense é só ordenação, com pesos descritos em `rank_criteria`.
+
+A execução de um artefato identificado como malicioso não confirma automaticamente todas as ações do nome do alerta: dumping de credenciais, escrita de arquivo e exfiltração continuam exigindo suas evidências próprias.
+
+Na fase de correlação, Ariel é consultado antes da enumeração de leads de offenses. Consultas de contexto mantêm as linhas anteriores e a posição da página não lida em caso de orçamento/timeout. Comparações de reference data usam a resposta original antes dos cortes de exibição. Resposta inesperada não é resultado vazio, e uma primeira página que atinge o limite não é declarada exaustiva.
 
 ## Fechamento no QRadar
 
@@ -108,7 +112,7 @@ Não há pontuação numérica na decisão. A confiança segue os requisitos: re
 | Non-Issue | Autorização e coleta relevante completa. |
 | False-Positive, Tuned | Erro de detecção, revisão da CRE, tuning e coleta completa. |
 | Duplicate | Offense primária referenciada. |
-| Policy Violation | Política confirmada. |
+| Policy Violation | Política confirmada e coleta relevante completa. |
 | Resolved | Remediação verificada. |
 
 Motivos personalizados exigem definição local.
@@ -116,6 +120,8 @@ Motivos personalizados exigem definição local.
 `qradar_assess_closure` repete a coleta e aceita `confirmations` com registros que a ponte não consegue ler: autorização, offense primária, remediação e similares. Esses registros ficam marcados como fornecidos pelo analista. A cobertura da coleta não pode ser confirmada manualmente.
 
 Um motivo só é recomendado quando todos os requisitos estão atendidos e ele existe no catálogo; nenhum ID é inventado. A nota em português cita evidências, janela, consultas, justificativa e pendências. Nada é fechado nem publicado.
+
+Consultas obrigatórias ausentes também impedem confirmar a coleta, mesmo que as demais tenham terminado. `blocking_requirements` contém os impedimentos do motivo avaliado; `other_unresolved_requirements` preserva as limitações que não o bloqueiam. Por exemplo, uma duplicata citada pelo analista pode ser recomendada com buscas ainda pendentes, que continuam explícitas na nota.
 
 ## Atualização
 

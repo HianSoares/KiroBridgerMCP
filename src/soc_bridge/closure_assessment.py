@@ -38,6 +38,8 @@ ANALYST_REQUIREMENTS = {
 def validate_confirmations(confirmations: list | None, offense_id: int | None = None) -> list[dict]:
     """Analyst-supplied records: requirement id, source and reference are mandatory and kept verbatim."""
     out = []
+    if confirmations is not None and (not isinstance(confirmations, list) or len(confirmations) > 20):
+        raise ValueError("confirmations must be a list of at most 20 cited records")
     for item in confirmations or []:
         if not isinstance(item, dict):
             raise ValueError("each confirmation must be an object")
@@ -52,7 +54,8 @@ def validate_confirmations(confirmations: list | None, offense_id: int | None = 
                 raise ValueError(f"confirmation {key} must be a non-empty string up to 300 characters")
             fields[key] = value.strip()
         if rid == "primary_offense":
-            if not fields["reference"].isdigit() or int(fields["reference"]) == offense_id:
+            if (not fields["reference"].isdigit() or int(fields["reference"]) < 1
+                    or int(fields["reference"]) == offense_id):
                 raise ValueError("primary_offense reference must be another offense ID")
         out.append({"requirement": rid, **fields})
     return out
@@ -120,7 +123,7 @@ def propose(result: dict, confirmations: list | None = None) -> dict:
     incomplete = [name for name, q in queries.items() if not q.get("result_set_complete")]
     # Do not let an irrelevant flow census prevent reporting Linux authentication facts.
     relevant_names = {"events", "linux_ssh_window", "linux_identity_window"} if linux.get("detected") else {"events", "flows"}
-    relevant = [n for n in incomplete if n in relevant_names]
+    relevant = sorted(n for n in relevant_names if n not in queries or not queries[n].get("result_set_complete"))
     confirmed = validate_confirmations(confirmations, result.get("offense_id"))
     blockers = [{"id": f"coverage:{n}", "summary": f"Relevant collection incomplete: {n}"} for n in relevant]
     if result.get("count_comparison", {}).get("events", {}).get("status") == "unresolved":
@@ -193,6 +196,18 @@ def propose(result: dict, confirmations: list | None = None) -> dict:
     if not matrix:
         blockers.insert(0, {"id": "authorization", "summary": ANALYST_REQUIREMENTS["authorization"],
                             "next_action": "Closing-reason catalog unavailable or custom-only; no reason can be evaluated"})
+    other_pending = []
+    if target:
+        # Show only blockers of the evaluated reason. For example, a duplicate can be
+        # recommended while event collection is pending, without hiding that limitation.
+        target_ids = {b["id"] for b in target["blocking"]}
+        coverage_needed = "relevant_collection_complete" in target_ids
+        active = []
+        for blocker in blockers:
+            (active if blocker["id"] in target_ids or (coverage_needed and blocker in technical)
+             or ("authorization" in target_ids and blocker["id"] in outside_ids)
+             else other_pending).append(blocker)
+        blockers = active
     interval = result.get("metadata_interval", {})
     note_facts = []
     if sudo:
@@ -239,7 +254,8 @@ def propose(result: dict, confirmations: list | None = None) -> dict:
           "misconfiguration_confirmed": "configuração incorreta não demonstrada",
           "remediation_verified": "remediação não verificada", "administrative_decision": "decisão administrativa não registrada"}
     blockers_pt = [pt[b["id"]] for b in blockers if b["id"] in pt]
-    blockers_pt += [f"coleta relevante incompleta: {n}" for n in relevant]
+    blockers_pt += [f"coleta relevante incompleta: {n}" for n in relevant
+                    if any(b["id"] == f"coverage:{n}" for b in blockers)]
     if any(b["id"] == "event_snapshot" for b in blockers):
         comparison = result["count_comparison"]["events"]
         blockers_pt.append(f"contagens de eventos não reconciliadas: metadados={comparison.get('metadata_count')}, "
@@ -260,6 +276,8 @@ def propose(result: dict, confirmations: list | None = None) -> dict:
               if recommended else "Decisão sugerida: manter pendente. ")) + "; ".join(blockers_pt) + ".",
             *([f"Registros citados pelo analista (não verificados pela ponte): " +
                "; ".join(f"{c['requirement']} — {c['source']} [{c['reference']}]" for c in confirmed) + "."] if confirmed else []),
+            *(["Limitações registradas que não bloqueiam o motivo avaliado: " +
+               "; ".join(f"{b['id']}: {b['summary']}" for b in other_pending) + "."] if other_pending else []),
             ("Motivo de fechamento selecionado a partir do catálogo real do QRadar." if recommended else
              "Motivo de fechamento ainda não selecionado.") + " Nenhum fechamento, tuning ou contenção executado."]
     return {"decision": "review_existing_closure" if already_closed else "recommend_closure" if recommended else "keep_open",
@@ -273,7 +291,8 @@ def propose(result: dict, confirmations: list | None = None) -> dict:
             "confidence": confidence,
             "confidence_explanation": ("Sem pontuação numérica: um motivo é recomendado somente quando todos os seus requisitos "
                                        "estão atendidos; lacunas irrelevantes para o motivo não o bloqueiam."),
-            "blocking_requirements": blockers, "secondary_collection_pending": [n for n in incomplete if n not in relevant],
+            "blocking_requirements": blockers, "other_unresolved_requirements": other_pending,
+            "secondary_collection_pending": [n for n in incomplete if n not in relevant],
             "evidence": evidence, "suggested_note": "\n".join(note),
             "observed_facts": assessment.get("confirmed_facts", []),
             "note_status": "draft_for_analyst_review", "human_review_required": True,

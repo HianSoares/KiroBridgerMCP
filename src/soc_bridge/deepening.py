@@ -78,12 +78,14 @@ async def deepen(vision: Any, alerts: list[dict], offense_id: int, max_alerts: i
         share = len(chosen) - index
         seconds = parent.remaining_seconds() / share
         calls = (parent.max_calls - parent.calls_made) // share
-        if seconds <= 1 or calls < 1:
+        records = (parent.max_records - parent.records_seen) // share
+        partitions = (parent.max_partitions - parent.partitions_used) // share
+        if seconds <= 1 or calls < 1 or records < 1 or partitions < 1:
             out["investigations"].append({"alert_id": alert_id, "state": "not_executed",
                                           "reason": "shared deepening budget exhausted"})
             continue
-        budget = Budget(max_seconds=seconds, max_queries=0, max_calls=calls, max_records=4000,
-                        max_partitions=max(4, parent.max_partitions // share))
+        budget = Budget(max_seconds=seconds, max_queries=0, max_calls=calls, max_records=records,
+                        max_partitions=partitions)
         budget.reserve("hypothesis", calls=max(1, calls // 6), seconds=seconds / 8)
         budget.reserve("enrichment", calls=max(1, calls // 5), seconds=seconds / 10)
         try:
@@ -98,6 +100,7 @@ async def deepen(vision: Any, alerts: list[dict], offense_id: int, max_alerts: i
             out["investigations"].append({"alert_id": alert_id, "state": "failed", "error": type(exc).__name__})
         parent.calls_made += budget.calls_made
         parent.records_seen += budget.records_seen
+        parent.partitions_used += budget.partitions_used
     out["state"] = "collected"
     out["cache"] = {"upstream_calls": cached.calls, "reused_results": cached.hits}
     out["budget"] = parent.describe()

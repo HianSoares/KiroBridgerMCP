@@ -40,13 +40,16 @@ async def read(qradar: Any, budget: Budget, tool: str, args: dict, purpose: str,
         return result
     rows: list = []
     offset = int(args.get("offset", 0) or 0)
+    pending = None
     while result["pages_read"] < max_pages:
-        reason = budget.blocked("call")
+        call_args = {**args, **({"offset": offset, "limit": page_size} if page_size else {})}
+        reason = budget.blocked("call") or budget.blocked("record")
         if reason:
             result["reason"] = reason
+            if result["pages_read"]:
+                pending = call_args
             break
         budget.calls_made += 1
-        call_args = {**args, **({"offset": offset, "limit": page_size} if page_size else {})}
         try:
             response = await budget.run(lambda: qradar.call(tool, call_args), tool)
         except BudgetExhausted as exc:
@@ -54,12 +57,14 @@ async def read(qradar: Any, budget: Budget, tool: str, args: dict, purpose: str,
             if not result["pages_read"]:
                 result["state"] = "interrupted" if exc.started else "not_started"
                 return result
+            pending = call_args
             break
         except Exception as exc:
             error = classify_failure(exc)
             if result["pages_read"]:
                 result["page_error"] = error["category"]
                 result["continuation"] = {"tool": tool, "args": call_args, "note": "retry the page that failed"}
+                pending = call_args
                 break
             result.update(state={"permission": "permission", "tool_unavailable": "tool_absent",
                                  "response_format": "format", "not_found": "not_found",
@@ -74,7 +79,13 @@ async def read(qradar: Any, budget: Budget, tool: str, args: dict, purpose: str,
         elif isinstance(response, dict) and any(isinstance(response.get(k), list) for k in ("items", "data", "results")):
             page = records(response)
         else:
-            page = [response] if isinstance(response, dict) else []
+            if not isinstance(response, dict):
+                result.update(state="format", error={"category": "response_format"})
+                if rows:
+                    pending = call_args
+                    break
+                return result
+            page = [response]
         budget.records_seen += len(page)
         rows.extend(page)
         if not page_size or len(page) < page_size:
@@ -85,6 +96,13 @@ async def read(qradar: Any, budget: Budget, tool: str, args: dict, purpose: str,
                                       "note": "page full at the bridge cap; resume with this offset"}
     if not result["pages_read"]:
         return result
+    if pending:
+        result["continuation"] = {"tool": tool, "args": pending, "note": "resume the unread page; previous rows retained"}
+    capped = (not page_size and isinstance(args.get("limit"), int) and len(rows) >= args["limit"])
+    result["result_set_complete"] = not bool(result.get("continuation")) and not capped
+    if capped:
+        result["more_available"] = True
+        result["coverage_note"] = "Single bounded response reached its requested limit; more rows may exist"
     result["count"] = len(rows)
     if raw:
         result["_raw"] = rows  # for local matching by the caller; removed before reporting
@@ -273,11 +291,13 @@ async def lookup(qradar: Any, budget: Budget, kind: str, value: str = "", name: 
         result = {}
         for tool_name in ("get_reference_map", "get_reference_table"):
             got = await read(qradar, budget, tool_name, {"name": collection, "limit": MAX_ELEMENTS},
-                             "bounded read of the collection; exact value matched locally", trigger, max_items=1)
+                             "bounded read of the collection; exact value matched locally", trigger, max_items=0, raw=True)
             if got["state"] != "collected":
-                result[tool_name] = {k: v for k, v in got.items() if k != "items"}
+                result[tool_name] = {k: v for k, v in got.items() if k not in ("items", "_raw")}
                 continue
-            data = got["items"][0] if got["items"] else {}
+            # Match the original bounded API response before display preservation cuts keys/depth.
+            raw_rows = got.pop("_raw", [])
+            data = raw_rows[0] if raw_rows else {}
             matches = [path for path in _value_paths(data.get("data"), value)][:20]
             total = data.get("number_of_elements")
             result[tool_name] = {"state": "collected", "collection": collection, "matches": matches,
@@ -319,7 +339,8 @@ async def _by_name(qradar: Any, budget: Budget, tool: str, fragment: str, purpos
     result["items"], result["preservation"] = preserve(found[:50])
     result["matched"] = len(found)
     result["scanned"] = len(rows)
-    result["coverage"] = ("all items scanned" if "continuation" not in result else
+    result["coverage"] = ("no scan completed" if result["state"] not in ("collected", "empty") else
+                          "all items scanned" if "continuation" not in result else
                           f"first {len(rows)} items scanned; more exist (see continuation)")
     if result["state"] == "collected" and not found:
         result["state"] = "empty"

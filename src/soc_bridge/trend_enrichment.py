@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from .aql_errors import classify_failure
+from .aql_errors import ResponseFormatError, classify_failure
 from .ariel_collection import Budget, BudgetExhausted
 from .core import address
 from .structured import find_paths, preserve
@@ -99,6 +99,14 @@ async def optional_read(vision: Any, budget: Budget, tool: str, args: dict, purp
         call_args = {**args, **({"skipToken": token} if token else {})}
         try:
             response = await budget.run(lambda: vision.call(tool, call_args), tool)
+            if not isinstance(response, (dict, list)):
+                raise ResponseFormatError("Expected structured JSON")
+            if isinstance(response, dict) and tool.endswith("_list") and not any(
+                    isinstance(response.get(k), list) for k in ("items", "data", "results")):
+                raise ResponseFormatError("Expected a list envelope")
+            page = _items(response)
+            if any(not isinstance(item, dict) for item in page):
+                raise ResponseFormatError("Expected object records")
         except BudgetExhausted as exc:
             result["reason"] = str(exc)
             if result["pages_read"]:
@@ -114,7 +122,6 @@ async def optional_read(vision: Any, budget: Budget, tool: str, args: dict, purp
             result["error"] = {"category": error["category"], "next_action": error["next_action"]}
             return result
         result["pages_read"] += 1
-        page = [i for i in _items(response) if isinstance(i, dict)]
         budget.records_seen += len(page)
         rows.extend(page)
         token, more = next_token(response)
@@ -267,7 +274,8 @@ async def hypothesis_reads(vision: Any, budget: Budget, alert_id: str, parsed: d
         listing = await optional_read(
             vision, budget, "sandbox_analysis_results_list", {"filter": f"{sandbox_field} eq '{value}'", "top": "50"},
             "existing sandbox results (no new submission)", trig,
-            ("id", "type", "riskLevel", "analysisCompletionDateTime", "detectionNames", "threatTypes", "digest"))
+            ("id", "type", "riskLevel", "analysisCompletionDateTime", "detectionNames", "threatTypes", "digest", "sha1", "sha256"))
+        listing["queried_hash"] = value
         out[f"sandbox:{value[:12]}"] = listing
         for item in listing.get("items", [])[:2]:
             rid = str(item.get("id") or "")
