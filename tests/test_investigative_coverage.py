@@ -401,7 +401,7 @@ class SafetyAndCompatibilityTests(unittest.TestCase):
         tools = {t.name: t for t in run(mcp.list_tools())}
         for name, schema in before.items():
             self.assertEqual(tools[name].inputSchema, schema, name)
-        self.assertEqual(set(tools) - set(before), {"qradar_read_context", "qradar_assess_closure"})
+        self.assertEqual(set(tools) - set(before), {"qradar_read_context", "qradar_assess_closure", "qradar_list_offenses"})
         self.assertTrue(all(t.annotations.readOnlyHint for t in tools.values()))
 
     def test_context_lookup_validates_arguments(self):

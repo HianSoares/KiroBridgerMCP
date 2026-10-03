@@ -18,7 +18,7 @@ E_ALR = "investigate_vision_alert/investigate_case (WB-), deepened alerts of inv
 # name -> (category, entry point, trigger, limits)
 QRADAR = {
     "get_offense": ("offense", f"{E_OFF}; {E_VER}; alert QRadar leads", "offense ID given or offense lead from address index", "single object"),
-    "list_offenses": ("offense", "qradar_find_offenses, qradar_investigate_offenses", "description discovery", "description matched locally over bounded pages"),
+    "list_offenses": ("offense", "qradar_list_offenses, qradar_find_offenses, qradar_investigate_offenses", "status queue triage or description discovery", "bounded +id pages; local metadata priority or literal description matching"),
     "list_source_addresses": ("offense", f"{E_OFF}; alert leads", "offense ID or alert IP", "100 rows; cap reported"),
     "list_local_destination_addresses": ("offense", f"{E_OFF}; alert leads", "offense ID or alert IP", "100 rows; cap reported"),
     "list_offense_closing_reasons": ("offense", E_VER, "closure proposal", "live catalog; deleted/reserved excluded; no ID invented"),

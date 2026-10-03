@@ -67,6 +67,17 @@ class ArielTransportTests(unittest.TestCase):
                 self.assertEqual(found["next_offset"], 4)
                 self.assertEqual(found["upstream_total_count"], 5)
                 self.assertIsNone(found["total_count"])
+                listed = await live_qradar_query("list_offenses", {"limit": 2}, url, None)
+                self.assertEqual({r["id"] for r in listed["offenses"]}, {12340, 12341})
+                self.assertFalse(listed["all_open_offenses_listed"])
+                self.assertEqual(listed["continuation_plan"][0]["tool"], "qradar_list_offenses")
+                later = await live_qradar_query("list_offenses", {
+                    **listed["continuation_plan"][0]["parameters"], "limit": 100}, url, None)
+                self.assertEqual(later["offenses"][0]["id"], 12347)
+                self.assertTrue(later["discovery_exhausted"])
+                self.assertFalse(later["ranking"]["complete_selection_ranked"])
+                self.assertEqual({r["id"] for r in listed["offenses"] + later["offenses"]},
+                                 {12340, 12341, 12345, 12346, 12347})
                 failed = await live_qradar_query("find_offenses", {
                     "description": "Synthetic upstream error", "status": "HIDDEN"}, url, None)
                 self.assertEqual(failed["error"]["category"], "upstream_tool_error")

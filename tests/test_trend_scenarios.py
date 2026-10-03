@@ -141,7 +141,7 @@ class TransportSafetyTests(unittest.TestCase):
 class ToolSchemaTests(unittest.TestCase):
     def test_fifteen_read_only_tools_with_unchanged_alert_schemas(self):
         tools = {tool.name: tool for tool in asyncio.run(mcp.list_tools())}
-        self.assertEqual(len(tools), 20)
+        self.assertEqual(len(tools), 21)
         self.assertTrue(all(tool.annotations.readOnlyHint for tool in tools.values()))
         self.assertEqual(set(tools["investigate_vision_alert"].inputSchema["properties"]), {"alert_id"})
         self.assertEqual(tools["investigate_vision_alert"].inputSchema["required"], ["alert_id"])

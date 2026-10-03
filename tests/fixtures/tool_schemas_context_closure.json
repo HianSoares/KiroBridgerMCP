@@ -1,0 +1,64 @@
+{
+  "qradar_read_context": {
+    "properties": {
+      "kind": {
+        "title": "Kind",
+        "type": "string"
+      },
+      "value": {
+        "default": "",
+        "title": "Value",
+        "type": "string"
+      },
+      "name": {
+        "default": "",
+        "title": "Name",
+        "type": "string"
+      }
+    },
+    "required": [
+      "kind"
+    ],
+    "title": "qradar_read_contextArguments",
+    "type": "object"
+  },
+  "qradar_assess_closure": {
+    "properties": {
+      "offense_id": {
+        "title": "Offense Id",
+        "type": "integer"
+      },
+      "confirmations": {
+        "anyOf": [
+          {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Confirmations"
+      },
+      "qradar_utc_offset_hours": {
+        "default": -3,
+        "title": "Qradar Utc Offset Hours",
+        "type": "integer"
+      },
+      "timezone_verified": {
+        "default": false,
+        "title": "Timezone Verified",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "offense_id"
+    ],
+    "title": "qradar_assess_closureArguments",
+    "type": "object"
+  }
+}

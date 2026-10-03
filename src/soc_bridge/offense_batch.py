@@ -24,8 +24,17 @@ def selection(description: str, status: str, match: str, start_time_from: int | 
         raise ValueError('description must contain 1..1000 characters')
     if any(ord(c) < 32 for c in description):
         raise ValueError('description must not contain control characters')
-    if status not in ('OPEN', 'CLOSED', 'HIDDEN', 'ALL') or match not in ('exact', 'contains'):
+    if match not in ('exact', 'contains'):
         raise ValueError('status must be OPEN/CLOSED/HIDDEN/ALL; match must be exact/contains')
+    expression, scope = status_selection(status, start_time_from, start_time_to)
+    return expression, dict(description=description, match=match, **scope)
+
+
+def status_selection(status: str, start_time_from: int | None,
+                     start_time_to: int | None) -> tuple[str, dict]:
+    """Build only the supported status/start_time predicates; no description wildcard."""
+    if status not in ('OPEN', 'CLOSED', 'HIDDEN', 'ALL'):
+        raise ValueError('status must be OPEN/CLOSED/HIDDEN/ALL')
     for name, bound in (('start_time_from', start_time_from), ('start_time_to', start_time_to)):
         if bound is not None:
             integer(bound, name, 0, 9999999999999)
@@ -38,8 +47,8 @@ def selection(description: str, status: str, match: str, start_time_from: int | 
         parts.append(f'start_time >= {start_time_from}')
     if start_time_to is not None:
         parts.append(f'start_time <= {start_time_to}')
-    return ' and '.join(parts), dict(description=description, status=status, match=match,
-                                    start_time_from=start_time_from, start_time_to=start_time_to)
+    return ' and '.join(parts), dict(status=status, start_time_from=start_time_from,
+                                    start_time_to=start_time_to)
 
 
 async def find_offenses(qradar: Any, description: str, status: str = 'OPEN', match: str = 'exact',
@@ -49,10 +58,20 @@ async def find_offenses(qradar: Any, description: str, status: str = 'OPEN', mat
     integer(offset, 'offset', 0, 1000000)
     integer(limit, 'limit', 1, 100)
     expression, scope = selection(description, status, match, start_time_from, start_time_to)
+    return await _discover(qradar, expression, scope, offset, limit, budget)
+
+
+async def _discover(qradar: Any, expression: str, scope: dict, offset: int, limit: int,
+                    budget: Budget | None, tool: str = 'qradar_find_offenses', fields: str = FIELDS) -> dict:
+    """Shared raw-population scanner. A missing description means no description filter."""
+    description, match = scope.get('description'), scope.get('match')
+    status = scope['status']
+    start_time_from, start_time_to = scope['start_time_from'], scope['start_time_to']
     budget = budget or Budget(max_seconds=20)
     result = dict(scope=scope, offset=offset, limit=limit, offenses=[], outcome='unavailable',
                   page_complete=False, discovery_exhausted=False, total_count=None,
-                  upstream_total_count=None, description_matching='local literal comparison',
+                  upstream_total_count=None, description_matching=('not applied' if description is None
+                                                                  else 'local literal comparison'),
                   offset_semantics='Cursor in the status/time-filtered upstream population, including nonmatches',
                   next_offset=offset, upstream_rows_scanned=0, upstream_pages_read=0,
                   mcp_tool_call_attempted=False, mcp_tool_calls_attempted=0,
@@ -79,7 +98,7 @@ async def find_offenses(qradar: Any, description: str, status: str = 'OPEN', mat
                 result['mcp_tool_calls_attempted'] += 1
                 result['diagnostic_stage'] = 'upstream_tool_call'
                 return await qradar.call('list_offenses', dict(filter=expression, sort='+id',
-                    fields=FIELDS, offset=cursor, limit=page_size, format_output=False))
+                    fields=fields, offset=cursor, limit=page_size, format_output=False))
             data = await budget.run(request, 'offense discovery')
             result['decoded_response_returned'] = True
             result['diagnostic_stage'] = 'response_validation'
@@ -124,7 +143,8 @@ async def find_offenses(qradar: Any, description: str, status: str = 'OPEN', mat
                 budget.records_seen += 1
                 result['upstream_rows_scanned'] += 1
                 previous_id = row['id']
-                matches = row['description'] == description if match == 'exact' else description in row['description']
+                matches = (description is None or (row['description'] == description if match == 'exact'
+                                                   else description in row['description']))
                 if matches:
                     result['offenses'].append(row)
                 if len(result['offenses']) >= limit:
@@ -154,7 +174,7 @@ async def find_offenses(qradar: Any, description: str, status: str = 'OPEN', mat
     result['returned_count'] = len(result['offenses'])
     result['budget'] = budget.describe()
     if not result['discovery_exhausted']:
-        plan = dict(tool='qradar_find_offenses', parameters={**parameters, 'offset': cursor},
+        plan = dict(tool=tool, parameters={**parameters, 'offset': cursor},
                     cursor_semantics=result['offset_semantics'])
         if result.get('error'):
             plan['requires_resolution'] = not result['error']['retryable']
