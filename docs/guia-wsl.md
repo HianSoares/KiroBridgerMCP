@@ -155,9 +155,9 @@ O preflight só lê; ele não consulta QRadar nem Vision One e não mostra crede
 | WSL 2, distribuição, sistema | Kernel WSL 2 e `WSL_DISTRO_NAME` |
 | Projeto e Python | `pyproject.toml`, Python 3.11+ da `.venv` Linux, ausência de `.venv` Windows, aviso para `/mnt/...` |
 | `soc_bridge` importado | Contagem de tools lida do código e todas marcadas como read-only |
-| Servidor MCP por stdio | Handshake `initialize` + `tools/list` em que **toda linha de stdout precisa ser JSON-RPC** |
+| Servidor MCP por stdio | Handshake `initialize` + `tools/list` com prazo único e saída limitada. **Toda linha de stdout precisa ser JSON-RPC**, erros JSON-RPC e formatos inválidos falham, e as tools precisam ser as da ponte (nomes e schemas), todas read-only |
 | `mcp.json` | `wsl.exe`, distribuição, `--cd` e `--exec` deste clone, `WSLENV` com `/u`, chaves literais |
-| Comando do `mcp.json` via `wsl.exe` | O mesmo comando do Kiro, por interoperabilidade; detecta texto extra no stdout |
+| Comando do `mcp.json` via `wsl.exe` | O mesmo comando do Kiro, por interoperabilidade, com as mesmas validações; detecta texto extra no stdout |
 | Docker | CLI, daemon (Docker Desktop ou motor próprio da distribuição), `docker compose`, credential helper |
 | Variáveis | Estado das variáveis; com `--from-windows`, se `SOC_BRIDGE_PROBE` atravessou o `WSLENV` |
 | Porta do QRadar MCP | Conexão TCP à URL de loopback **a partir do WSL**; porta aberta não prova autenticação |
@@ -170,7 +170,7 @@ Para distinguir porta aberta de sessão MCP válida, depois de configurar o QRad
 ./.venv/bin/python scripts/wsl_preflight.py --check-qradar-mcp
 ```
 
-Essa opção abre uma sessão MCP local e lista as tools; não executa AQL nem lê offenses. Use somente quando estiver autorizado a acessar esse QRadar MCP. Dependendo da implantação da IBM, a autenticação pode ser validada junto à console.
+Essa opção abre uma sessão MCP local e lista as tools; não executa AQL nem lê offenses. Como você pediu a verificação, porta fechada passa a ser `[FALHA]` e o comando termina com código diferente de zero. Sem a opção, porta e Docker indisponíveis continuam como avisos. Use somente quando estiver autorizado a acessar esse QRadar MCP. Dependendo da implantação da IBM, a autenticação pode ser validada junto à console.
 
 ## 6. Abra o projeto no Kiro e rode o demo
 
@@ -289,7 +289,7 @@ Leia o restante do [guia geral](guia-instalacao.md#7-passe-as-credenciais-ao-kir
 | `UNC paths are not supported` ao rodar `kiro` | Execute `Set-Location $HOME` antes de `kiro <pasta>`. |
 | Porta 5001 inacessível no WSL | Seção 9. Confira `docker compose ps` na pasta do QRadar MCP e a publicação `127.0.0.1:5001:5000`. |
 | HTTP 401 no `--check-qradar-mcp` | Porta certa, autenticação recusada: token ausente/expirado ou configuração do QRadar MCP. Veja o guia geral. |
-| `stdout contaminated` no preflight | Algo imprimiu texto fora do protocolo. Não altere `wsl_launch`; verifique mudanças locais e avisos do próprio `wsl.exe`. |
+| `stdout contaminated` no preflight | Algo imprimiu texto fora do protocolo. O preflight não mostra esse texto, porque ele pode conter segredos. Não altere `wsl_launch`; verifique mudanças locais e avisos do próprio `wsl.exe`. |
 | Mudança no `mcp.json` sem efeito | Salve o arquivo; o Kiro reconecta. Se persistir, reconecte o servidor em **MCP Servers** ou reinicie o Kiro. |
 
 ## 12. O que foi e o que não foi validado

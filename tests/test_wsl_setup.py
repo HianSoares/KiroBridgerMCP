@@ -6,7 +6,9 @@ Everything here is synthetic: no WSL, Docker, QRadar or Vision One is contacted.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from http.server import BaseHTTPRequestHandler, HTTPServer
+import io
 import json
 import os
 from pathlib import Path
@@ -15,6 +17,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from unittest import mock
 
@@ -152,10 +155,12 @@ class LauncherTests(unittest.TestCase):
         self.assertEqual(env_state("  ${X}  "), "unexpanded reference")
 
     def test_stdout_carries_only_json_rpc_and_stderr_has_no_secret(self):
-        expected = len(asyncio.run(mcp.list_tools()))
+        tools = asyncio.run(mcp.list_tools())
+        expected = len(tools)
         probe = pre.stdio_probe([sys.executable, "-m", "soc_bridge.wsl_launch"],
                                 env=child_env(TREND_VISION_ONE_API_KEY=SECRET, TREND_VISION_ONE_REGION="",
-                                              QRADAR_MCP_TOKEN="${QRADAR_MCP_TOKEN}"))
+                                              QRADAR_MCP_TOKEN="${QRADAR_MCP_TOKEN}"),
+                                expected=pre.expected_surface(tools))
         self.assertTrue(probe["ok"], probe["error"])
         self.assertEqual(probe["tools"], expected)
         self.assertTrue(probe["readonly"])
@@ -171,7 +176,7 @@ class LauncherTests(unittest.TestCase):
             probe = pre.stdio_probe([sys.executable, str(script)], env=child_env())
         self.assertFalse(probe["ok"])
         self.assertIn("stdout contaminated", probe["error"])
-        self.assertIn("Welcome", probe["error"])
+        self.assertNotIn("Welcome", probe["error"])
 
 
 def entry(**env: str) -> dict:
@@ -313,6 +318,107 @@ class PreflightTests(unittest.TestCase):
         report = pre.Report()
         self.assertFalse(pre.check_port(report, f"http://127.0.0.1:{port}/mcp", timeout=1))
         self.assertEqual(self.statuses(report), [pre.WARN])
+
+
+def closed_port_url() -> str:
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return f"http://127.0.0.1:{sock.getsockname()[1]}/mcp"
+
+
+FAKE = str(Path(__file__).with_name("fake_stdio_mcp.py"))
+FAKE_SURFACE = {"investigate_demo": {"type": "object", "properties": {}}}
+
+
+def fake_probe(mode: str, timeout: float = 20.0, expected: dict | None = FAKE_SURFACE) -> dict:
+    """Run the probe in a daemon thread so a regression shows up as a failure, not a hung suite."""
+    box: dict = {}
+    thread = threading.Thread(target=lambda: box.update(pre.stdio_probe(
+        [sys.executable, FAKE, mode], env=child_env(), timeout=timeout, expected=expected)), daemon=True)
+    started = time.monotonic()
+    thread.start()
+    thread.join(timeout + 15)
+    box["elapsed"] = time.monotonic() - started
+    box["finished"] = not thread.is_alive()
+    return box
+
+
+class ProbeRegressionTests(unittest.TestCase):
+    def assert_rejected(self, mode: str, fragment: str, **kwargs) -> dict:
+        probe = fake_probe(mode, **kwargs)
+        self.assertTrue(probe["finished"], f"{mode}: probe did not return")
+        self.assertFalse(probe["ok"], mode)
+        self.assertIn(fragment, probe["error"], mode)
+        self.assertNotIn(SECRET, json.dumps(probe), mode)
+        return probe
+
+    def test_fake_server_baseline_is_accepted(self):
+        probe = fake_probe("ok")
+        self.assertTrue(probe["ok"], probe.get("error"))
+        self.assertEqual(probe["tools"], 1)
+
+    def test_json_rpc_error_in_tools_list_is_a_failure_without_upstream_message(self):
+        probe = self.assert_rejected("tools_error", "tools/list returned a JSON-RPC error (code -32603)")
+        self.assertIsNone(probe["tools"])
+
+    def test_invalid_formats_are_rejected(self):
+        for mode, fragment in [("bad_initialize", "initialize result has an invalid format"),
+                               ("tools_not_list", "tools/list result has an invalid format"),
+                               ("tool_without_schema", "tools/list result has an invalid format"),
+                               ("not_readonly", "1 tool(s) not marked read-only")]:
+            with self.subTest(mode=mode):
+                self.assert_rejected(mode, fragment)
+
+    def test_surface_must_match_the_bridge_and_foreign_names_are_not_echoed(self):
+        probe = self.assert_rejected("other_surface", "missing investigate_demo; 1 unexpected")
+        self.assertNotIn("tool_", probe["error"])
+
+    def test_secret_on_stdout_is_detected_but_never_reported(self):
+        self.assert_rejected("secret_stdout", "stdout contaminated")
+
+    def test_arbitrary_stderr_is_not_copied(self):
+        probe = fake_probe("secret_stderr")
+        self.assertTrue(probe["ok"], probe.get("error"))
+        self.assertEqual(probe["stderr"], "")
+        self.assertEqual(pre.launcher_line(b"SOC Bridge via wsl.exe (Ubuntu-24.04): QRADAR_MCP_TOKEN=set, "
+                                           b"TREND_VISION_ONE_REGION=empty (ignored)\r\nnoise\n"),
+                         "SOC Bridge via wsl.exe (Ubuntu-24.04): QRADAR_MCP_TOKEN=set, "
+                         "TREND_VISION_ONE_REGION=empty (ignored)")
+
+    def test_continuous_notifications_cannot_extend_the_deadline(self):
+        probe = self.assert_rejected("notifications", "before the deadline", timeout=1.0)
+        self.assertLess(probe["elapsed"], 10)
+
+    def test_continuous_notifications_hit_the_message_cap(self):
+        probe = self.assert_rejected("notifications", "too many stdout messages", timeout=60.0)
+        self.assertLess(probe["elapsed"], 20)
+
+    def test_oversized_output_is_bounded_and_the_process_is_stopped(self):
+        probe = self.assert_rejected("huge_line", "stdout exceeded the size limit")
+        self.assertLess(probe["elapsed"], 15)
+
+
+class ExplicitQRadarCheckTests(unittest.TestCase):
+    def test_closed_port_is_a_failure_only_when_the_check_was_requested(self):
+        url = closed_port_url()
+        report = pre.Report()
+        pre.check_qradar(report, {"QRADAR_MCP_URL": url}, None, explicit=False)
+        self.assertEqual([s for s, _, _ in report.items], [pre.WARN])
+        self.assertFalse(report.failed)
+        report = pre.Report()
+        pre.check_qradar(report, {"QRADAR_MCP_URL": url}, None, explicit=True)
+        self.assertEqual([s for s, _, _ in report.items], [pre.FAIL])
+        self.assertIn("handshake MCP pedido nao foi feito", report.render())
+
+    def test_main_exit_code_follows_the_explicit_option(self):
+        noop = lambda *args, **kwargs: None
+        patches = dict(check_platform=noop, check_project=lambda *a: False, load_entry=lambda *a: None,
+                       check_through_wsl_exe=noop, check_docker=noop, check_environment=noop)
+        environ = {"QRADAR_MCP_URL": closed_port_url()}
+        with mock.patch.multiple(pre, **patches), mock.patch.dict(os.environ, environ), \
+                contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(pre.main([], project=Path(ROOT)), 0)
+            self.assertEqual(pre.main(["--check-qradar-mcp"], project=Path(ROOT)), 1)
 
 
 if __name__ == "__main__":

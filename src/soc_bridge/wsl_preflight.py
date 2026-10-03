@@ -14,12 +14,14 @@ import json
 import os
 from pathlib import Path
 import queue
+import re
 import shutil
 import socket
 import subprocess
 import sys
 import tempfile
 import threading
+import time
 from typing import Any, Callable
 from urllib.parse import urlparse
 
@@ -106,7 +108,12 @@ def check_project(report: Report, project: Path, prefix: str, version: tuple) ->
     return True
 
 
-def check_tools(report: Report) -> int | None:
+def expected_surface(tools: list[Any]) -> dict[str, dict]:
+    """Tool name -> input schema of this bridge, used to verify what a spawned process exposes."""
+    return {tool.name: tool.inputSchema for tool in tools}
+
+
+def check_tools(report: Report) -> dict[str, dict] | None:
     try:
         from .kiro_server import mcp
         tools = asyncio.run(mcp.list_tools())
@@ -116,92 +123,177 @@ def check_tools(report: Report) -> int | None:
         return None
     readonly = all(tool.annotations and tool.annotations.readOnlyHint for tool in tools)
     report.add(OK if readonly else FAIL, f"soc_bridge importado: {len(tools)} tools, todas read-only: {readonly}")
-    return len(tools)
+    return expected_surface(tools) if readonly else None
 
 
-def _reader(stream: Any, lines: "queue.Queue[bytes | None]") -> None:
-    for line in iter(stream.readline, b""):
-        lines.put(line)
-    lines.put(None)
+class ProbeError(Exception):
+    """Fixed, sanitized probe diagnostic: never built from process output."""
+
+
+MAX_LINE = 1 << 20      # one JSON-RPC message; the bridge's tools/list is far smaller
+MAX_OUTPUT = 4 << 20    # all stdout read during one probe
+MAX_MESSAGES = 200      # notifications tolerated while waiting for responses
+LAUNCH_LINE = re.compile(
+    r"^SOC Bridge via wsl\.exe \(([A-Za-z0-9._-]+|unknown distribution)\): ((?:[A-Z_]+="
+    r"(?:set|absent|empty \(ignored\)|unexpanded reference \(ignored\))(?:, )?)+)$")
+
+
+def _reader(stream: Any, lines: "queue.Queue[tuple[str, bytes]]") -> None:
+    """Read bounded lines; stop (and let cleanup kill the process) once a limit is exceeded."""
+    total = 0
+    while True:
+        line = stream.readline(MAX_LINE + 1)
+        if not line:
+            lines.put(("eof", b""))
+            return
+        total += len(line)
+        if len(line) > MAX_LINE or total > MAX_OUTPUT:
+            lines.put(("overflow", b""))
+            return
+        lines.put(("line", line))
+
+
+def launcher_line(stderr: bytes) -> str:
+    """Only the launcher's own diagnostic, rebuilt from a strict pattern; anything else is dropped."""
+    for raw in stderr.decode("utf-8", "replace").splitlines():
+        match = LAUNCH_LINE.match(raw.strip())
+        if match and all(name in BRIDGE_ENV for name in re.findall(r"([A-Z_]+)=", match.group(2))):
+            return match.group(0)
+    return ""
+
+
+def _error_code(message: dict) -> str:
+    error = message.get("error")
+    code = error.get("code") if isinstance(error, dict) else None
+    return f" (code {code})" if isinstance(code, int) and not isinstance(code, bool) else ""
+
+
+def _check_initialize(message: dict) -> None:
+    if "error" in message:
+        raise ProbeError("initialize returned a JSON-RPC error" + _error_code(message))
+    result = message.get("result")
+    if not (isinstance(result, dict) and isinstance(result.get("protocolVersion"), str)
+            and isinstance(result.get("serverInfo"), dict) and isinstance(result["serverInfo"].get("name"), str)
+            and isinstance(result.get("capabilities"), dict) and "tools" in result["capabilities"]):
+        raise ProbeError("initialize result has an invalid format or no tools capability")
+
+
+def _check_tools(message: dict, expected: dict[str, dict] | None) -> list[dict]:
+    if "error" in message:
+        raise ProbeError("tools/list returned a JSON-RPC error" + _error_code(message))
+    result = message.get("result")
+    tools = result.get("tools") if isinstance(result, dict) else None
+    if not isinstance(tools, list) or not tools or not all(
+            isinstance(t, dict) and isinstance(t.get("name"), str) and isinstance(t.get("inputSchema"), dict)
+            for t in tools):
+        raise ProbeError("tools/list result has an invalid format or no tools")
+    if result.get("nextCursor"):
+        raise ProbeError("tools/list is paginated; the bridge returns its whole surface at once")
+    names = [t["name"] for t in tools]
+    if len(set(names)) != len(names):
+        raise ProbeError("tools/list repeats tool names")
+    unsafe = sum(1 for t in tools if not isinstance(t.get("annotations"), dict)
+                 or t["annotations"].get("readOnlyHint") is not True
+                 or t["annotations"].get("destructiveHint") is True)
+    if unsafe:
+        raise ProbeError(f"{unsafe} tool(s) not marked read-only")
+    if expected is not None:
+        missing = sorted(set(expected) - set(names))
+        unexpected = len(set(names) - set(expected))
+        changed = sum(1 for t in tools if t["name"] in expected and t["inputSchema"] != expected[t["name"]])
+        if missing or unexpected or changed:
+            # Expected names are this bridge's own; names sent by the process are only counted.
+            raise ProbeError(f"tool surface differs from this bridge: missing {', '.join(missing) or 'none'}; "
+                             f"{unexpected} unexpected; {changed} input schema(s) changed")
+    return tools
 
 
 def stdio_probe(command: list[str], cwd: str | None = None, env: dict | None = None,
-                timeout: float = 60.0) -> dict:
-    """Raw MCP handshake: every stdout line must be JSON-RPC, so any banner fails."""
+                timeout: float = 60.0, expected: dict[str, dict] | None = None) -> dict:
+    """Raw MCP handshake under one deadline. Every stdout line must be JSON-RPC; the report
+    never repeats stdout, arbitrary stderr or upstream error messages."""
     from mcp.types import LATEST_PROTOCOL_VERSION
     result: dict = {"ok": False, "tools": None, "readonly": None, "error": None, "stderr": ""}
+    deadline = time.monotonic() + timeout
     with tempfile.TemporaryFile() as errlog:
         try:
             process = subprocess.Popen(command, cwd=cwd, env=env, stdin=subprocess.PIPE,
                                        stdout=subprocess.PIPE, stderr=errlog)
-        except OSError as exc:
-            result["error"] = f"could not start ({type(exc).__name__})"
+        except OSError:
+            result["error"] = "could not start the process"
             return result
-        lines: "queue.Queue[bytes | None]" = queue.Queue()
+        lines: "queue.Queue[tuple[str, bytes]]" = queue.Queue()
         reader = threading.Thread(target=_reader, args=(process.stdout, lines), daemon=True)
         reader.start()
+        messages = 0
 
         def send(message: dict) -> None:
             process.stdin.write((json.dumps(message) + "\n").encode())
             process.stdin.flush()
 
-        def parse(line: bytes) -> dict:
+        def next_message() -> dict | None:
+            nonlocal messages
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ProbeError("no complete MCP exchange before the deadline")
+            try:
+                kind, line = lines.get(timeout=remaining)
+            except queue.Empty:
+                raise ProbeError("no complete MCP exchange before the deadline") from None
+            if kind == "eof":
+                return None
+            if kind == "overflow":
+                raise ProbeError("stdout exceeded the size limit")
+            messages += 1
+            if messages > MAX_MESSAGES:
+                raise ProbeError("too many stdout messages")
             try:
                 message = json.loads(line)
             except ValueError:
-                raise ValueError(line[:60].decode("utf-8", "replace").strip()) from None
+                raise ProbeError("stdout contaminated: a line is not JSON-RPC") from None
             if not isinstance(message, dict) or message.get("jsonrpc") != "2.0":
-                raise ValueError("not JSON-RPC")
+                raise ProbeError("stdout contaminated: a line is not JSON-RPC")
             return message
 
         def receive(request_id: int) -> dict:
             while True:
-                line = lines.get(timeout=timeout)
-                if line is None:
-                    raise EOFError
-                message = parse(line)
-                if message.get("id") == request_id:
+                message = next_message()
+                if message is None:
+                    raise ProbeError("process closed stdout before answering")
+                if message.get("id") == request_id and "method" not in message:
                     return message
 
         try:
             send({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
                 "protocolVersion": LATEST_PROTOCOL_VERSION, "capabilities": {},
                 "clientInfo": {"name": "soc-bridge-preflight", "version": "1"}}})
-            if "result" not in receive(1):
-                raise RuntimeError("initialize rejected")
+            _check_initialize(receive(1))
             send({"jsonrpc": "2.0", "method": "notifications/initialized"})
             send({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
-            tools = receive(2).get("result", {}).get("tools", [])
+            tools = _check_tools(receive(2), expected)
             process.stdin.close()
             # Text flushed only at exit (a buffered print) would also corrupt Kiro's stream.
-            while (line := lines.get(timeout=timeout)) is not None:
-                parse(line)
-            result.update(ok=True, tools=len(tools),
-                          readonly=all((t.get("annotations") or {}).get("readOnlyHint") for t in tools))
-        except queue.Empty:
-            result["error"] = "no MCP response before timeout"
-        except EOFError:
-            result["error"] = "process closed stdout before answering"
-        except ValueError as exc:
-            result["error"] = f"stdout contaminated by non JSON-RPC text: {exc}"
-        except (RuntimeError, OSError) as exc:
-            result["error"] = str(exc) or type(exc).__name__
+            while next_message() is not None:
+                pass
+            result.update(ok=True, tools=len(tools), readonly=True)
+        except ProbeError as exc:
+            result["error"] = str(exc)
+        except OSError:
+            result["error"] = "pipe error while talking to the process"
         finally:
             try:
                 process.stdin.close()
             except OSError:
                 pass
             try:
-                process.wait(timeout=5)
+                process.wait(timeout=max(0.5, min(5.0, deadline - time.monotonic())))
             except subprocess.TimeoutExpired:
                 process.kill()
                 process.wait(timeout=5)
             reader.join(timeout=5)
             process.stdout.close()
             errlog.seek(0)
-            # Only the launcher's own line: it names variable states, never values.
-            result["stderr"] = next((line for line in errlog.read().decode("utf-8", "replace").splitlines()
-                                     if line.startswith("SOC Bridge via wsl.exe")), "")
+            result["stderr"] = launcher_line(errlog.read(64 * 1024))
     return result
 
 
@@ -209,10 +301,10 @@ def _probe_env(environ: dict) -> dict:
     return {key: value for key, value in environ.items() if key not in SECRET_ENV}
 
 
-def check_stdio(report: Report, python: str, project: Path, environ: dict) -> None:
-    probe = stdio_probe([python, "-m", LAUNCH_MODULE], cwd=str(project), env=_probe_env(environ))
+def check_stdio(report: Report, python: str, project: Path, environ: dict, expected: dict[str, dict]) -> None:
+    probe = stdio_probe([python, "-m", LAUNCH_MODULE], cwd=str(project), env=_probe_env(environ), expected=expected)
     if probe["ok"]:
-        report.add(OK, f"Servidor MCP por stdio: handshake limpo, {probe['tools']} tools")
+        report.add(OK, f"Servidor MCP por stdio: handshake limpo, {probe['tools']} tools read-only iguais as da ponte")
     else:
         report.add(FAIL, f"Servidor MCP por stdio falhou: {probe['error']}",
                    "Nada pode escrever em stdout alem do protocolo MCP; veja o erro acima")
@@ -276,7 +368,8 @@ def check_entry(report: Report, entry: dict, project: Path, distro: str | None) 
     return args
 
 
-def check_through_wsl_exe(report: Report, args: list[str] | None, environ: dict) -> None:
+def check_through_wsl_exe(report: Report, args: list[str] | None, environ: dict,
+                          expected: dict[str, dict] | None) -> None:
     executable = shutil.which("wsl.exe")
     if args is None:
         report.add(SKIP, "Handshake via wsl.exe: mcp.json ainda nao esta pronto")
@@ -285,9 +378,13 @@ def check_through_wsl_exe(report: Report, args: list[str] | None, environ: dict)
         report.add(SKIP, "Handshake via wsl.exe: interop do Windows indisponivel neste terminal",
                    "Faca o teste equivalente no PowerShell, como descrito no guia")
         return
-    probe = stdio_probe([executable, *args], env=_probe_env(environ), timeout=90)
+    if expected is None:
+        report.add(SKIP, "Handshake via wsl.exe: superficie esperada da ponte indisponivel (corrija a importacao)")
+        return
+    probe = stdio_probe([executable, *args], env=_probe_env(environ), timeout=90, expected=expected)
     if probe["ok"]:
-        report.add(OK, f"Mesmo comando do mcp.json via wsl.exe: handshake limpo, {probe['tools']} tools")
+        report.add(OK, f"Mesmo comando do mcp.json via wsl.exe: handshake limpo, {probe['tools']} tools read-only "
+                       "iguais as da ponte")
     else:
         report.add(FAIL, f"Comando do mcp.json via wsl.exe falhou: {probe['error']}",
                    "Confira distribuicao, caminhos e se algo imprime em stdout")
@@ -382,7 +479,7 @@ def local_endpoint(url: str) -> tuple[str, int] | None:
     return parsed.hostname, port
 
 
-def check_port(report: Report, url: str, timeout: float = 3.0) -> bool:
+def check_port(report: Report, url: str, timeout: float = 3.0, required: bool = False) -> bool:
     endpoint = local_endpoint(url)
     if endpoint is None:
         report.add(FAIL, "QRADAR_MCP_URL nao e um endpoint http de loopback terminado em /mcp",
@@ -393,8 +490,10 @@ def check_port(report: Report, url: str, timeout: float = 3.0) -> bool:
         with socket.create_connection((host, port), timeout=timeout):
             pass
     except OSError as exc:
-        report.add(WARN, f"Porta {host}:{port} inacessivel a partir deste WSL ({type(exc).__name__}); "
-                         "o demo nao precisa dela",
+        # Optional for the demo; a failure once the user explicitly asked for the QRadar MCP check.
+        report.add(FAIL if required else WARN,
+                   f"Porta {host}:{port} inacessivel a partir deste WSL ({type(exc).__name__})"
+                   + ("; o handshake MCP pedido nao foi feito" if required else "; o demo nao precisa dela"),
                    "Veja no guia: QRadar MCP parado, porta publicada so no Windows ou rede NAT do WSL")
         return False
     report.add(OK, f"Porta {host}:{port} aberta a partir deste WSL (isso nao prova autenticacao MCP)")
@@ -430,6 +529,13 @@ def check_qradar_mcp(report: Report, url: str, token: str | None) -> None:
         report.add(OK, f"Sessao MCP do QRadar autenticada: initialize e tools/list ok ({len(names)} tools)")
 
 
+def check_qradar(report: Report, environ: dict, entry: dict | None, explicit: bool) -> None:
+    url = qradar_url(environ, entry)
+    if check_port(report, url, required=explicit) and explicit:
+        token = environ.get("QRADAR_MCP_TOKEN")
+        check_qradar_mcp(report, url, token if env_state(token) == "set" else None)
+
+
 def main(argv: list[str] | None = None, project: Path | None = None) -> int:
     parser = argparse.ArgumentParser(description="Preflight do caminho Kiro (Windows) -> wsl.exe -> ponte no WSL 2")
     parser.add_argument("--from-windows", action="store_true", help="executado pelo PowerShell via wsl.exe")
@@ -446,17 +552,17 @@ def main(argv: list[str] | None = None, project: Path | None = None) -> int:
         os_release = ""
     check_platform(report, release, environ, os_release)
     python = str(project / ".venv" / "bin" / "python")
-    if check_project(report, project, sys.prefix, sys.version_info[:2]) and check_tools(report) is not None:
-        check_stdio(report, python, project, environ)
+    expected = None
+    if check_project(report, project, sys.prefix, sys.version_info[:2]):
+        expected = check_tools(report)
+        if expected is not None:
+            check_stdio(report, python, project, environ, expected)
     entry = load_entry(report, project)
     args = check_entry(report, entry, project, environ.get("WSL_DISTRO_NAME")) if entry else None
-    check_through_wsl_exe(report, args, environ)
+    check_through_wsl_exe(report, args, environ, expected)
     check_docker(report)
     check_environment(report, environ, options.from_windows)
-    url = qradar_url(environ, entry)
-    if check_port(report, url) and options.check_qradar_mcp:
-        token = environ.get("QRADAR_MCP_TOKEN")
-        check_qradar_mcp(report, url, token if env_state(token) == "set" else None)
+    check_qradar(report, environ, entry, options.check_qradar_mcp)
     print(report.render())
     return 1 if report.failed else 0
 
