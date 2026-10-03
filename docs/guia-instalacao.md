@@ -5,7 +5,7 @@ Este guia tem dois marcos independentes:
 1. **Demo:** instala a ponte e comprova que o Kiro consegue chamar `soc-bridge-readonly`. Não requer Docker nem acesso a QRadar ou Trend.
 2. **Caso real:** conecta a ponte ao [IBM QRadar MCP](https://github.com/IBM/qradar-mcp) e ao [Trend Vision One MCP](https://github.com/trendmicro/vision-one-mcp-server). Requer acesso autorizado aos dois produtos.
 
-Arquitetura: `Kiro → soc-bridge-readonly (Python/stdio) → QRadar MCP (HTTP local) + Vision One MCP (Docker/stdio)`. **Configure apenas `soc-bridge-readonly` no Kiro.** A própria ponte inicia o contêiner Trend quando você chama uma investigação com Trend; o contêiner QRadar deve estar em execução antes disso. As sete tools de investigação são `investigate_case`, `investigate_offense`, `investigate_vision_alert`, `investigate_vision_event`, `investigate_epm_uac`, `investigate_web_reputation` e `investigate_demo`. Além delas, seis tools `qradar_*` expõem AQL personalizada, resources, status e paginação de eventos/flows/payload, e `qradar_verify_offense`/`qradar_get_rule` fazem a verificação de offense e leitura de metadados das regras. São 15 tools. Veja [AQL](dynamic-aql.md) e [verificação de evidências](offense-verification.md). As tools qradar_* usam somente QRadar, sem iniciar o Trend.
+Arquitetura: `Kiro → soc-bridge-readonly (Python/stdio) → QRadar MCP (HTTP local) + Vision One MCP (Docker/stdio)`. **Configure apenas `soc-bridge-readonly` no Kiro.** A própria ponte inicia o contêiner Trend quando você chama uma investigação com Trend; o contêiner QRadar deve estar em execução antes disso. As sete tools de investigação são `investigate_case`, `investigate_offense`, `investigate_vision_alert`, `investigate_vision_event`, `investigate_epm_uac`, `investigate_web_reputation` e `investigate_demo`. Além delas, seis tools `qradar_*` expõem AQL personalizada, resources, status e paginação de eventos/flows/payload, e `qradar_verify_offense`/`qradar_get_rule` fazem a verificação de offense e leitura de metadados das regras. São 17 tools. Veja [AQL](dynamic-aql.md) e [verificação de evidências](offense-verification.md). As tools qradar_* usam somente QRadar, sem iniciar o Trend.
 
 > **Dados reais:** somente pessoas autorizadas devem acessar os ambientes. Uma resposta MCP com telemetria real entra no contexto do modelo configurado no Kiro. Confirme a política de dados da sua organização antes de investigar incidentes reais. Não publique relatórios ou credenciais.
 
@@ -195,3 +195,5 @@ Para testar o pacote localmente após atualizar o código:
 ```
 
 Veja [README](../README.md) e [limitações conhecidas](bridge-known-limitations.md) para entender o alcance das tools de investigação e AQL e como interpretar uma correlação.
+
+Descoberta por descrição e investigação em lotes: [guia](offense-batch-investigation.md). As duas novas tools são `qradar_find_offenses` e `qradar_investigate_offenses`.

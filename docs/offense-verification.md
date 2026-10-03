@@ -1,6 +1,6 @@
 # Verificação de offense e conclusão baseada em evidências
 
-A ponte expõe 15 tools: sete de investigação, seis de AQL e duas de verificação.
+A ponte expõe 17 tools: sete de investigação, seis de AQL, duas de verificação e duas de descoberta/lotes.
 `investigate_offense` acrescenta `offense_evidence` ao relatório, além do contexto
 por IP e dos resultados Trend. `qradar_verify_offense` devolve essa coleta como
 JSON usando apenas QRadar; não exige chave Trend. `qradar_get_rule` consulta
@@ -181,7 +181,7 @@ Pendências secundárias não impedem relatar fatos positivos confirmados.
 Esta matriz explica critérios, não substitui o catálogo da implantação.
 A saída do Kiro deve incluir decisão, classificação/confiança justificada,
 motivo (ou não selecionado), evidências decisivas, pendências e a nota sugerida
-para revisão humana. As 15 tools e seus schemas de entrada continuam iguais;
+para revisão humana. Os schemas das 15 tools originais continuam iguais;
 nenhuma escrita de nota, fechamento, alteração de regra ou contenção é exposta.
 
 ## Atualizar uma instalação Windows
@@ -194,7 +194,7 @@ git pull --ff-only
 & .\.venv\Scripts\python.exe -c "import asyncio; import soc_bridge.kiro_server as s; t=asyncio.run(s.mcp.list_tools()); print('Total:', len(t)); print('\n'.join(x.name for x in t))"
 ```
 
-O total esperado é 15, incluindo qradar_verify_offense e qradar_get_rule.
+O total esperado é 17, incluindo qradar_verify_offense e qradar_get_rule.
 Reconecte/reinicie o servidor MCP no Kiro e abra um chat novo para recarregar
 schemas e instruções. O nome soc-bridge-readonly continua correto: jobs Ariel
 são permitidos, mudanças em offenses/regras/ativos não são.
@@ -202,3 +202,5 @@ são permitidos, mudanças em offenses/regras/ativos não são.
 O instalador editable não configura credenciais. O script start configura o MCP
 local; o ambiente live e as chaves dos upstreams seguem o guia de instalação.
 Não apague configurações/chaves existentes para atualizar o código.
+
+Descoberta por descrição e investigação em lotes: [guia](offense-batch-investigation.md). As duas novas tools são `qradar_find_offenses` e `qradar_investigate_offenses`.

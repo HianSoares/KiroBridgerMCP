@@ -11,7 +11,7 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from . import focused_queries, integrity_evidence, process_chain, linux_evidence, closure_assessment
+from . import focused_queries, integrity_evidence, process_chain, linux_evidence, closure_assessment, lockout_evidence
 from .aql_fields import EVENT_COLUMNS, FLOW_COLUMNS, LOGICAL_FIELDS, FieldCatalog, load_catalog, plan_select
 from .ariel_collection import Budget, BudgetExhausted, collect_query, number
 from .core import address, instant
@@ -262,6 +262,41 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
         where = f"WHERE INOFFENSE({oid}) LIMIT {SEARCH_LIMIT} {tail}"
         await run("events", f"{event_plan.select()} FROM events {where}", "events", "offense_linked",
                   event_plan, f"{event_plan.select(False)} FROM events {where}" if event_plan.optional else None)
+        # Prioritize account evidence before network context when 4740 is actually observed.
+        linked_lockouts = lockout_evidence.analyze(result["queries"].get("events"), "events")
+        result["lockout"] = linked_lockouts
+        if linked_lockouts["detected"]:
+            context_start, context_end = start - timedelta(minutes=15), min(end + timedelta(minutes=15), now)
+            context_tail, context_window = query_tail(context_start, context_end, offset_hours, timezone_verified, now)
+            result["lockout"]["context_window"] = context_window
+            if context_tail:
+                spec = lockout_evidence.pivot(event_plan, context_tail,
+                    int(context_start.timestamp() * 1000), int(context_end.timestamp() * 1000), linked_lockouts)
+                result["focused_queries"]["lockout_authentication"] = focused_queries.describe(spec, "Parsed 4740 target account")
+                if isinstance(spec, dict):
+                    finding = await run("lockout_authentication", spec["query"], "events", spec["scope"], event_plan, spec["fallback"])
+                    context = lockout_evidence.analyze(finding, "lockout_authentication")
+                    result["lockout"]["authentication_candidates"] = lockout_evidence.correlate(linked_lockouts, context)
+                    result["lockout"]["candidate_limit"] = 100
+                    result["lockout"]["candidate_limit_reached"] = len(result["lockout"]["authentication_candidates"]) == 100
+                    result["lockout"]["lockouts_not_correlated_due_to_cap"] = max(0, linked_lockouts["event_id_counts"].get(4740, 0) - 100)
+                    result["lockout"]["context"] = {k: v for k, v in context.items() if k != "records_for_analysis"}
+                    result["lockout"]["accounts_omitted_from_pivot"] = spec["accounts_omitted"]
+            else:
+                result["lockout"]["context_not_collected"] = context_window.get("reason")
+        result.get("lockout", {}).pop("records_for_analysis", None)
+        if result.get("lockout", {}).get("detected"):
+            result["lockout"]["root_cause_assessment"] = {
+                "state": "unverified", "confidence": "insufficient for root cause or closure",
+                "hypotheses": [
+                    {"hypothesis": "Stored credentials in a service/task/application", "state": "open",
+                     "required_evidence": "Caller identity, owning process/task and credential configuration; post-remediation observations"},
+                    {"hypothesis": "Unauthorized authentication attempts", "state": "open",
+                     "required_evidence": "Observed failure codes, verified source and session/process attribution, authorization and behavior"},
+                    {"hypothesis": "Detection/attribution issue", "state": "open",
+                     "required_evidence": "Active CRE tests, original target-account records and count/window reconciliation"}],
+                "note": "Recurrence or an account name alone does not distinguish these hypotheses."}
+
         await run("flows", f"{flow_plan.select()} FROM flows {where}", "flows", "offense_linked", flow_plan, None)
         await run("flow_census", "SELECT COUNT(*) AS total_rows, UNIQUECOUNT(destinationip) AS "
                   f"distinct_destinations FROM flows {where}", "flows", "offense_linked", None, None)
@@ -465,6 +500,10 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
         add_gap("Account nature (service/admin/human) not established by event usernames", "identity:account-nature",
                 "identity", "outside_bridge", ["account_nature"], "Consult the identity source (AD/IdP/PAM inventory)")
 
+    if result.get("lockout", {}).get("detected"):
+        add_gap("Lockout cause, caller-to-IP/process attribution and remediation not established by 4740 or nearby failures",
+                "lockout:cause", "lockout_account_time_context", "unverified", ["benign_verdict"],
+                "Validate the reported caller against identity/inventory and service/task/application evidence; verify remediation")
     result["host"] = host_summary(result["queries"].get("host_context", {}).get("rows", []))
     result["host"]["groups"] = event_summary(result["queries"].get("host_context", {}).get("rows", []))["groups"]
     if linux_linked["daemon_rows"]:
@@ -543,10 +582,10 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
 
 
 async def verify_offense(qradar: Any, offense_id: int, qradar_utc_offset_hours: int = -3,
-                         timezone_verified: bool = False) -> dict:
+                         timezone_verified: bool = False, budget: Budget | None = None) -> dict:
     if isinstance(offense_id, bool) or not isinstance(offense_id, int) or offense_id < 1:
         raise ValueError("offense_id must be a positive integer")
-    budget = Budget()  # one deadline for metadata and every collection call
+    budget = budget or Budget()  # one deadline for metadata and every collection call
     offense = await budget.run(lambda: qradar.call("get_offense", {"offense_id": offense_id}), "offense metadata")
     if not isinstance(offense, dict) or offense.get("id") != offense_id:
         raise ValueError("Unexpected offense metadata ID")
@@ -677,6 +716,16 @@ def render_evidence(evidence: dict) -> list[str]:
                           f"  - Accepted root SSH messages parsed: {item['accepted_root_ssh_count']}; "
                           f"negative claim for SSH query only: {item['negative_claim']}",
                           f"  - Witness records: {item['records'][:5]}"]
+    lockout = evidence.get("lockout", {})
+    if lockout.get("detected"):
+        lines += ["", "## Account lockout evidence", "", lockout["interpretation"],
+                  f"- Event IDs counted: {lockout['event_id_counts']}",
+                  f"- Reported account/domain/caller groups: {lockout['groups']}",
+                  f"- Authentication candidates: {lockout.get('authentication_candidates', [])}",
+                  f"- Record previews omitted: {lockout['records_omitted']}; groups omitted: {lockout['groups_omitted']}",
+                  f"- Correlation cap reached: {lockout.get('candidate_limit_reached', False)}; "
+                  f"lockouts beyond correlation cap: {lockout.get('lockouts_not_correlated_due_to_cap', 0)}",
+                  "- Cause, authorization, responsible process and remediation remain unverified."]
     closing = evidence.get("closure_assessment")
     if closing:
         lines += ["", "## Closing recommendation and analyst note (draft)", "",

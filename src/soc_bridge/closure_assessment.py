@@ -110,6 +110,20 @@ def propose(result: dict) -> dict:
                               "isso não comprova completude do logging")
         else:
             note_facts.append("cobertura ou interpretação SSH incompleta; não é possível excluir autenticação root")
+    lockout = result.get("lockout", {})
+    if lockout.get("detected"):
+        note_facts.append(f"{lockout['event_id_counts'].get(4740, 0)} registros 4740 de bloqueio nas linhas coletadas; "
+                          "o DC registrador não é automaticamente a origem; causa e remediação não comprovadas")
+        for group in lockout.get("groups", [])[:5]:
+            note_facts.append(f"conta-alvo={group.get('target_domain') or 'domínio não observado'}\\"
+                              f"{group.get('target_user') or 'não observada'}, "
+                              f"caller informado={group.get('caller_computer') or 'não observado'}, "
+                              f"fonte registradora={group.get('log_source') or 'não observada'}, "
+                              f"linhas 4740={group.get('rows')}; identidade/origem do processo não confirmadas")
+        if len(lockout.get("groups", [])) > 5 or lockout.get("groups_omitted"):
+            note_facts.append("outros grupos de conta/caller estão detalhados ou limitados no relatório")
+        note_facts.append(f"{len(lockout.get('authentication_candidates', []))} relações candidatas com falhas "
+                          "4625/4771/4776 por conta e horário de recepção; vínculo causal não comprovado")
     if linux.get("strict_window"):
         win = linux["strict_window"]
         note_facts.append(f"janela SSH/su sem margem: {win.get('start_utc')} até {win.get('end_utc')}, relógio starttime")

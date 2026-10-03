@@ -52,7 +52,7 @@ See [custom AQL setup, examples and limits](docs/dynamic-aql.md). Offense invest
 
 ## Verify an offense before concluding
 
-`qradar_verify_offense` performs the QRadar collection without Trend credentials; `qradar_get_rule` reads contributing rule metadata. Together with the existing tools, the bridge exposes **15 tools**. The report distinguishes original metadata times, observed event times and padded collection windows, follows result pages within a budget and preserves unresolved count/payload/attribution gaps.
+`qradar_verify_offense` performs the QRadar collection without Trend credentials; `qradar_get_rule` reads contributing rule metadata. Together with the existing tools, the bridge exposes **17 tools**. The report distinguishes original metadata times, observed event times and padded collection windows, follows result pages within a budget and preserves unresolved count/payload/attribution gaps.
 
 > Use `qradar_verify_offense` with the offense ID. Resume pending search IDs and collect missing evidence before assessing the case. For a historical case, confirm the actual QRadar timezone before setting `timezone_verified=true`.
 
@@ -74,3 +74,5 @@ Linux records now receive a census of sudo actors, targets and commands across a
 - Live reports may contain sensitive telemetry and enter the context of the AI model configured in Kiro. Keep credentials and `reports/` out of public repositories and follow your organization's data policy.
 
 See [known limitations](docs/bridge-known-limitations.md), the [Kiro pack notes](README-kiro-pack.md), and the [engineering backlog](BRIDGE-BACKLOG.md) for details. Licensed under [MIT](LICENSE).
+
+Offenses sharing a description can be discovered with `qradar_find_offenses` and investigated in bounded batches with `qradar_investigate_offenses`. Each case keeps its own evidence, continuation and closing-note draft. See [batch investigations](docs/offense-batch-investigation.md).

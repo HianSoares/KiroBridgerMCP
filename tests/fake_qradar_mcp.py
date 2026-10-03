@@ -15,9 +15,19 @@ epoch = int((datetime.now(timezone.utc) - timedelta(hours=1)).timestamp() * 1000
 
 @mcp.tool()
 def get_offense(offense_id: int) -> dict:
-    return {"id": offense_id, "offense_source": "192.0.2.10", "event_count": 2,
+    return {"id": offense_id, "description": "Synthetic matching offenses", "status": "OPEN", "offense_source": "192.0.2.10", "event_count": 2,
             "flow_count": 1, "start_time": epoch, "last_updated_time": epoch + 60000,
             "rules": [{"id": 12, "type": "CRE_RULE"}]}
+
+
+@mcp.tool()
+def list_offenses(filter: str = "", sort: str = "+id", fields: str = "", limit: int = 50,
+                  offset: int = 0, format_output: bool = False) -> str:
+    # Mimic IBM's JSON text through a FastMCP string wrapper.
+    assert not format_output and sort == "+id"
+    assert 'description = "Synthetic matching offenses"' in filter
+    rows = [get_offense(i) for i in (12345, 12346, 12347)]
+    return json.dumps({"offenses": rows[offset:offset + limit], "total_count": len(rows)})
 
 
 @mcp.tool()

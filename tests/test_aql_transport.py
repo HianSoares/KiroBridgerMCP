@@ -60,6 +60,18 @@ class ArielTransportTests(unittest.TestCase):
                 self.assertEqual(verified["host"]["explicit_credential_attempts"][0]["event_id"], 4648)
                 self.assertFalse(verified["assessment"]["final_benign_verdict_permitted"])
 
+                found = await live_qradar_query("find_offenses", {
+                    "description": "Synthetic matching offenses", "limit": 2}, url, None)
+                self.assertEqual([r["id"] for r in found["offenses"]], [12345, 12346])
+                self.assertFalse(found["discovery_exhausted"])
+                batch = await live_qradar_query("investigate_offenses", {
+                    "description": "Synthetic matching offenses", "max_offenses": 2}, url, None)
+                self.assertEqual([r["offense_id"] for r in batch["reports"]], [12345, 12346])
+                last = await live_qradar_query("investigate_offenses", {
+                    **batch["continuation_plan"][-1]["parameters"]}, url, None)
+                self.assertEqual(last["reports"][0]["offense_id"], 12347)
+                self.assertTrue(last["discovery"]["discovery_exhausted"])
+
             asyncio.run(scenario())
         finally:
             server.terminate()

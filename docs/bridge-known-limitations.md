@@ -11,7 +11,7 @@ payload selecionado, flows, agregações e paginação por search ID. Veja
 exibe o search ID de cada busca Ariel quando fornecido pelo upstream.
 
 `qradar_verify_offense` coleta somente no QRadar; `qradar_get_rule` lê metadados
-de regras. As 15 tools e as avaliações preliminares seguem o
+de regras. As 17 tools e as avaliações preliminares seguem o
 [fluxo de verificação](offense-verification.md). Metadados não incluem
 necessariamente os testes/respostas completos da regra ativa.
 
@@ -58,3 +58,5 @@ filtro por nome, insights apenas por ID de insight).
 
 Os testes são sintéticos, incluindo transporte MCP HTTP local. Disponibilidade
 das fontes, dados históricos e permissões precisam ser verificados na instalação.
+
+Descoberta por descrição e investigação em lotes: [guia](offense-batch-investigation.md). As duas novas tools são `qradar_find_offenses` e `qradar_investigate_offenses`.
