@@ -2,7 +2,7 @@
 
 Kiro continua conectado somente a `soc-bridge-readonly`. A ponte oferece sete
 tools de investigação, seis tools `qradar_*` de AQL personalizada e duas de
-verificação (`qradar_verify_offense`, `qradar_get_rule`), duas de descoberta/lotes de offenses e `trend_find_alerts`, além de `qradar_read_context`, `qradar_assess_closure` e `qradar_list_offenses` para fila/prioridade, totalizando 21. Estas
+verificação (`qradar_verify_offense`, `qradar_get_rule`), duas de descoberta/lotes de offenses e `trend_find_alerts`, além de `qradar_read_context`, `qradar_assess_closure` e `qradar_list_offenses` para fila/prioridade e as tools de caso (`investigate_offense_case`, `reassess_case`, `list_cases`, `get_case`, `bridge_diagnostics`), totalizando 26. Estas
 permitem ler os resources do QRadar, validar/iniciar buscas, recuperar payload,
 flows e campos selecionados, e acompanhar/paginar o mesmo search ID.
 

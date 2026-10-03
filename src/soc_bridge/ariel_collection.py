@@ -178,9 +178,14 @@ def continuation(finding: dict, action: str, reason: str, cursor: int | None = N
 
 async def collect_query(qradar: Any, query: str, database: str, scope: str,
                         budget: Budget | None = None, fallback_query: str | None = None,
-                        plan: Any = None) -> dict:
-    """Validate, create once, poll and page; classify the outcome and keep a resume cursor."""
+                        plan: Any = None, resume: dict | None = None) -> dict:
+    """Validate, create once, poll and page; classify the outcome and keep a resume cursor.
+
+    With ``resume`` (a saved finding that has a search ID), the same job is continued from its
+    saved cursor: no validation, no creation, rows already collected are kept."""
     budget = budget or Budget()
+    if resume is not None:
+        return await _resume(qradar, resume, budget)
     finding: dict = {"aql": query, "database": database, "scope": scope, "query_limit": None,
                      "state": "not started", "outcome": "not_started", "rows": [], "warnings": [],
                      "truncated_fields": [], "truncated_rows": {}, "result_set_complete": False,
@@ -222,7 +227,16 @@ async def collect_query(qradar: Any, query: str, database: str, scope: str,
         created = await budget.run(lambda: create_search(qradar, aql), "creation")
         sid = created["search_id"]
         finding.update(search_id=sid, state=str(created.get("status") or "WAIT").upper())
-        stage = "polling"
+        return await _drive(qradar, finding, budget, database, 0)
+    except Exception as exc:
+        return _failed(finding, exc, stage, start)
+
+
+async def _drive(qradar: Any, finding: dict, budget: Budget, database: str, start: int) -> dict:
+    """Poll the known job and page from ``start``; never creates or recreates a search."""
+    sid = finding["search_id"]
+    stage = "polling"
+    try:
         while finding["state"] != "COMPLETED":
             if finding["state"] in {"ERROR", "CANCELED"}:
                 finding["outcome"] = "error"
@@ -279,6 +293,41 @@ async def collect_query(qradar: Any, query: str, database: str, scope: str,
     except Exception as exc:
         return _failed(finding, exc, stage, start)
     return _finish(finding)
+
+
+FINAL = ("complete_in_window", "empty")
+
+
+async def _resume(qradar: Any, saved: dict, budget: Budget) -> dict:
+    """Continue a saved finding. Complete results are reused; an uncertain creation is never
+    recreated; a known job is polled/paged from its saved cursor and rows are appended."""
+    finding = {k: (list(v) if isinstance(v, list) else dict(v) if isinstance(v, dict) else v)
+               for k, v in saved.items()}
+    finding.setdefault("rows", [])
+    finding.setdefault("truncated_fields", [])
+    finding.setdefault("truncated_rows", {})
+    previous = saved.get("outcome")
+    if previous in FINAL:
+        finding["resume"] = {"action": "reused", "reason": "result set already complete; no upstream call"}
+        return finding
+    if not saved.get("search_id"):
+        finding["resume"] = {"action": "requires_resolution" if previous == "creation_uncertain" else "not_resumable",
+                             "reason": ("creation was uncertain and the search ID is unknown: the bridge does not "
+                                        "recreate the job; confirm in QRadar whether it exists first"
+                                        if previous == "creation_uncertain" else
+                                        "no job exists for this query; start it as a planned query")}
+        return finding
+    cursor = saved.get("next_start")
+    if not isinstance(cursor, int) or cursor < 0:
+        cursor = len(finding["rows"])
+    finding.update(outcome="not_started", warnings=[], result_set_complete=False)
+    finding.pop("continuation", None)
+    finding.pop("error", None)
+    finding["resume"] = {"action": "continued_same_search", "search_id": saved["search_id"], "cursor": cursor,
+                         "previous_outcome": previous, "rows_kept": len(finding["rows"])}
+    if str(finding.get("state", "")).upper() != "COMPLETED":
+        finding["state"] = str(finding.get("state") or "WAIT").upper()
+    return await _drive(qradar, finding, budget, finding["database"], cursor)
 
 
 def _not_started(finding: dict, reason: str) -> dict:

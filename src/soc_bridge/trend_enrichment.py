@@ -17,6 +17,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from .aql_errors import ResponseFormatError, classify_failure
+from .capabilities import absence_state
 from .ariel_collection import Budget, BudgetExhausted
 from .core import address
 from .structured import find_paths, preserve
@@ -83,10 +84,11 @@ async def optional_read(vision: Any, budget: Budget, tool: str, args: dict, purp
     result: dict[str, Any] = {"tool": tool, "args": {k: v for k, v in args.items() if k != "skipToken"},
                               "purpose": purpose, "trigger": trigger, "state": "not_started", "items": [], "count": 0,
                               "pages_read": 0}
-    available = getattr(vision, "available", None)
-    if available is not None and tool not in available:
-        result["state"] = "tool_absent"
-        result["note"] = "Tool not exposed by the connected MCP (toolset not loaded, upstream version or permission)"
+    absent = absence_state(vision, tool)
+    if absent:
+        result["state"] = absent
+        result["note"] = ("Tool not exposed by the connected MCP (toolset not loaded, upstream version or permission)"
+                          if absent == "tool_absent" else "tools/list discovery was incomplete; availability unknown")
         return result
     rows: list[dict] = []
     token, more = None, False

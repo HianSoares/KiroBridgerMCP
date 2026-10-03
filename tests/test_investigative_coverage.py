@@ -10,6 +10,8 @@ from pathlib import Path
 import subprocess
 import sys
 import unittest
+
+from soc_bridge.capabilities import LOCAL_WRITE_TOOLS
 from datetime import timedelta
 
 from soc_bridge import closure_assessment, coverage, qradar_context
@@ -323,7 +325,8 @@ class DecisionTests(unittest.TestCase):
                               "returned_rows": 0, "scope": "offense_linked"}},
                 "linux": {}, "gap_details": [{"id": "attribution:host-process", "state": "outside_bridge",
                                               "relevance": {"blocks": ["benign_verdict"]}, "summary": "x"}],
-                "metadata": {"status": "OPEN"}, "metadata_interval": {"start": "a", "end": "b"},
+                "metadata": {"status": "OPEN", "offense_source": "192.0.2.10"},
+                "metadata_interval": {"start": "2026-09-30T14:00:00Z", "end": "2026-09-30T15:00:00Z"},
                 "closing_reasons": {"state": "collected", "reasons": reasons if reasons is not None else
                                     [{"id": 1, "text": "Non-Issue"}, {"id": 3, "text": "Duplicate"},
                                      {"id": 9, "text": "Custom Local"}]}}
@@ -332,10 +335,16 @@ class DecisionTests(unittest.TestCase):
         result = closure_assessment.propose(self.offense_result())
         self.assertFalse(result["ready_to_close"])
         self.assertIn("authorization", [b["id"] for b in result["blocking_requirements"]])
-        cited = [{"requirement": "authorization", "source": "Change record", "reference": "CHG-SYNTH-1",
-                  "summary": "maintenance window"}]
+        unscoped = [{"requirement": "authorization", "source": "Change record", "reference": "CHG-SYNTH-1",
+                     "summary": "maintenance window"}]
+        result = closure_assessment.propose(self.offense_result(), unscoped)
+        self.assertFalse(result["ready_to_close"])  # a record without scope does not cover the observed activity
+        self.assertEqual(result["requirements"]["authorization"]["status"], "compatible")
+        cited = [dict(unscoped[0], scope={"activity": "offense_activity", "entities": ["192.0.2.10"],
+                                          "window_start": "2026-09-30T13:00:00Z", "window_end": "2026-09-30T16:00:00Z"})]
         result = closure_assessment.propose(self.offense_result(), cited)
         self.assertTrue(result["ready_to_close"])
+        self.assertEqual(result["disposition"]["category"], "authorized_activity")
         self.assertEqual(result["recommended_reason"], {"id": 1, "text": "Non-Issue"})
         self.assertIn("CHG-SYNTH-1", result["suggested_note"])
         self.assertIn("não verificados pela ponte", result["suggested_note"])
@@ -401,8 +410,8 @@ class SafetyAndCompatibilityTests(unittest.TestCase):
         tools = {t.name: t for t in run(mcp.list_tools())}
         for name, schema in before.items():
             self.assertEqual(tools[name].inputSchema, schema, name)
-        self.assertEqual(set(tools) - set(before), {"qradar_read_context", "qradar_assess_closure", "qradar_list_offenses"})
-        self.assertTrue(all(t.annotations.readOnlyHint for t in tools.values()))
+        self.assertEqual(set(tools) - set(before), {"qradar_read_context", "qradar_assess_closure", "qradar_list_offenses", "investigate_offense_case", "reassess_case", "list_cases", "get_case", "bridge_diagnostics"})
+        self.assertTrue(all((t.annotations.readOnlyHint or t.name in LOCAL_WRITE_TOOLS) and not t.annotations.destructiveHint for t in tools.values()))
 
     def test_context_lookup_validates_arguments(self):
         for kind, value, name in (("unknown", "", ""), ("qid", "12a", ""), ("rules", "x\"; drop", ""),

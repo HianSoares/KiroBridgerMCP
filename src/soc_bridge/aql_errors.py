@@ -35,8 +35,12 @@ CATEGORIES = {
     "rate_limited": ("unavailable", True, "Upstream rate limit reached; resume later"),
     "request_rejected": ("error", False, "Upstream rejected the request parameters or query syntax"),
     "upstream_error": ("unavailable", True, "Upstream service error; retry once later"),
+    "availability_unknown": ("unavailable", False, "tools/list discovery was incomplete; rerun diagnostics before concluding the tool is absent"),
     "unknown": ("unavailable", False, "Inspect local service logs"),
 }
+# Deterministic failures: repeating the same request cannot succeed until someone resolves the cause.
+REQUIRES_RESOLUTION = {"local_policy", "upstream_validation", "permission", "tool_unavailable", "response_format",
+                       "invalid_argument", "license_or_integration", "request_rejected", "availability_unknown"}
 
 
 def classify_failure(exc: BaseException) -> dict:
@@ -74,6 +78,8 @@ def classify_failure(exc: BaseException) -> dict:
         message = f"{exc.source} {exc.tool}: {reason}"
     elif isinstance(exc, RuntimeError) and str(exc).startswith("Optional MCP tool unavailable"):
         category, message = "tool_unavailable", str(exc)
+    elif isinstance(exc, RuntimeError) and str(exc).startswith("Optional MCP tool availability unknown"):
+        category, message = "availability_unknown", str(exc)
     elif isinstance(exc, TimeoutError):
         category = "timeout"
     elif isinstance(exc, ValueError):
@@ -82,5 +88,6 @@ def classify_failure(exc: BaseException) -> dict:
         category = "unknown"
     outcome, retryable, action = CATEGORIES[category]
     return {"category": category, "outcome": outcome, "retryable": retryable,
+            "requires_resolution": category in REQUIRES_RESOLUTION,
             "message": message or f"{type(exc).__name__} during QRadar collection",
             "next_action": action}

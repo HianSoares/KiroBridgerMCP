@@ -21,7 +21,7 @@ O analista pede um relatório após uma chamada real do MCP ou apresenta um rela
 
 ## Tools permitidas
 
-Nenhuma nova chamada é necessária se um relatório real completo já foi fornecido. Se faltar o relatório e houver referência, escolha `investigate_case(reference)`, `investigate_offense(offense_id)` ou `investigate_vision_alert(alert_id)` conforme a referência; para demonstrar o formato, `investigate_demo()`.
+Leia o caso consolidado com `get_case(case_id)` (ou `list_cases` para encontrá-lo). Use a revisão mais recente e cite as referências de `decisive_evidence`; a nota deve refletir a decisão atual. Sem caso, peça ao investigador a coleta; para demonstrar o formato, `investigate_demo()`.
 
 ## Critério de conclusão
 

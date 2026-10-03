@@ -11,7 +11,7 @@ payload selecionado, flows, agregações e paginação por search ID. Veja
 exibe o search ID de cada busca Ariel quando fornecido pelo upstream.
 
 `qradar_verify_offense` coleta somente no QRadar; `qradar_get_rule` lê metadados
-de regras. As 17 tools e as avaliações preliminares seguem o
+de regras. As tools e as avaliações preliminares seguem o
 [fluxo de verificação](offense-verification.md). Metadados não incluem
 necessariamente os testes/respostas completos da regra ativa.
 

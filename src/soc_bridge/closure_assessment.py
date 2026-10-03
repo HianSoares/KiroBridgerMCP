@@ -9,6 +9,8 @@ that need it. The bridge never closes, assigns or annotates the offense.
 from __future__ import annotations
 
 from .ariel_collection import BudgetExhausted
+from .closure_scope import (CATEGORIES, CATEGORY_REASONS, SCOPED_REQUIREMENTS, confidence as rate_confidence,
+                            coverage, load_reason_definitions, observed_profile, validate_scope)
 from .decision import STATUSES, evaluate, requirement
 
 # Requirements per standard reason text (normalized). Custom reasons are never auto-eligible.
@@ -32,6 +34,7 @@ ANALYST_REQUIREMENTS = {
     "remediation_verified": "remediation and post-remediation verification evidenced",
     "primary_offense": "same incident established with a referenced primary offense",
     "administrative_decision": "explicit analyst decision to close administratively with remaining risk recorded",
+    "malicious_activity_confirmed": "malicious use of the observed activity confirmed by a cited investigation record",
 }
 
 
@@ -57,7 +60,12 @@ def validate_confirmations(confirmations: list | None, offense_id: int | None = 
             if (not fields["reference"].isdigit() or int(fields["reference"]) < 1
                     or int(fields["reference"]) == offense_id):
                 raise ValueError("primary_offense reference must be another offense ID")
-        out.append({"requirement": rid, **fields})
+        record = {"requirement": rid, **fields, "origin": "analyst-supplied; not verified by the bridge"}
+        if item.get("scope") is not None:
+            if rid not in SCOPED_REQUIREMENTS:
+                raise ValueError(f"scope applies only to {sorted(SCOPED_REQUIREMENTS)}")
+            record["scope"] = validate_scope(item["scope"])
+        out.append(record)
     return out
 
 CONDITIONS = {
@@ -93,7 +101,8 @@ async def closing_catalog(qradar, budget) -> dict:
                 "note": "Optional catalog unavailable; no closing reason ID invented"}
 
 
-def propose(result: dict, confirmations: list | None = None) -> dict:
+def propose(result: dict, confirmations: list | None = None, contradictions: list | None = None,
+            bridge_findings: dict | None = None, reason_definitions: dict | None = None) -> dict:
     """Collection-only decision: cite facts, scope and why closure is still unsupported.
 
     Kiro may revise the proposal with cited analyst/owner evidence following the
@@ -145,12 +154,32 @@ def propose(result: dict, confirmations: list | None = None) -> dict:
     technical = [b for b in blockers if b["id"] not in outside_ids]
     req = {}
     outside = [g["id"] for g in result.get("gap_details", []) if g.get("state") == "outside_bridge"]
+    profile = observed_profile(result)
+    scoped = {rid: coverage(confirmed, profile, rid) for rid in SCOPED_REQUIREMENTS}
+    findings_by_bridge = bridge_findings or {}
     for rid, text in ANALYST_REQUIREMENTS.items():
         cited = [c for c in confirmed if c["requirement"] == rid]
-        req[rid] = (requirement(rid, text, "confirmed", cited, source="analyst-supplied record (not verified by the bridge)")
-                    if cited else requirement(rid, text, "unverified",
-                                              {"bridge_gaps_it_must_address": outside} if rid == "authorization" else None,
-                                              "Cite the record with qradar_assess_closure (requirement, source, reference)"))
+        if rid in findings_by_bridge:
+            req[rid] = requirement(rid, text, "confirmed", findings_by_bridge[rid], source="bridge collection")
+        elif rid in SCOPED_REQUIREMENTS:
+            cov = scoped[rid]
+            # One covered activity is enough to confirm malicious use; authorization and detection
+            # error must cover every observed activity, or they describe only part of the case.
+            status = ("confirmed" if cov["covered"] else "compatible" if cited else "unverified") \
+                if rid == "malicious_activity_confirmed" else cov["status"]
+            req[rid] = requirement(
+                rid, text, status,
+                {"records": cited, "covered_activities": cov["covered"], "uncovered_activities": cov["uncovered"],
+                 "records_without_scope": cov["unscoped_records"],
+                 **({"bridge_gaps_it_must_address": outside} if rid == "authorization" else {})},
+                ("Cite a scoped record (activity, entities, window, source, reference) for: "
+                 + ", ".join(cov["uncovered"])) if cov["uncovered"] else "",
+                source="analyst-supplied record (not verified by the bridge)" if cited else "bridge")
+        else:
+            req[rid] = (requirement(rid, text, "confirmed", cited, source="analyst-supplied record (not verified by the bridge)")
+                        if cited else requirement(rid, text, "unverified", None,
+                                                  "Cite the record with qradar_assess_closure (requirement, source, reference)"))
+    all_contradictions = [c for cov in scoped.values() for c in cov["contradictions"]] + list(contradictions or [])
     req["relevant_collection_complete"] = requirement(
         "relevant_collection_complete", "collection relevant to a benign closure complete, reconciled and parsed",
         "confirmed" if not technical else "unverified", [b["id"] for b in technical] or None,
@@ -162,11 +191,23 @@ def propose(result: dict, confirmations: list | None = None) -> dict:
                 "reason_text": next((r["text"] for r in available if r["id"] == existing_id), None),
                 "close_time": metadata.get("close_time"),
                 "meaning": "Observed metadata, not evidence that the original closure was justified"}
-    conclusions = [{"id": r["id"], "label": r["text"], "requires": REASON_REQUIREMENTS[r["text"].strip().lower()]}
-                   for r in available if r["text"].strip().lower() in REASON_REQUIREMENTS]
-    matrix = evaluate(conclusions, req)
+    if reason_definitions is None:
+        reason_definitions, definition_problems = load_reason_definitions(set(req))
+    else:
+        definition_problems = []
+    requirements_by_reason = {**{k: {"requires": v} for k, v in REASON_REQUIREMENTS.items()}, **reason_definitions}
+    conclusions = [{"id": r["id"], "label": r["text"], "requires": requirements_by_reason[r["text"].strip().lower()]["requires"],
+                    "contradicted_by": ["malicious_activity_confirmed"]
+                    if "authorization" in requirements_by_reason[r["text"].strip().lower()]["requires"]
+                    or "detection_error" in requirements_by_reason[r["text"].strip().lower()]["requires"] else []}
+                   for r in available if r["text"].strip().lower() in requirements_by_reason]
+    matrix = evaluate(conclusions, req, all_contradictions)
+    dispositions = evaluate(CATEGORIES, req, all_contradictions)
+    held = [d for d in dispositions if d["sufficiency"] == "sustained"]
+    disposition = held[0]["id"] if len(held) == 1 else "inconclusive"
     by_id = {m["id"]: m for m in matrix}
-    options = [{**r, "condition": CONDITIONS.get(r["text"].strip().lower(),
+    options = [{**r, "condition": reason_definitions.get(r["text"].strip().lower(), {}).get("definition")
+                or CONDITIONS.get(r["text"].strip().lower(),
                 "Custom reason: obtain its local definition and supporting evidence before selecting it"),
                 "eligible_now": by_id.get(r["id"], {}).get("sufficiency") == "sustained",
                 "unmet": [b["id"] for b in by_id.get(r["id"], {}).get("blocking", [])] if r["id"] in by_id else ["custom_reason_definition"]}
@@ -188,7 +229,8 @@ def propose(result: dict, confirmations: list | None = None) -> dict:
     # Blocking list for the reason closest to being met (benign closure by default).
     target = (by_id.get(recommended["id"]) if recommended else
               min((m for m in matrix if m["sufficiency"] != "contradicted"),
-                  key=lambda m: (len(m["blocking"]), "authorization" not in REASON_REQUIREMENTS[m["label"].strip().lower()]),
+                  key=lambda m: (len(m["blocking"]),
+                                 "authorization" not in requirements_by_reason[m["label"].strip().lower()]["requires"]),
                   default=None))
     for item in (target or {}).get("blocking", []):
         if item["id"] != "relevant_collection_complete" and item["id"] not in {b["id"] for b in blockers}:
@@ -265,7 +307,16 @@ def propose(result: dict, confirmations: list | None = None) -> dict:
     carried = [b["id"] for b in blockers if b["id"] in {g["id"] for g in result.get("gap_details", [])}]
     if carried:
         blockers_pt.append("pendências técnicas relevantes detalhadas no relatório: " + ", ".join(carried))
-    note = [f"Offense {result['offense_id']} — investigação preliminar.",
+    labels = {d["id"]: d["label"] for d in CATEGORIES}
+    disposition_line = (f"Disposição sustentada: {labels[disposition]}." if disposition != "inconclusive" else
+                        "Disposição: inconclusiva — nenhuma categoria tem todos os requisitos atendidos.")
+    contradiction_line = ("Contradições não resolvidas: " + "; ".join(c["summary"] for c in all_contradictions
+                                                                       if c.get("status", "unresolved") == "unresolved") + "."
+                          if any(c.get("status", "unresolved") == "unresolved" for c in all_contradictions) else "")
+    note = [f"Offense {result['offense_id']} — "
+            + ("investigação com decisão sustentada." if recommended or disposition != "inconclusive"
+               else "investigação preliminar."),
+            disposition_line, *([contradiction_line] if contradiction_line else []),
             f"Intervalo dos metadados (UTC, sem margem): {interval.get('start')} até {interval.get('end')}.",
             "Evidências: " + ("; ".join(note_facts) if note_facts else
                               "registros coletados; classificação final não estabelecida") + ".",
@@ -286,6 +337,14 @@ def propose(result: dict, confirmations: list | None = None) -> dict:
             "recommended_reason": {"id": recommended["id"], "text": recommended["text"]} if recommended else None,
             "reason_catalog_state": result.get("closing_reasons", {}).get("state"),
             "decision_matrix": matrix, "requirements": req, "analyst_confirmations": confirmed,
+            "observed_activity": profile, "contradictions": all_contradictions,
+            "disposition": {"category": disposition, "label": {**labels, "inconclusive": "investigação inconclusiva"}[disposition],
+                            "relation_to_catalog": CATEGORY_REASONS[disposition],
+                            "administrative_decision": req["administrative_decision"]["status"]},
+            "disposition_matrix": dispositions,
+            "confidence_detail": rate_confidence(held[0] if len(held) == 1 else None, req, all_contradictions,
+                                                 bool(findings_by_bridge.get("corroborated"))),
+            "custom_reason_definitions": {"loaded": sorted(reason_definitions), "problems": definition_problems},
             "evidence_status_vocabulary": STATUSES,
             "conditional_reason_options": options, "justification": findings,
             "confidence": confidence,

@@ -3,6 +3,8 @@ import asyncio
 import json
 from pathlib import Path
 import unittest
+
+from soc_bridge.capabilities import LOCAL_WRITE_TOOLS
 from unittest.mock import AsyncMock, patch
 
 from soc_bridge.ariel_collection import Budget
@@ -202,8 +204,8 @@ class RankingTests(unittest.TestCase):
         self.assertEqual(len(before), 20)
         for name, schema in before.items():
             self.assertEqual(tools[name].inputSchema, schema, name)
-        self.assertEqual(set(tools) - set(before), {'qradar_list_offenses'})
-        self.assertTrue(all(t.annotations.readOnlyHint for t in tools.values()))
+        self.assertEqual(set(tools) - set(before), {'qradar_list_offenses', 'investigate_offense_case', 'reassess_case', 'list_cases', 'get_case', 'bridge_diagnostics'})
+        self.assertTrue(all((t.annotations.readOnlyHint or t.name in LOCAL_WRITE_TOOLS) and not t.annotations.destructiveHint for t in tools.values()))
         self.assertNotIn('description', tools['qradar_list_offenses'].inputSchema['properties'])
 
 
