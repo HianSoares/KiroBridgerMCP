@@ -8,22 +8,44 @@ Existing ID-based investigations continue working when that optional tool is abs
 ## Discovery and scope
 
 `qradar_find_offenses(description, status="OPEN", match="exact", offset=0, limit=50)`
-reads one page through the offense REST API, with `format_output=false` and `+id`
-ordering. It does not search Ariel. Exact description is the default. `contains`
-uses a literal substring pattern and rejects wildcard input; use `exact` for such
-text. Quoted text is encoded as a literal, never accepted as a filter expression.
+scans bounded REST pages through the offense API, with `format_output=false` and
+`+id` ordering. **QRadar can return description while rejecting it as a filterable
+field (HTTP 422).** The bridge sends only status and optional start_time predicates
+to the upstream, then compares each returned description locally. It does not
+search Ariel and does not send description equality/LIKE to the offense API.
 
-Status may be OPEN, CLOSED, HIDDEN or ALL. Without a status request, search OPEN
-and state that scope. Optional `start_time_from` / `start_time_to` are inclusive
-**offense start_time epochs in milliseconds**, not event timestamps or overlap
-filters. These filters do not depend on the console timezone.
+Exact literal description is the default. `contains` is a literal Python substring
+comparison, including percent, underscore and backslash characters; they are not
+API wildcards. Status may be OPEN, CLOSED, HIDDEN or ALL. Without a status request,
+search OPEN and state that scope. Optional `start_time_from` / `start_time_to` are
+inclusive **offense start_time epochs in milliseconds**, not event timestamps or
+overlap filters. These API filters do not depend on the console timezone.
 
-Each response distinguishes a successful empty page from permission, tool,
-timeout and response-format errors. `discovery_exhausted` describes the selected
-pagination, not complete logging or a static historical snapshot. Follow the
-returned offset parameters. A full page without total_count always needs another
-page. Offenses can change status/description between calls; retain seen IDs and
-report changed-population limitations instead of promising an immutable census.
+`limit` is the number of matching offenses to return (1..100), not the raw REST page
+size. Raw pages contain up to 100 entries; a call scans within its wall-time,
+call and record budget until the match quota or population end. A page with no
+matching descriptions does not end the scan. If the budget ends first, `outcome`
+is partial even if zero matches were returned. Follow the concrete continuation.
+
+**offset / next_offset are raw population positions**, including nonmatching rows,
+within the status/time-filtered upstream list. Never calculate offset by adding
+the number of matching offenses. If the match quota is reached in the middle of a
+raw page, the cursor points just after the last examined row, so remaining entries
+are fetched on continuation rather than skipped. Repeated/non-advancing IDs are
+response errors. `upstream_rows_scanned` and `upstream_pages_read` expose coverage.
+
+`upstream_total_count` counts the status/time-filtered population, not the matching
+description. `total_count` is populated with a matching total only when this
+invocation starts at raw offset zero and reaches the population end; otherwise it
+stays unknown. Later suffixes cannot establish the whole matching population.
+
+Each response distinguishes successful exhaustion with no matches from permission,
+tool, timeout and format failures. Errors preserve earlier matches and the raw
+cursor. A continuation with `requires_resolution=true` must wait for the reported
+failure to be resolved, not be repeatedly called. `discovery_exhausted` describes
+the scanned selection, not complete logging or a static historical snapshot.
+Offenses can change status/description between calls; retain seen IDs and report
+changed-population limitations instead of promising an immutable census.
 
 ## Investigation batches
 
@@ -114,3 +136,14 @@ have distinct outcomes. Unknown upstream errors require local server logs; no
 response body, URL, token or description from an error is copied into diagnostics.
 Do not infer that spaces, colons or `containing` are rejected without a reported
 local validation error. Do not repeatedly rerun the same deterministic failure.
+
+## Upstream initialization failures
+
+An HTTP 500 during MCP initialization is separate from offense filter rejection.
+The initialization/authentication middleware is shared by tools. A traceback
+through identify_user/get_current_user ending in httpx.ConnectError shows a
+connection failure during authentication, not proof of an invalid token or a
+special offense initialization endpoint. Inspect container-to-QRadar connectivity
+and local server logs when that trace occurs. A responding static guide does not
+test the QRadar API; dynamic event fields exercise Ariel metadata, not the offense
+list. The bridge does not change credentials, network settings or upstream code.

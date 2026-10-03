@@ -18,7 +18,8 @@ def upstream_error(text: str, source: str) -> MCPToolFailure:
     """Only coarse facts from a recognized error envelope; never echo message bodies/URLs/tokens."""
     code = HTTP_CODE.search(text[:20000])
     reason = f'upstream returned HTTP {next(g for g in code.groups() if g)}' if code else 'upstream returned a tool error'
-    if text.lower().startswith(('invalid filter expression:', 'invalid sort expression:')):
+    if ('filtering is unsupported on the field: description' in text.lower() or
+            text.lower().startswith(('invalid filter expression:', 'invalid sort expression:'))):
         reason += '; upstream rejected request parameters'
     return MCPToolFailure(source, 'list_offenses', reason + '; inspect local QRadar MCP logs')
 
