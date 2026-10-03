@@ -1,7 +1,6 @@
 """Read-only offense discovery and bounded investigations; descriptions are not incident IDs."""
 from __future__ import annotations
 
-import json
 from datetime import datetime, timezone
 from typing import Any
 
@@ -27,16 +26,12 @@ def selection(description: str, status: str, match: str, start_time_from: int | 
         raise ValueError('description must not contain control characters')
     if status not in ('OPEN', 'CLOSED', 'HIDDEN', 'ALL') or match not in ('exact', 'contains'):
         raise ValueError('status must be OPEN/CLOSED/HIDDEN/ALL; match must be exact/contains')
-    # Do not let user input turn a literal substring into an API wildcard pattern.
-    if match == 'contains' and any(c in description for c in '%_\\'):
-        raise ValueError('contains does not accept wildcard characters; use exact for this description')
     for name, bound in (('start_time_from', start_time_from), ('start_time_to', start_time_to)):
         if bound is not None:
             integer(bound, name, 0, 9999999999999)
     if start_time_from is not None and start_time_to is not None and start_time_from > start_time_to:
         raise ValueError('start_time_from must not exceed start_time_to')
-    literal = json.dumps(description if match == 'exact' else '%' + description + '%', ensure_ascii=False)
-    parts = [f'description {"=" if match == "exact" else "like"} {literal}']
+    parts = []
     if status != 'ALL':
         parts.append(f'status = "{status}"')
     if start_time_from is not None:
@@ -50,90 +45,123 @@ def selection(description: str, status: str, match: str, start_time_from: int | 
 async def find_offenses(qradar: Any, description: str, status: str = 'OPEN', match: str = 'exact',
                         offset: int = 0, limit: int = 50, start_time_from: int | None = None,
                         start_time_to: int | None = None, budget: Budget | None = None) -> dict:
-    """One API page, with raw JSON and a concrete cursor. Never use Ariel as an offense list."""
+    """Scan bounded REST pages and match description locally; description is not API-filterable."""
     integer(offset, 'offset', 0, 1000000)
     integer(limit, 'limit', 1, 100)
     expression, scope = selection(description, status, match, start_time_from, start_time_to)
+    budget = budget or Budget(max_seconds=20)
     result = dict(scope=scope, offset=offset, limit=limit, offenses=[], outcome='unavailable',
                   page_complete=False, discovery_exhausted=False, total_count=None,
+                  upstream_total_count=None, description_matching='local literal comparison',
+                  offset_semantics='Cursor in the status/time-filtered upstream population, including nonmatches',
+                  next_offset=offset, upstream_rows_scanned=0, upstream_pages_read=0,
                   mcp_tool_call_attempted=False, mcp_tool_calls_attempted=0,
-                  decoded_response_returned=False, diagnostic_stage="before_tool_call",
-                  continuation_plan=[], collected_at=datetime.now(timezone.utc).isoformat(),
+                  decoded_response_returned=False, diagnostic_stage='before_tool_call',
+                  continuation_plan=[], warnings=[], collected_at=datetime.now(timezone.utc).isoformat(),
                   consistency_note='Live +id pagination is not an immutable snapshot. Changed descriptions/status '
                                    'can move the selected population between calls; retain seen IDs.',
                   time_filter_note='Bounds select offense start_time in epoch milliseconds, not event time or interval overlap.')
     parameters = {**scope, 'offset': offset, 'limit': limit}
-    resume = dict(tool='qradar_find_offenses', parameters=parameters)
+    cursor = offset
+    previous_id = None
     try:
-        budget = budget or Budget(max_seconds=20)
-        async def request():
-            # Count an attempted tool invocation, not proof of a QRadar REST request.
-            budget.calls_made += 1
-            result['mcp_tool_call_attempted'] = True
-            result['mcp_tool_calls_attempted'] += 1
-            result['diagnostic_stage'] = 'upstream_tool_call'
-            return await qradar.call('list_offenses', dict(filter=expression, sort='+id',
-                                 fields=FIELDS, offset=offset, limit=limit, format_output=False))
-        reason = budget.blocked('call')
-        if reason:
-            raise BudgetExhausted('offense discovery: ' + reason, started=False)
-        data = await budget.run(request, 'offense discovery')
-        result['decoded_response_returned'] = True
-        result['diagnostic_stage'] = 'response_validation'
-        if not isinstance(data, dict) or not isinstance(data.get('offenses'), list):
-            raise ResponseFormatError('Expected raw offense list JSON')
-        rows = data['offenses']
-        if len(rows) > limit:
-            raise ResponseFormatError('Offense page exceeds requested limit')
-        ids = []
-        for row in rows:
-            if not isinstance(row, dict):
-                raise ResponseFormatError('Invalid offense entry')
-            oid = row.get('id')
-            if isinstance(oid, bool) or not isinstance(oid, int) or oid < 1 or oid in ids:
-                raise ResponseFormatError('Invalid or repeated offense ID')
-            if not isinstance(row.get('description'), str):
-                raise ResponseFormatError('Offense description unavailable')
-            matches = row['description'] == description if match == 'exact' else description in row['description']
-            if not matches or (status != 'ALL' and row.get('status') != status):
-                raise ResponseFormatError('Upstream returned an offense outside the requested scope')
-            moment = row.get('start_time')
-            if ((start_time_from is not None or start_time_to is not None) and
-                    (not isinstance(moment, int) or isinstance(moment, bool) or
-                     (start_time_from is not None and moment < start_time_from) or
-                     (start_time_to is not None and moment > start_time_to))):
-                raise ResponseFormatError('Offense outside start_time bounds')
-            ids.append(oid)
-        if ids != sorted(ids):
-            raise ResponseFormatError('Offense page not ordered by ID')
-        total = data.get('total_count')
-        if total is not None and (isinstance(total, bool) or not isinstance(total, int) or total < offset + len(rows)):
-            raise ResponseFormatError('Inconsistent total_count')
-        if not rows and total is not None and offset < total:
-            raise ResponseFormatError('Empty page before reported total_count')
-        exhausted = len(rows) < limit if total is None else offset + len(rows) >= total
-        result.update(offenses=rows, returned_count=len(rows), total_count=total,
-                      outcome='empty' if not rows else 'page_collected', page_complete=True,
-                      discovery_exhausted=exhausted, diagnostic_stage='page_collected')
-        if not exhausted:
-            result['continuation_plan'] = [{**resume, 'parameters': {**parameters, 'offset': offset + len(rows)}}]
+        while True:
+            reason = budget.blocked('call') or budget.blocked('record')
+            if reason:
+                result['warnings'].append(reason + '; scan incomplete, not a negative finding')
+                result['outcome'] = 'partial'
+                break
+            # Fetch raw pages independently of the requested number of matches.
+            page_size = min(100, budget.max_records - budget.records_seen)
+            async def request():
+                budget.calls_made += 1
+                result['mcp_tool_call_attempted'] = True
+                result['mcp_tool_calls_attempted'] += 1
+                result['diagnostic_stage'] = 'upstream_tool_call'
+                return await qradar.call('list_offenses', dict(filter=expression, sort='+id',
+                    fields=FIELDS, offset=cursor, limit=page_size, format_output=False))
+            data = await budget.run(request, 'offense discovery')
+            result['decoded_response_returned'] = True
+            result['diagnostic_stage'] = 'response_validation'
+            if not isinstance(data, dict) or not isinstance(data.get('offenses'), list):
+                raise ResponseFormatError('Expected raw offense list JSON')
+            rows = data['offenses']
+            if len(rows) > page_size:
+                raise ResponseFormatError('Offense page exceeds requested limit')
+            ids = []
+            for row in rows:
+                if not isinstance(row, dict):
+                    raise ResponseFormatError('Invalid offense entry')
+                oid = row.get('id')
+                if isinstance(oid, bool) or not isinstance(oid, int) or oid < 1 or oid in ids:
+                    raise ResponseFormatError('Invalid or repeated offense ID')
+                if not isinstance(row.get('description'), str):
+                    raise ResponseFormatError('Offense description unavailable')
+                if status != 'ALL' and row.get('status') != status:
+                    raise ResponseFormatError('Upstream returned an offense outside status scope')
+                moment = row.get('start_time')
+                if ((start_time_from is not None or start_time_to is not None) and
+                        (not isinstance(moment, int) or isinstance(moment, bool) or
+                         (start_time_from is not None and moment < start_time_from) or
+                         (start_time_to is not None and moment > start_time_to))):
+                    raise ResponseFormatError('Offense outside start_time bounds')
+                ids.append(oid)
+            if ids != sorted(ids) or (ids and previous_id is not None and ids[0] <= previous_id):
+                raise ResponseFormatError('Repeated/non-advancing offense ID order; live population may have changed')
+            total = data.get('total_count')
+            if total is not None and (isinstance(total, bool) or not isinstance(total, int) or total < 0):
+                raise ResponseFormatError('Invalid upstream total_count')
+            if rows and total is not None and total < cursor + len(rows):
+                raise ResponseFormatError('Inconsistent upstream total_count')
+            if not rows and total is not None and cursor < total:
+                raise ResponseFormatError('Empty page before reported total_count')
+            result['upstream_total_count'] = total
+            result['upstream_pages_read'] += 1
+            end_of_population = len(rows) < page_size if total is None else cursor + len(rows) >= total
+            consumed = 0
+            for row in rows:
+                consumed += 1
+                budget.records_seen += 1
+                result['upstream_rows_scanned'] += 1
+                previous_id = row['id']
+                matches = row['description'] == description if match == 'exact' else description in row['description']
+                if matches:
+                    result['offenses'].append(row)
+                if len(result['offenses']) >= limit:
+                    break
+            cursor += consumed
+            result['next_offset'] = cursor
+            if consumed == len(rows) and end_of_population:
+                result.update(discovery_exhausted=True, page_complete=True,
+                              outcome='page_collected' if result['offenses'] else 'empty')
+                if offset == 0:
+                    result['total_count'] = len(result['offenses'])
+                break
+            if len(result['offenses']) >= limit:
+                result.update(page_complete=True, outcome='page_collected')
+                break
     except Exception as exc:
         error = classify_failure(exc)
         if isinstance(exc, ValueError) and not isinstance(exc, ResponseFormatError):
-            # Public arguments were validated before this try block. A ValueError
-            # here cannot establish a local argument rejection or no upstream call.
             error = {'category': 'upstream_client', 'outcome': 'unavailable', 'retryable': False,
                      'message': 'ValueError inside the offense listing client',
                      'next_action': 'Inspect the upstream MCP response/logs; this does not establish a local argument rejection'}
         if isinstance(exc, ResponseFormatError) and result['diagnostic_stage'] == 'upstream_tool_call':
             result['diagnostic_stage'] = 'upstream_response_decoding'
-        error['stage'] = result['diagnostic_stage']
-        error['mcp_tool_call_attempted'] = result['mcp_tool_call_attempted']
-        result.update(error=error, returned_count=0)
-        result['budget'] = budget.describe()
-        if result['error']['retryable']:
-            result['continuation_plan'] = [resume]
-    result["budget"] = budget.describe()
+        error.update(stage=result['diagnostic_stage'], mcp_tool_call_attempted=result['mcp_tool_call_attempted'])
+        result['error'] = error
+        result['outcome'] = 'partial' if result['offenses'] else 'unavailable'
+    result['returned_count'] = len(result['offenses'])
+    result['budget'] = budget.describe()
+    if not result['discovery_exhausted']:
+        plan = dict(tool='qradar_find_offenses', parameters={**parameters, 'offset': cursor},
+                    cursor_semantics=result['offset_semantics'])
+        if result.get('error'):
+            plan['requires_resolution'] = not result['error']['retryable']
+            plan['reason'] = result['error']['category']
+        result['continuation_plan'] = [plan]
+    if result['page_complete']:
+        result['diagnostic_stage'] = 'page_collected'
     return result
 
 
@@ -198,7 +226,7 @@ async def investigate_offenses(qradar: Any, description: str = '', offense_ids: 
         if discovery:
             budget.calls_made += discovery.get('mcp_tool_calls_attempted', 0)
         result['discovery'] = discovery
-        if discovery is None or not discovery['page_complete']:
+        if discovery is None or (not discovery['page_complete'] and discovery['outcome'] != 'partial'):
             result.update(outcome='discovery_unavailable', consolidation=consolidate([]), budget=budget.describe())
             result['continuation_plan'] = discovery['continuation_plan'] if discovery else [dict(
                 tool='qradar_investigate_offenses', parameters=dict(description=description, status=status,
@@ -208,10 +236,13 @@ async def investigate_offenses(qradar: Any, description: str = '', offense_ids: 
             return result
         ids = [row['id'] for row in discovery['offenses']]
         if not discovery['discovery_exhausted']:
-            discovery_next = [dict(tool='qradar_investigate_offenses', parameters=dict(description=description,
-                status=status, match=match, offset=offset + len(ids), max_offenses=max_offenses,
-                start_time_from=start_time_from, start_time_to=start_time_to,
-                qradar_utc_offset_hours=qradar_utc_offset_hours, timezone_verified=timezone_verified))]
+            for plan in discovery['continuation_plan']:
+                discovery_next.append(dict(tool='qradar_investigate_offenses', parameters=dict(description=description,
+                    status=status, match=match, offset=plan['parameters']['offset'], max_offenses=max_offenses,
+                    start_time_from=start_time_from, start_time_to=start_time_to,
+                    qradar_utc_offset_hours=qradar_utc_offset_hours, timezone_verified=timezone_verified),
+                    requires_resolution=plan.get('requires_resolution', False),
+                    cursor_semantics=plan.get('cursor_semantics')))
     selected = ids[:max_offenses]
     result['pending_offense_ids'] = ids[max_offenses:]
     for index, oid in enumerate(selected):

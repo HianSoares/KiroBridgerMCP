@@ -116,8 +116,10 @@ async def qradar_find_offenses(description: str, status: str = "OPEN", match: st
                                start_time_to: int | None = None) -> dict:
     """Discover offenses by description through the QRadar offense API, not Ariel.
 
-    One page (1..100), +id order, raw descriptions and a continuation cursor.
+    Match description locally over bounded +id REST pages (description is not API-filterable).
+    Return up to 100 matches and a raw-population continuation cursor, including nonmatches.
     Default exact description and OPEN status; ALL includes closed/hidden.
+    A scan budget can stop before finding any matches: follow continuation_plan.
     Optional bounds filter offense start_time (epoch milliseconds), not event time.
     A page is not all offenses. Follow continuation_plan and retain seen IDs;
     live pagination is not an immutable snapshot. No Trend key needed.

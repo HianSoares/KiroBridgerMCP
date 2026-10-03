@@ -57,7 +57,8 @@ class DiscoveryTests(unittest.IsolatedAsyncioTestCase):
         client = ListClient()
         data = await find_offenses(client, DESC, limit=2)
         args = client.calls[0][1]
-        self.assertEqual(args['filter'], 'description = ' + json.dumps(DESC) + ' and status = "OPEN"')
+        self.assertEqual(args['filter'], 'status = "OPEN"')
+        self.assertNotIn('description', args['filter'])
         self.assertFalse(args['format_output'])
         self.assertEqual(args['sort'], '+id')
         self.assertFalse(data['discovery_exhausted'])
@@ -72,19 +73,19 @@ class DiscoveryTests(unittest.IsolatedAsyncioTestCase):
         desc = 'Synthetic "quoted" or status="CLOSED"'
         client = ListClient([dict(offense(1), description=desc)])
         await find_offenses(client, desc)
-        self.assertEqual(client.calls[0][1]['filter'], 'description = ' + json.dumps(desc) + ' and status = "OPEN"')
+        self.assertEqual(client.calls[0][1]['filter'], 'status = "OPEN"')
 
     async def test_contains_all_and_epoch_bounds(self):
         client = ListClient([offense(1)])
         data = await find_offenses(client, 'Multiple Lockout', status='ALL', match='contains', start_time_from=MS, start_time_to=MS)
         self.assertTrue(data['page_complete'])
-        self.assertIn('description like "%Multiple Lockout%"', client.calls[0][1]['filter'])
+        self.assertNotIn('description', client.calls[0][1]['filter'])
         self.assertNotIn('status =', client.calls[0][1]['filter'])
         self.assertIn(f'start_time >= {MS}', client.calls[0][1]['filter'])
 
     async def test_invalid_input_never_calls_upstream(self):
         for params in (dict(description=''), dict(description=DESC, limit=True), dict(description=DESC, offset=-1),
-                       dict(description=DESC, status='other'), dict(description='wild%', match='contains'),
+                       dict(description=DESC, status='other'), dict(description=DESC, match='bad'),
                        dict(description=DESC, start_time_from=10, start_time_to=1)):
             client = ListClient()
             with self.subTest(params=params), self.assertRaises(ValueError):
@@ -92,8 +93,7 @@ class DiscoveryTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(client.calls, [])
 
     async def test_duplicate_wrong_scope_and_order_not_empty_success(self):
-        for rows in ([offense(1), offense(1)], [dict(offense(1), description='other')],
-                     [dict(offense(1), status='CLOSED')], [dict(offense(1), id=True)], [offense(2), offense(1)]):
+        for rows in ([offense(1), offense(1)], [dict(offense(1), status='CLOSED')], [dict(offense(1), id=True)], [offense(2), offense(1)]):
             with self.subTest(rows=rows):
                 data = await find_offenses(ListClient(rows), DESC)
                 self.assertFalse(data['page_complete'])
