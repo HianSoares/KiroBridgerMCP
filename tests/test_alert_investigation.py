@@ -176,8 +176,11 @@ class GenericDiscoveryTests(unittest.TestCase):
         self.assertEqual(enrichment[f"crem_device:{HOST}"]["state"], "tool_absent")
         self.assertEqual(enrichment["workbench_notes"]["state"], "unavailable")
         self.assertEqual(report["auto_pivots"]["record_counts"]["linked"], 1)
-        self.assertEqual(enrichment["insight"]["state"], "not_applicable")
-        self.assertIn("not universal reputation", next(v["purpose"] for k, v in enrichment.items()
+        # No insight ID and no listed insight references the alert: a WB ID is never used as an insight ID.
+        self.assertEqual(report["insights"]["state"], "no_related_insight_found")
+        self.assertFalse(any(t.startswith("workbench_insight_") and a.get("id", "").startswith("WB-")
+                             for t, a in vision.calls))
+        self.assertIn("not universal reputation", next(v["purpose"] for k, v in report["hypothesis_checks"].items()
                                                        if k.startswith("suspicious_objects")))
 
 

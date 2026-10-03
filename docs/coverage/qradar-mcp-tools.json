@@ -1,0 +1,1159 @@
+{
+ "source": {
+  "repository": "https://github.com/IBM/qradar-mcp.git",
+  "commit": "f51c0070f0b480c401fd527b0bf5b8e1bf360169",
+  "commit_date": "2026-09-29"
+ },
+ "tools": [
+  {
+   "name": "add_offense_note",
+   "group": "offense",
+   "verb": "POST",
+   "endpoint": "siem/offenses/{offense_id}/notes",
+   "args": [
+    "offense_id",
+    "note_text",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "add_staged_network",
+   "group": "config",
+   "verb": "PUT",
+   "endpoint": "config/network_hierarchy/staged_networks",
+   "args": [
+    "group",
+    "name",
+    "cidr",
+    "description",
+    "domain_id",
+    "country_code"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "add_to_reference_map",
+   "group": "reference_data",
+   "verb": "POST",
+   "endpoint": "reference_data/maps/{name}",
+   "args": [
+    "name",
+    "key",
+    "value",
+    "namespace",
+    "domain_id",
+    "source",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "add_to_reference_set",
+   "group": "reference_data",
+   "verb": "POST",
+   "endpoint": "reference_data_collections/set_entries",
+   "args": [
+    "set_name",
+    "value",
+    "source",
+    "notes",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "add_to_reference_table",
+   "group": "reference_data",
+   "verb": "POST",
+   "endpoint": "reference_data/tables/{name}",
+   "args": [
+    "name",
+    "outer_key",
+    "inner_key",
+    "value",
+    "namespace",
+    "domain_id",
+    "source",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "assign_offense",
+   "group": "offense",
+   "verb": "POST",
+   "endpoint": "siem/offenses/{offense_id}",
+   "args": [
+    "offense_id",
+    "assigned_to",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "create_ariel_search",
+   "group": "ariel",
+   "verb": "POST",
+   "endpoint": "ariel/searches",
+   "args": [
+    "query_expression",
+    "saved_search_id"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "create_dsm_event_mapping",
+   "group": "data_classification",
+   "verb": "POST",
+   "endpoint": "data_classification/dsm_event_mappings",
+   "args": [
+    "log_source_type_id",
+    "log_source_event_id",
+    "log_source_event_category",
+    "qid_record_id",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "create_qid_record",
+   "group": "data_classification",
+   "verb": "POST",
+   "endpoint": "data_classification/qid_records",
+   "args": [
+    "log_source_type_id",
+    "name",
+    "low_level_category_id",
+    "description",
+    "severity",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "create_reference_map",
+   "group": "reference_data",
+   "verb": "POST",
+   "endpoint": "reference_data/maps",
+   "args": [
+    "name",
+    "element_type",
+    "key_label",
+    "value_label",
+    "description",
+    "timeout_type",
+    "time_to_live",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "create_reference_set",
+   "group": "reference_data",
+   "verb": "POST",
+   "endpoint": "reference_data_collections/sets",
+   "args": [
+    "name",
+    "entry_type",
+    "description",
+    "namespace",
+    "time_to_live",
+    "expiry_type",
+    "expired_log_option",
+    "tenant_id",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "create_reference_table",
+   "group": "reference_data",
+   "verb": "POST",
+   "endpoint": "reference_data/tables",
+   "args": [
+    "name",
+    "element_type",
+    "outer_key_label",
+    "key_name_types",
+    "description",
+    "timeout_type",
+    "time_to_live",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "delete_ariel_search",
+   "group": "ariel",
+   "verb": "DELETE",
+   "endpoint": "ariel/searches/{search_id}",
+   "args": [
+    "search_id"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "delete_reference_map",
+   "group": "reference_data",
+   "verb": "DELETE",
+   "endpoint": "reference_data/maps/{name}",
+   "args": [
+    "name",
+    "purge_only",
+    "namespace",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "delete_reference_set",
+   "group": "reference_data",
+   "verb": "DELETE",
+   "endpoint": "reference_data_collections/sets/{name}",
+   "args": [
+    "set_id"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "delete_reference_table",
+   "group": "reference_data",
+   "verb": "DELETE",
+   "endpoint": "reference_data/tables/{name}",
+   "args": [
+    "name",
+    "purge_only",
+    "namespace",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "delete_saved_search",
+   "group": "ariel",
+   "verb": "DELETE",
+   "endpoint": "ariel/saved_searches/{search_id}",
+   "args": [
+    "search_id",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "delete_staged_network",
+   "group": "config",
+   "verb": "PUT",
+   "endpoint": "config/network_hierarchy/staged_networks",
+   "args": [
+    "network_id"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "deploy_qradar_config",
+   "group": "config",
+   "verb": "POST",
+   "endpoint": "staged_config/deploy_status",
+   "args": [
+    "type"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "dns_lookup",
+   "group": "services",
+   "verb": "POST",
+   "endpoint": "services/dns_lookups",
+   "args": [
+    "ip_address",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "geolocate_ip",
+   "group": "services",
+   "verb": "GET",
+   "endpoint": "services/geolocations",
+   "args": [
+    "ip_address",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "get_ariel_search_results",
+   "group": "ariel",
+   "verb": "GET",
+   "endpoint": "ariel/searches/{search_id}/results",
+   "args": [
+    "search_id",
+    "start",
+    "limit"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "get_ariel_search_status",
+   "group": "ariel",
+   "verb": "GET",
+   "endpoint": "ariel/searches/{search_id}",
+   "args": [
+    "search_id",
+    "wait_seconds"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "get_building_block",
+   "group": "analytics",
+   "verb": "GET",
+   "endpoint": "analytics/building_blocks/{building_block_id}",
+   "args": [
+    "building_block_id",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "get_case",
+   "group": "forensics",
+   "verb": "GET",
+   "endpoint": "forensics/case_management/cases/{case_id}",
+   "args": [
+    "case_id",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "get_custom_action",
+   "group": "analytics",
+   "verb": "GET",
+   "endpoint": "analytics/custom_actions/actions/{action_id}",
+   "args": [
+    "action_id",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "get_deploy_status",
+   "group": "config",
+   "verb": "GET",
+   "endpoint": "staged_config/deploy_status",
+   "args": [],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "get_dns_result",
+   "group": "services",
+   "verb": "GET",
+   "endpoint": "services/dns_lookups/{task_id}",
+   "args": [
+    "task_id",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "get_dsm_event_mapping",
+   "group": "data_classification",
+   "verb": "GET",
+   "endpoint": "data_classification/dsm_event_mappings/{dsm_event_mapping_id}",
+   "args": [
+    "dsm_event_mapping_id",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "get_high_level_category",
+   "group": "data_classification",
+   "verb": "GET",
+   "endpoint": "data_classification/high_level_categories/{high_level_category_id}",
+   "args": [
+    "high_level_category_id",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "get_log_source",
+   "group": "log_source",
+   "verb": "GET",
+   "endpoint": "config/event_sources/log_source_management/log_sources/{log_source_id}",
+   "args": [
+    "log_source_id",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "get_low_level_category",
+   "group": "data_classification",
+   "verb": "GET",
+   "endpoint": "data_classification/low_level_categories/{low_level_category_id}",
+   "args": [
+    "low_level_category_id",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "get_network_hierarchy",
+   "group": "config",
+   "verb": "GET",
+   "endpoint": "config/network_hierarchy/networks",
+   "args": [
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "get_offense",
+   "group": "offense",
+   "verb": "GET",
+   "endpoint": "siem/offenses/{offense_id}",
+   "args": [
+    "offense_id"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "get_offense_notes",
+   "group": "offense",
+   "verb": "GET",
+   "endpoint": "siem/offenses/{offense_id}/notes",
+   "args": [
+    "offense_id",
+    "filter",
+    "fields",
+    "start",
+    "limit"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "get_qid_record",
+   "group": "data_classification",
+   "verb": "GET",
+   "endpoint": "data_classification/qid_records/{qid_record_id}",
+   "args": [
+    "qid_record_id",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "get_qid_record_by_qid",
+   "group": "data_classification",
+   "verb": "GET",
+   "endpoint": "data_classification/qid_records",
+   "args": [
+    "qid",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "get_reference_map",
+   "group": "reference_data",
+   "verb": "GET",
+   "endpoint": "reference_data/maps/{name}",
+   "args": [
+    "name",
+    "namespace",
+    "filter",
+    "limit",
+    "offset",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "get_reference_set",
+   "group": "reference_data",
+   "verb": "GET",
+   "endpoint": "reference_data_collections/sets/{name}",
+   "args": [
+    "set_id",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "get_reference_table",
+   "group": "reference_data",
+   "verb": "GET",
+   "endpoint": "reference_data/tables/{name}",
+   "args": [
+    "name",
+    "namespace",
+    "filter",
+    "limit",
+    "offset",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "get_rule",
+   "group": "analytics",
+   "verb": "GET",
+   "endpoint": "analytics/rules/{rule_id}",
+   "args": [
+    "rule_id",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "get_saved_search",
+   "group": "ariel",
+   "verb": "GET",
+   "endpoint": "ariel/saved_searches/{search_id}",
+   "args": [
+    "search_id",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "get_staged_network_hierarchy",
+   "group": "config",
+   "verb": "GET",
+   "endpoint": "config/network_hierarchy/staged_networks",
+   "args": [
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "get_system_info",
+   "group": "system",
+   "verb": "GET",
+   "endpoint": "system/about",
+   "args": [
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "get_whois_result",
+   "group": "services",
+   "verb": "GET",
+   "endpoint": "services/whois_lookups/{task_id}",
+   "args": [
+    "task_id",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "list_asset_properties",
+   "group": "asset",
+   "verb": "GET",
+   "endpoint": "asset_model/properties",
+   "args": [
+    "filter",
+    "fields",
+    "limit",
+    "offset"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "list_assets",
+   "group": "asset",
+   "verb": "GET",
+   "endpoint": "asset_model/assets",
+   "args": [
+    "filter",
+    "fields",
+    "sort",
+    "limit",
+    "offset",
+    "format_output"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "list_building_blocks",
+   "group": "analytics",
+   "verb": "GET",
+   "endpoint": "analytics/building_blocks",
+   "args": [
+    "filter",
+    "fields",
+    "limit",
+    "offset",
+    "format_output"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "list_cases",
+   "group": "forensics",
+   "verb": "GET",
+   "endpoint": "forensics/case_management/cases",
+   "args": [
+    "filter",
+    "fields",
+    "limit",
+    "offset"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "list_custom_actions",
+   "group": "analytics",
+   "verb": "GET",
+   "endpoint": "analytics/custom_actions/actions",
+   "args": [
+    "fields",
+    "filter",
+    "limit",
+    "offset"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "list_dsm_event_mappings",
+   "group": "data_classification",
+   "verb": "GET",
+   "endpoint": "data_classification/dsm_event_mappings",
+   "args": [
+    "filter",
+    "fields",
+    "limit",
+    "offset"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "list_high_level_categories",
+   "group": "data_classification",
+   "verb": "GET",
+   "endpoint": "data_classification/high_level_categories",
+   "args": [
+    "filter",
+    "sort",
+    "fields",
+    "limit",
+    "offset"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "list_local_destination_addresses",
+   "group": "offense",
+   "verb": "GET",
+   "endpoint": "siem/local_destination_addresses",
+   "args": [
+    "filter",
+    "limit",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "list_log_source_types",
+   "group": "log_source",
+   "verb": "GET",
+   "endpoint": "config/event_sources/log_source_management/log_source_types",
+   "args": [
+    "filter",
+    "fields",
+    "limit",
+    "offset"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "list_log_sources",
+   "group": "log_source",
+   "verb": "GET",
+   "endpoint": "config/event_sources/log_source_management/log_sources",
+   "args": [
+    "filter",
+    "fields",
+    "sort",
+    "limit",
+    "offset",
+    "format_output"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "list_low_level_categories",
+   "group": "data_classification",
+   "verb": "GET",
+   "endpoint": "data_classification/low_level_categories",
+   "args": [
+    "filter",
+    "sort",
+    "fields",
+    "limit",
+    "offset"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "list_offense_closing_reasons",
+   "group": "offense",
+   "verb": "GET",
+   "endpoint": "siem/offense_closing_reasons",
+   "args": [
+    "include_reserved",
+    "include_deleted",
+    "filter",
+    "limit",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "list_offense_types",
+   "group": "offense",
+   "verb": "GET",
+   "endpoint": "siem/offense_types",
+   "args": [
+    "filter",
+    "sort",
+    "limit",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "list_offenses",
+   "group": "offense",
+   "verb": "GET",
+   "endpoint": "siem/offenses",
+   "args": [
+    "filter",
+    "sort",
+    "fields",
+    "limit",
+    "offset",
+    "format_output"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "list_qid_records",
+   "group": "data_classification",
+   "verb": "GET",
+   "endpoint": "data_classification/qid_records",
+   "args": [
+    "filter",
+    "fields",
+    "limit",
+    "offset"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "list_qvm_assets",
+   "group": "qvm",
+   "verb": "GET",
+   "endpoint": "qvm/assets",
+   "args": [
+    "saved_search_id",
+    "saved_search_name",
+    "filters"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "list_reference_maps",
+   "group": "reference_data",
+   "verb": "GET",
+   "endpoint": "reference_data/maps",
+   "args": [
+    "filter",
+    "sort",
+    "limit",
+    "offset",
+    "fields",
+    "format_output"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "list_reference_sets",
+   "group": "reference_data",
+   "verb": "GET",
+   "endpoint": "reference_data_collections/sets",
+   "args": [
+    "filter",
+    "sort",
+    "limit",
+    "offset",
+    "fields",
+    "format_output"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "list_reference_tables",
+   "group": "reference_data",
+   "verb": "GET",
+   "endpoint": "reference_data/tables",
+   "args": [
+    "filter",
+    "sort",
+    "limit",
+    "offset",
+    "fields",
+    "format_output"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "list_rules",
+   "group": "analytics",
+   "verb": "GET",
+   "endpoint": "analytics/rules",
+   "args": [
+    "filter",
+    "fields",
+    "limit",
+    "offset",
+    "format_output"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "list_saved_searches",
+   "group": "ariel",
+   "verb": "GET",
+   "endpoint": "ariel/saved_searches",
+   "args": [
+    "fields",
+    "filter",
+    "limit",
+    "offset"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "list_servers",
+   "group": "system",
+   "verb": "GET",
+   "endpoint": "system/servers",
+   "args": [
+    "fields",
+    "filter",
+    "limit",
+    "offset"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "list_source_addresses",
+   "group": "offense",
+   "verb": "GET",
+   "endpoint": "siem/source_addresses",
+   "args": [
+    "filter",
+    "limit",
+    "offset",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "list_user_roles",
+   "group": "config",
+   "verb": "GET",
+   "endpoint": "config/access/user_roles",
+   "args": [
+    "current_user_role",
+    "contains",
+    "fields",
+    "filter",
+    "limit",
+    "offset"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "list_users",
+   "group": "config",
+   "verb": "GET",
+   "endpoint": "config/access/users",
+   "args": [
+    "current_user",
+    "fields",
+    "filter",
+    "sort",
+    "limit",
+    "offset"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "list_vulnerabilities",
+   "group": "qvm",
+   "verb": "GET",
+   "endpoint": "qvm/vulns",
+   "args": [
+    "saved_search_id",
+    "saved_search_name",
+    "filters"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "remove_from_reference_map",
+   "group": "reference_data",
+   "verb": "DELETE",
+   "endpoint": "reference_data/maps/{name}/{key}",
+   "args": [
+    "name",
+    "key",
+    "value",
+    "namespace",
+    "domain_id",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "remove_from_reference_set",
+   "group": "reference_data",
+   "verb": "DELETE",
+   "endpoint": "reference_data_collections/set_entries/{entry_id}",
+   "args": [
+    "entry_id"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "remove_from_reference_table",
+   "group": "reference_data",
+   "verb": "DELETE",
+   "endpoint": "reference_data/tables/{name}/{outer_key}/{inner_key}",
+   "args": [
+    "name",
+    "outer_key",
+    "inner_key",
+    "value",
+    "namespace",
+    "domain_id",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "set_offense_follow_up",
+   "group": "offense",
+   "verb": "POST",
+   "endpoint": "siem/offenses/{offense_id}",
+   "args": [
+    "offense_id",
+    "follow_up",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "set_offense_protected",
+   "group": "offense",
+   "verb": "POST",
+   "endpoint": "siem/offenses/{offense_id}",
+   "args": [
+    "offense_id",
+    "protected",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "set_offense_status",
+   "group": "offense",
+   "verb": "POST",
+   "endpoint": "siem/offenses/{offense_id}",
+   "args": [
+    "offense_id",
+    "status",
+    "closing_reason_id",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "update_dsm_event_mapping",
+   "group": "data_classification",
+   "verb": "POST",
+   "endpoint": "data_classification/dsm_event_mappings/{dsm_event_mapping_id}",
+   "args": [
+    "dsm_event_mapping_id",
+    "qid_record_id",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "update_qid_record",
+   "group": "data_classification",
+   "verb": "POST",
+   "endpoint": "data_classification/qid_records/{qid_record_id}",
+   "args": [
+    "qid_record_id",
+    "name",
+    "description",
+    "severity",
+    "low_level_category_id",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "update_reference_set",
+   "group": "reference_data",
+   "verb": "POST",
+   "endpoint": "reference_data_collections/sets/{name}",
+   "args": [
+    "set_id",
+    "description",
+    "time_to_live",
+    "expiry_type",
+    "expired_log_option",
+    "delete_entries",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": true
+  },
+  {
+   "name": "update_staged_network",
+   "group": "config",
+   "verb": "PUT",
+   "endpoint": "config/network_hierarchy/staged_networks",
+   "args": [
+    "network_id",
+    "group",
+    "name",
+    "cidr",
+    "description",
+    "domain_id",
+    "country_code"
+   ],
+   "args_not_used_in_handler": [
+    "group",
+    "name",
+    "cidr",
+    "description",
+    "domain_id",
+    "country_code"
+   ],
+   "range_pagination": false
+  },
+  {
+   "name": "validate_aql",
+   "group": "ariel",
+   "verb": "POST",
+   "endpoint": "ariel/validators/aql",
+   "args": [
+    "query_expression"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  },
+  {
+   "name": "whois_lookup",
+   "group": "services",
+   "verb": "POST",
+   "endpoint": "services/whois_lookups",
+   "args": [
+    "ip_address",
+    "fields"
+   ],
+   "args_not_used_in_handler": [],
+   "range_pagination": false
+  }
+ ]
+}

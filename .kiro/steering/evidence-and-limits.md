@@ -22,3 +22,7 @@ inclusion: always
 - Quando fontes divergem (host do Workbench ≠ host da detecção, host EPM ≠ host Trend, horário fora da janela, usuários diferentes na mesma sessão), registre cada valor como `confirmado` **na sua fonte**, marque o vínculo como `não verificado` e trate a divergência como achado. Não escolha a fonte que fecha a narrativa; diga qual dado desempataria (ID do evento, GUID, DHCP histórico, Log Source Time).
 - Nunca declare falso positivo apenas pelo estado fechado, score baixo ou disposição de produto. Cite eventos e justificativa independente, indique confiança e explicite a hipótese alternativa.
 - Cada resposta deve expor as consultas e os limites devolvidos pela ferramenta. Não complete janelas, caps, contagens nem resultados ausentes usando valores de outras execuções.
+
+## Vocabulário de status de evidência
+
+Use exatamente estes termos ao citar `requirements`/`decision_matrix`: **confirmado** (demonstrado por registros coletados ou por registro citado pelo analista, indicado como tal); **compatível** (consistente, mas não demonstra); **candidato** (vínculo possível por identificador/tempo/IP, não demonstrado); **não verificado** (não checado ou fora do alcance das fontes); **não retornou nas consultas executadas** (não é prova de ausência); **não executado** (orçamento, permissão, tool ou licença: nada se conclui). Não use pontuação como substituta da evidência; o rank de alertas da offense é só ordenação, com pesos descritos em `rank_criteria`.

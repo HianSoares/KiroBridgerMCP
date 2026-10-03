@@ -1,0 +1,4181 @@
+{
+ "source": {
+  "repository": "https://github.com/trendmicro/vision-one-mcp-server.git",
+  "commit": "2d137401c26e7c50345d448ea1c662746cb2e7a9",
+  "commit_date": "2026-09-23"
+ },
+ "tools": [
+  {
+   "toolset": "ai",
+   "registered_as": "read",
+   "name": "aisecurity_guardrails_apply",
+   "declared": [
+    "applicationName",
+    "prompt",
+    "messages",
+    "model",
+    "requestType",
+    "prefer"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "audit",
+   "registered_as": "read",
+   "name": "audit_logs_list",
+   "declared": [
+    "startDateTime",
+    "endDateTime",
+    "dateTimeTarget",
+    "orderBy",
+    "top",
+    "labels",
+    "accept",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "business",
+   "registered_as": "read",
+   "name": "business_profile_get",
+   "declared": [],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "business",
+   "registered_as": "write",
+   "name": "business_profile_update",
+   "declared": [
+    "businessName"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "write",
+   "name": "cam_alibaba_account_delete",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "read",
+   "name": "cam_alibaba_account_get",
+   "declared": [
+    "accountId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "write",
+   "name": "cam_alibaba_account_update",
+   "declared": [
+    "id",
+    "ifMatch",
+    "name",
+    "description"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "write",
+   "name": "cam_alibaba_accounts_create",
+   "declared": [
+    "alibabaRegion",
+    "roleArn",
+    "oidcProviderId",
+    "name",
+    "description",
+    "connectedSecurityServices"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "read",
+   "name": "cam_alibaba_accounts_generate_terraform_package",
+   "declared": [
+    "cloudAccountName",
+    "cloudAccountDescription",
+    "alibabaRegion",
+    "connectedSecurityServices"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "read",
+   "name": "cam_alibaba_accounts_list",
+   "declared": [
+    "top",
+    "filter",
+    "nextBatchToken"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "write",
+   "name": "cam_aws_account_delete",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "read",
+   "name": "cam_aws_account_get",
+   "declared": [
+    "accountId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "write",
+   "name": "cam_aws_account_update",
+   "declared": [
+    "id",
+    "ifMatch",
+    "roleArn",
+    "name",
+    "description",
+    "connectedSecurityServices",
+    "customTags",
+    "features"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "write",
+   "name": "cam_aws_accounts_create",
+   "declared": [
+    "roleArn",
+    "name",
+    "description",
+    "connectedSecurityServices",
+    "customTags",
+    "features"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "read",
+   "name": "cam_aws_accounts_features_list",
+   "declared": [],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "read",
+   "name": "cam_aws_accounts_generate_cfn_template_links",
+   "declared": [
+    "awsRegion",
+    "features",
+    "templateAccountType",
+    "awsAccountName",
+    "awsAccountDescription",
+    "connectedSecurityServices",
+    "customTags"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "read",
+   "name": "cam_aws_accounts_generate_terraform_package",
+   "declared": [
+    "awsRegion",
+    "features",
+    "awsAccountName",
+    "awsAccountDescription",
+    "connectedSecurityServices"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "read",
+   "name": "cam_aws_accounts_list",
+   "declared": [
+    "top",
+    "filter",
+    "nextBatchToken"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "write",
+   "name": "cam_azure_subscription_delete",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "read",
+   "name": "cam_azure_subscription_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "write",
+   "name": "cam_azure_subscription_update",
+   "declared": [
+    "id",
+    "ifMatch",
+    "name",
+    "description"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "write",
+   "name": "cam_azure_subscriptions_create",
+   "declared": [
+    "tenantId",
+    "subscriptionId",
+    "applicationId",
+    "name",
+    "description",
+    "connectedSecurityServices"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "read",
+   "name": "cam_azure_subscriptions_generate_mgmt_group_terraform_package",
+   "declared": [
+    "managementGroupId",
+    "azureRegion",
+    "azureSubscriptionDescription",
+    "connectedSecurityServices",
+    "excludedSubscriptionIds"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "read",
+   "name": "cam_azure_subscriptions_generate_terraform_package",
+   "declared": [
+    "azureSubscriptionName",
+    "azureSubscriptionDescription",
+    "subscriptionId",
+    "connectedSecurityServices",
+    "azureRegion"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "read",
+   "name": "cam_azure_subscriptions_list",
+   "declared": [
+    "top",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "read",
+   "name": "cam_gcp_account_get",
+   "declared": [
+    "accountId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "read",
+   "name": "cam_gcp_accounts_list",
+   "declared": [
+    "top",
+    "filter",
+    "nextBatchToken"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "write",
+   "name": "cam_gcp_project_delete",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "write",
+   "name": "cam_gcp_project_update",
+   "declared": [
+    "id",
+    "ifMatch",
+    "name",
+    "description"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "write",
+   "name": "cam_gcp_projects_create",
+   "declared": [
+    "workloadIdentityPoolId",
+    "oidcProviderId",
+    "serviceAccountId",
+    "projectNumber",
+    "name",
+    "description",
+    "gcpRegion",
+    "features"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "read",
+   "name": "cam_gcp_projects_generate_terraform_package",
+   "declared": [
+    "gcpProjectName",
+    "gcpProjectDescription",
+    "gcpRegion",
+    "features"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "write",
+   "name": "cam_oci_compartment_delete",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "read",
+   "name": "cam_oci_compartment_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "write",
+   "name": "cam_oci_compartment_update",
+   "declared": [
+    "id",
+    "ifMatch",
+    "name",
+    "description",
+    "features",
+    "freeformTags",
+    "definedTags"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "write",
+   "name": "cam_oci_compartments_create",
+   "declared": [
+    "serviceUserId",
+    "compartmentId",
+    "tenancyId",
+    "ociHomeRegion",
+    "name",
+    "description",
+    "identityDomainId",
+    "compartmentPolicyId",
+    "features",
+    "freeformTags",
+    "definedTags"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "read",
+   "name": "cam_oci_compartments_generate_terraform_package",
+   "declared": [
+    "ociCompartmentName",
+    "ociCompartmentDescription",
+    "compartmentId",
+    "identityDomainId",
+    "features",
+    "freeformTags",
+    "definedTags"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cam",
+   "registered_as": "read",
+   "name": "cam_oci_compartments_list",
+   "declared": [
+    "top",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "write",
+   "name": "case_management_case_attachment_delete",
+   "declared": [
+    "id",
+    "attachmentId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "read",
+   "name": "case_management_case_attachment_get",
+   "declared": [
+    "id",
+    "attachmentId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "write",
+   "name": "case_management_case_attachments_create",
+   "declared": [
+    "id",
+    "file",
+    "externalAttachmentId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "write",
+   "name": "case_management_case_bind_oat_event",
+   "declared": [
+    "id",
+    "uuid",
+    "detectedDateTime"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "write",
+   "name": "case_management_case_content_delete",
+   "declared": [
+    "id",
+    "contentId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "read",
+   "name": "case_management_case_content_get",
+   "declared": [
+    "id",
+    "contentId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "write",
+   "name": "case_management_case_content_update",
+   "declared": [
+    "id",
+    "contentId",
+    "ifMatch",
+    "attachmentIds",
+    "comment"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "write",
+   "name": "case_management_case_contents_create",
+   "declared": [
+    "id",
+    "attachmentIds",
+    "comment"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "read",
+   "name": "case_management_case_contents_list",
+   "declared": [
+    "id",
+    "top",
+    "startDateTime",
+    "endDateTime",
+    "dateTimeTarget",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "read",
+   "name": "case_management_case_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "write",
+   "name": "case_management_case_highlighted_object_delete",
+   "declared": [
+    "id",
+    "highlightedObjectId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "read",
+   "name": "case_management_case_highlighted_object_get",
+   "declared": [
+    "id",
+    "highlightedObjectId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "read",
+   "name": "case_management_case_highlighted_objects_list",
+   "declared": [
+    "id",
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "write",
+   "name": "case_management_case_risk_indicator_events_close",
+   "declared": [
+    "id",
+    "status"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "read",
+   "name": "case_management_case_risk_indicator_events_list",
+   "declared": [
+    "id",
+    "top",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "write",
+   "name": "case_management_case_task_attachment_delete",
+   "declared": [
+    "id",
+    "taskId",
+    "attachmentId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "read",
+   "name": "case_management_case_task_attachment_get",
+   "declared": [
+    "id",
+    "taskId",
+    "attachmentId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "write",
+   "name": "case_management_case_task_attachments_create",
+   "declared": [
+    "id",
+    "taskId",
+    "file",
+    "externalAttachmentId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "write",
+   "name": "case_management_case_task_content_delete",
+   "declared": [
+    "id",
+    "taskId",
+    "contentId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "read",
+   "name": "case_management_case_task_content_get",
+   "declared": [
+    "id",
+    "taskId",
+    "contentId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "write",
+   "name": "case_management_case_task_content_update",
+   "declared": [
+    "id",
+    "taskId",
+    "contentId",
+    "ifMatch",
+    "attachmentIds",
+    "comment"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "write",
+   "name": "case_management_case_task_contents_create",
+   "declared": [
+    "id",
+    "taskId",
+    "attachmentIds",
+    "comment"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "read",
+   "name": "case_management_case_task_contents_list",
+   "declared": [
+    "id",
+    "taskId",
+    "top",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "read",
+   "name": "case_management_case_task_get",
+   "declared": [
+    "id",
+    "taskId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "write",
+   "name": "case_management_case_task_update",
+   "declared": [
+    "id",
+    "taskId",
+    "ifMatch",
+    "description",
+    "dueDateTime",
+    "name",
+    "ownerIds",
+    "status"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "write",
+   "name": "case_management_case_tasks_create",
+   "declared": [
+    "id",
+    "description",
+    "dueDateTime",
+    "name",
+    "ownerIds",
+    "status"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "read",
+   "name": "case_management_case_tasks_list",
+   "declared": [
+    "id",
+    "top",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "write",
+   "name": "case_management_case_update",
+   "declared": [
+    "id",
+    "ifMatch",
+    "description",
+    "name",
+    "priority",
+    "status",
+    "severity",
+    "externalTicketUpdatedDateTime",
+    "findings",
+    "associatedItemIds",
+    "holder",
+    "externalTicketId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "write",
+   "name": "case_management_cases_create",
+   "declared": [
+    "type",
+    "name",
+    "description",
+    "owners",
+    "priority",
+    "status",
+    "severity",
+    "mailReceivers",
+    "associatedItemIds",
+    "externalTicketAlias",
+    "externalTicketId",
+    "findings",
+    "relatedCaseIds",
+    "holder",
+    "externalTicketCreatedDateTime"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "cases",
+   "registered_as": "read",
+   "name": "case_management_cases_list",
+   "declared": [
+    "top",
+    "startDateTime",
+    "endDateTime",
+    "dateTimeTarget",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cloudrisk",
+   "registered_as": "read",
+   "name": "cloud_risk_management_account_scan_rules_get",
+   "declared": [
+    "accountId",
+    "filter",
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cloudrisk",
+   "registered_as": "read",
+   "name": "cloud_risk_management_accounts_list",
+   "declared": [
+    "filter",
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "cloudrisk",
+   "registered_as": "read",
+   "name": "cloud_risk_management_services_list",
+   "declared": [
+    "filter",
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_amazon_ecs_cluster_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "write",
+   "name": "container_security_amazon_ecs_cluster_update",
+   "declared": [
+    "id",
+    "description",
+    "policyId",
+    "vulnerabilityScanEnabled",
+    "runtimeSecurityEnabled",
+    "customizableTagIds",
+    "connection"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_amazon_ecs_evaluation_event_logs_list",
+   "declared": [
+    "top",
+    "startDateTime",
+    "endDateTime",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_amazon_ecs_image_occurrences_list",
+   "declared": [
+    "top",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_amazon_ecs_sensor_event_logs_list",
+   "declared": [
+    "startDateTime",
+    "endDateTime",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "write",
+   "name": "container_security_attestor_delete",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_attestor_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "write",
+   "name": "container_security_attestor_update",
+   "declared": [
+    "id",
+    "description",
+    "publicKey",
+    "transparencyLogEnabled",
+    "transparencyLogOptions"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "write",
+   "name": "container_security_attestors_create",
+   "declared": [
+    "name",
+    "description",
+    "type",
+    "publicKey",
+    "transparencyLogEnabled",
+    "transparencyLogOptions"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_attestors_list",
+   "declared": [
+    "top",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_compliance_scan_configuration_get",
+   "declared": [],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "write",
+   "name": "container_security_compliance_scan_configuration_update",
+   "declared": [
+    "scheduleScanEnabled",
+    "exceptions",
+    "benchmarkVersions",
+    "frameworks"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_compliance_scan_summary_get",
+   "declared": [],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_compliance_scan_versions_list",
+   "declared": [],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "write",
+   "name": "container_security_custom_ruleset_delete",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_custom_ruleset_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_custom_ruleset_rule_file_source_get",
+   "declared": [
+    "id",
+    "ruleFileSourceId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "write",
+   "name": "container_security_custom_ruleset_update",
+   "declared": [
+    "id",
+    "description",
+    "file"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "write",
+   "name": "container_security_custom_rulesets_create",
+   "declared": [
+    "name",
+    "description",
+    "file"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_custom_rulesets_list",
+   "declared": [
+    "top",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_ecs_clusters_list",
+   "declared": [
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "write",
+   "name": "container_security_file_integrity_monitoring_rule_delete",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_file_integrity_monitoring_rule_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "write",
+   "name": "container_security_file_integrity_monitoring_rule_update",
+   "declared": [
+    "id",
+    "name",
+    "description",
+    "content"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "write",
+   "name": "container_security_file_integrity_monitoring_rules_create",
+   "declared": [
+    "name",
+    "description",
+    "content"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_file_integrity_monitoring_rules_list",
+   "declared": [
+    "top",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_generate_service_gateway_password",
+   "declared": [],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_image_vulnerabilities_list",
+   "declared": [
+    "filter",
+    "orderBy",
+    "lastDetectedStartDateTime",
+    "lastDetectedEndDateTime",
+    "firstDetectedStartDateTime",
+    "firstDetectedEndDateTime",
+    "skipToken"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_k8_cluster_get",
+   "declared": [
+    "clusterID"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_k8_clusters_list",
+   "declared": [
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_k8_images_list",
+   "declared": [
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_kubernetes_audit_event_logs_list",
+   "declared": [
+    "startDateTime",
+    "endDateTime",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "write",
+   "name": "container_security_kubernetes_cluster_delete",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_kubernetes_cluster_groups_list",
+   "declared": [
+    "top",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "write",
+   "name": "container_security_kubernetes_cluster_update",
+   "declared": [
+    "id",
+    "description",
+    "policyId",
+    "resourceId",
+    "groupId",
+    "customizableTagIds",
+    "connection"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "write",
+   "name": "container_security_kubernetes_clusters_create",
+   "declared": [
+    "name",
+    "groupId",
+    "description",
+    "policyId",
+    "resourceId",
+    "customizableTagIds",
+    "connectionType"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_kubernetes_evaluation_event_logs_list",
+   "declared": [
+    "top",
+    "startDateTime",
+    "endDateTime",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_kubernetes_image_occurrences_list",
+   "declared": [
+    "top",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_kubernetes_sensor_event_logs_list",
+   "declared": [
+    "startDateTime",
+    "endDateTime",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_managed_rule_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_managed_rules_list",
+   "declared": [
+    "orderBy",
+    "top",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "write",
+   "name": "container_security_policies_create",
+   "declared": [
+    "name",
+    "description",
+    "xdrEnabled",
+    "malwareScan",
+    "secretScan",
+    "platform",
+    "default",
+    "namespaced",
+    "runtime",
+    "fileIntegrityMonitoringScan"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_policies_list",
+   "declared": [
+    "top",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "write",
+   "name": "container_security_policy_delete",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_policy_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "write",
+   "name": "container_security_policy_update",
+   "declared": [
+    "id",
+    "description",
+    "xdrEnabled",
+    "malwareScan",
+    "secretScan",
+    "default",
+    "namespaced",
+    "runtime",
+    "fileIntegrityMonitoringScan"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "write",
+   "name": "container_security_ruleset_delete",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_ruleset_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "write",
+   "name": "container_security_ruleset_update",
+   "declared": [
+    "id",
+    "description",
+    "labelMatchingCondition",
+    "labels",
+    "rules"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "write",
+   "name": "container_security_rulesets_create",
+   "declared": [
+    "name",
+    "description",
+    "labelMatchingCondition",
+    "labels",
+    "rules"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "container",
+   "registered_as": "read",
+   "name": "container_security_rulesets_list",
+   "declared": [
+    "top",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "container",
+   "registered_as": "write",
+   "name": "container_security_start_compliance_scan",
+   "declared": [],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_account_compromise_event_definitions_list",
+   "declared": [],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_account_compromise_indicators_list",
+   "declared": [
+    "top",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_account_compromise_risk_indicator_event_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_account_compromise_risk_indicator_events_list",
+   "declared": [
+    "top",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_anomaly_detection_risk_indicator_event_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_anomaly_detection_risk_indicator_events_list",
+   "declared": [
+    "top",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_asset_groups_list",
+   "declared": [
+    "orderBy",
+    "top",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "write",
+   "name": "crem_attack_surface_assets_update_criticality",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_attack_surface_cloud_asset_profile_get",
+   "declared": [
+    "cloudAssetId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_attack_surface_cloud_asset_risk_indicators_list",
+   "declared": [
+    "cloudAssetId",
+    "top",
+    "filter",
+    "orderBy",
+    "skipToken"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_attack_surface_cloud_assets_list",
+   "declared": [
+    "top",
+    "filter",
+    "orderBy",
+    "lastDetectedStartDateTime",
+    "lastDetectedEndDateTime",
+    "firstSeenStartDateTime",
+    "firstSeenEndDateTime",
+    "skipToken"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "write",
+   "name": "crem_attack_surface_cloud_assets_update",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_attack_surface_custom_tags_list",
+   "declared": [
+    "top",
+    "filter",
+    "orderBy",
+    "skipToken"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_attack_surface_devices_list",
+   "declared": [
+    "filter",
+    "orderBy",
+    "top",
+    "lastDetectedStartDateTime",
+    "lastDetectedEndDateTime",
+    "firstSeenStartDateTime",
+    "firstSeenEndDateTime",
+    "skipToken"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "write",
+   "name": "crem_attack_surface_devices_update",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_attack_surface_domain_accounts_list",
+   "declared": [
+    "top",
+    "filter",
+    "orderBy",
+    "skipToken"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_attack_surface_global_fqdns_list",
+   "declared": [
+    "top",
+    "filter",
+    "orderBy",
+    "skipToken"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_attack_surface_high_risk_users_list",
+   "declared": [
+    "top",
+    "filter",
+    "orderBy",
+    "skipToken"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_attack_surface_local_app_devices_list",
+   "declared": [
+    "appID",
+    "top",
+    "filter",
+    "orderBy",
+    "skipToken"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_attack_surface_local_app_executable_files_list",
+   "declared": [
+    "appID",
+    "top",
+    "filter",
+    "orderBy",
+    "skipToken"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_attack_surface_local_app_profile_get",
+   "declared": [
+    "appID"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_attack_surface_local_app_risk_indicators_list",
+   "declared": [
+    "appID",
+    "top",
+    "filter",
+    "orderBy",
+    "skipToken"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_attack_surface_local_apps_list",
+   "declared": [
+    "top",
+    "filter",
+    "orderBy",
+    "skipToken"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_attack_surface_public_ips_list",
+   "declared": [
+    "top",
+    "filter",
+    "orderBy",
+    "skipToken"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_attack_surface_service_accounts_list",
+   "declared": [
+    "top",
+    "filter",
+    "orderBy"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_cloud_vm_vulnerabilities_list",
+   "declared": [
+    "orderBy",
+    "top",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_container_vulnerabilities_list",
+   "declared": [
+    "orderBy",
+    "top",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_high_risk_device_get",
+   "declared": [
+    "id",
+    "riskyEventScore"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_high_risk_devices_list",
+   "declared": [
+    "orderBy",
+    "top",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_high_risk_user_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_internal_asset_vulnerabilities_list",
+   "declared": [
+    "orderBy",
+    "top",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_internet_facing_asset_vulnerabilities_list",
+   "declared": [
+    "orderBy",
+    "top",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_security_posture_get",
+   "declared": [],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_serverless_function_vulnerabilities_list",
+   "declared": [
+    "orderBy",
+    "top",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_vulnerability_affected_cloud_storage_assets_list",
+   "declared": [
+    "id",
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_vulnerability_affected_cloud_vms_list",
+   "declared": [
+    "id",
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_vulnerability_affected_container_clusters_list",
+   "declared": [
+    "id",
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_vulnerability_affected_container_images_list",
+   "declared": [
+    "id",
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_vulnerability_affected_devices_list",
+   "declared": [
+    "id",
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_vulnerability_affected_global_fqdns_list",
+   "declared": [
+    "id",
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_vulnerability_affected_serverless_function_layers_list",
+   "declared": [
+    "id",
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_vulnerability_affected_serverless_functions_list",
+   "declared": [
+    "id",
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_vulnerability_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "crem",
+   "registered_as": "read",
+   "name": "crem_vulnerable_devices_list",
+   "declared": [
+    "orderBy",
+    "top",
+    "cveDetectionStatus",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "datalake",
+   "registered_as": "read",
+   "name": "datalake_data_pipeline_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "datalake",
+   "registered_as": "read",
+   "name": "datalake_data_pipeline_package_get",
+   "declared": [
+    "id",
+    "packageId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "datalake",
+   "registered_as": "read",
+   "name": "datalake_data_pipeline_packages_list",
+   "declared": [
+    "id",
+    "startDateTime",
+    "endDateTime",
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "datalake",
+   "registered_as": "write",
+   "name": "datalake_data_pipeline_update",
+   "declared": [
+    "id",
+    "type",
+    "subType",
+    "description"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "datalake",
+   "registered_as": "write",
+   "name": "datalake_data_pipelines_create",
+   "declared": [
+    "type",
+    "description",
+    "subType"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "datalake",
+   "registered_as": "write",
+   "name": "datalake_data_pipelines_delete",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "datalake",
+   "registered_as": "read",
+   "name": "datalake_data_pipelines_list",
+   "declared": [],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "dmm",
+   "registered_as": "read",
+   "name": "dmm_custom_filters_list",
+   "declared": [],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "dmm",
+   "registered_as": "read",
+   "name": "dmm_custom_models_list",
+   "declared": [],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "dmm",
+   "registered_as": "read",
+   "name": "dmm_exception_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "dmm",
+   "registered_as": "write",
+   "name": "dmm_exception_update",
+   "declared": [
+    "id",
+    "name",
+    "description",
+    "targetEntities",
+    "event",
+    "criteria"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "dmm",
+   "registered_as": "write",
+   "name": "dmm_exceptions_create",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "dmm",
+   "registered_as": "write",
+   "name": "dmm_exceptions_delete",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "dmm",
+   "registered_as": "read",
+   "name": "dmm_exceptions_list",
+   "declared": [],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "dmm",
+   "registered_as": "write",
+   "name": "dmm_model_update",
+   "declared": [
+    "id",
+    "enabled"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "dmm",
+   "registered_as": "read",
+   "name": "dmm_models_list",
+   "declared": [
+    "startDateTime",
+    "endDateTime",
+    "orderBy",
+    "filter",
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "eiqs",
+   "registered_as": "read",
+   "name": "eiqs_endpoints_list",
+   "declared": [
+    "top",
+    "query"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "email",
+   "registered_as": "read",
+   "name": "email_security_accounts_list",
+   "declared": [
+    "top",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "email",
+   "registered_as": "read",
+   "name": "email_security_domains_list",
+   "declared": [
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "email",
+   "registered_as": "read",
+   "name": "email_security_servers_list",
+   "declared": [
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "endpoint",
+   "registered_as": "read",
+   "name": "endpoint_security_agent_update_policies_list",
+   "declared": [],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "endpoint",
+   "registered_as": "read",
+   "name": "endpoint_security_endpoint_get",
+   "declared": [
+    "endpointID"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "endpoint",
+   "registered_as": "write",
+   "name": "endpoint_security_endpoints_apply_sensor_policy",
+   "declared": [
+    "agentGuids",
+    "sensorDetectionAndResponse",
+    "advancedRiskTelemetry"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "endpoint",
+   "registered_as": "write",
+   "name": "endpoint_security_endpoints_delete",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "endpoint",
+   "registered_as": "write",
+   "name": "endpoint_security_endpoints_export",
+   "declared": [
+    "filter",
+    "orderBy"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "endpoint",
+   "registered_as": "read",
+   "name": "endpoint_security_endpoints_list",
+   "declared": [
+    "filter",
+    "orderBy",
+    "skipToken"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "endpoint",
+   "registered_as": "write",
+   "name": "endpoint_security_endpoints_remove_overridden_sensor_policy",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "endpoint",
+   "registered_as": "read",
+   "name": "endpoint_security_kernel_support_package_update_policies_list",
+   "declared": [
+    "orderBy",
+    "top",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "endpoint",
+   "registered_as": "read",
+   "name": "endpoint_security_schedule_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "endpoint",
+   "registered_as": "write",
+   "name": "endpoint_security_schedules_create",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "endpoint",
+   "registered_as": "write",
+   "name": "endpoint_security_schedules_delete",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "endpoint",
+   "registered_as": "read",
+   "name": "endpoint_security_schedules_list",
+   "declared": [
+    "orderBy",
+    "top",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "endpoint",
+   "registered_as": "write",
+   "name": "endpoint_security_schedules_update",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "endpoint",
+   "registered_as": "read",
+   "name": "endpoint_security_task_get",
+   "declared": [
+    "taskID"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "endpoint",
+   "registered_as": "read",
+   "name": "endpoint_security_tasks_list",
+   "declared": [
+    "filter",
+    "orderBy",
+    "skipToken",
+    "startDateTime",
+    "endDateTime"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "endpoint",
+   "registered_as": "read",
+   "name": "endpoint_security_version_control_policies_list",
+   "declared": [],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "endpoint",
+   "registered_as": "write",
+   "name": "endpoint_security_version_control_policy_delete",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "endpoint",
+   "registered_as": "read",
+   "name": "endpoint_security_version_control_policy_priorities_list",
+   "declared": [
+    "top",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "endpoint",
+   "registered_as": "write",
+   "name": "endpoint_security_version_control_policy_priority_update",
+   "declared": [
+    "id",
+    "agentUpdateStatus",
+    "agentUpdatePolicy",
+    "componentUpdatePolicy",
+    "kernelSupportPackageUpdatePolicy",
+    "kernelSupportPackageUpdateStatus"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "filesecurity",
+   "registered_as": "read",
+   "name": "file_security_storages_list",
+   "declared": [
+    "top",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "filesecurity",
+   "registered_as": "write",
+   "name": "file_security_storages_update",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "healthcheck",
+   "registered_as": "read",
+   "name": "healthcheck_connectivity_get",
+   "declared": [],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "iam",
+   "registered_as": "write",
+   "name": "iam_account_delete",
+   "declared": [
+    "accountId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "iam",
+   "registered_as": "read",
+   "name": "iam_account_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "iam",
+   "registered_as": "write",
+   "name": "iam_account_invite",
+   "declared": [
+    "email",
+    "role",
+    "authType",
+    "description"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "iam",
+   "registered_as": "write",
+   "name": "iam_account_update",
+   "declared": [
+    "accountId",
+    "role",
+    "status",
+    "description"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "iam",
+   "registered_as": "read",
+   "name": "iam_accounts_list",
+   "declared": [
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "iam",
+   "registered_as": "read",
+   "name": "iam_api_key_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "iam",
+   "registered_as": "write",
+   "name": "iam_api_key_update",
+   "declared": [
+    "id",
+    "ifMatch",
+    "role",
+    "name",
+    "status",
+    "description"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "iam",
+   "registered_as": "write",
+   "name": "iam_api_keys_create",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "iam",
+   "registered_as": "write",
+   "name": "iam_api_keys_delete",
+   "declared": [
+    "apiKeyIds"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "iam",
+   "registered_as": "read",
+   "name": "iam_api_keys_list",
+   "declared": [
+    "filter",
+    "orderBy",
+    "skipToken"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "iam",
+   "registered_as": "write",
+   "name": "iam_identity_provider_delete",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "iam",
+   "registered_as": "read",
+   "name": "iam_identity_provider_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "iam",
+   "registered_as": "write",
+   "name": "iam_identity_provider_update",
+   "declared": [
+    "id",
+    "ifMatch",
+    "name",
+    "description",
+    "file",
+    "enabled",
+    "samlAssertionNameAttribute",
+    "samlAssertionDisplayNameAttribute",
+    "samlAssertionGroupAttribute"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "iam",
+   "registered_as": "write",
+   "name": "iam_identity_providers_create",
+   "declared": [
+    "name",
+    "description",
+    "file",
+    "enabled",
+    "samlAssertionNameAttribute",
+    "samlAssertionDisplayNameAttribute",
+    "samlAssertionGroupAttribute"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "iam",
+   "registered_as": "read",
+   "name": "iam_identity_providers_list",
+   "declared": [
+    "top",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "iam",
+   "registered_as": "write",
+   "name": "iam_role_delete",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "iam",
+   "registered_as": "read",
+   "name": "iam_role_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "iam",
+   "registered_as": "read",
+   "name": "iam_role_permissions_list",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "iam",
+   "registered_as": "write",
+   "name": "iam_role_update",
+   "declared": [
+    "id",
+    "ifMatch",
+    "name",
+    "description",
+    "permissionKeys",
+    "allowApiKeyAssignment",
+    "allowUserAccountAssignment"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "iam",
+   "registered_as": "write",
+   "name": "iam_roles_create",
+   "declared": [
+    "name",
+    "description",
+    "permissionKeys",
+    "allowApiKeyAssignment",
+    "allowUserAccountAssignment"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "iam",
+   "registered_as": "read",
+   "name": "iam_roles_list",
+   "declared": [
+    "top",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "iam",
+   "registered_as": "read",
+   "name": "iam_roles_permission_keys_list",
+   "declared": [],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "workbench",
+   "registered_as": "read",
+   "name": "oat_data_pipeline_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "workbench",
+   "registered_as": "read",
+   "name": "oat_data_pipeline_package_get",
+   "declared": [
+    "id",
+    "packageId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "workbench",
+   "registered_as": "read",
+   "name": "oat_data_pipeline_packages_list",
+   "declared": [
+    "id",
+    "startDateTime",
+    "endDateTime",
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "workbench",
+   "registered_as": "write",
+   "name": "oat_data_pipeline_update",
+   "declared": [
+    "id",
+    "ifMatch",
+    "riskLevels",
+    "hasDetail",
+    "description"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "workbench",
+   "registered_as": "write",
+   "name": "oat_data_pipelines_create",
+   "declared": [
+    "riskLevels",
+    "hasDetail",
+    "description"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "workbench",
+   "registered_as": "write",
+   "name": "oat_data_pipelines_delete",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "workbench",
+   "registered_as": "read",
+   "name": "oat_data_pipelines_list",
+   "declared": [],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_containers_isolate",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_containers_restore",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_containers_terminate",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_custom_script_delete",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "read",
+   "name": "response_custom_script_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_custom_script_update",
+   "declared": [
+    "id",
+    "fileType",
+    "description",
+    "file"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_custom_scripts_create",
+   "declared": [
+    "fileType",
+    "description",
+    "file"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "read",
+   "name": "response_custom_scripts_list",
+   "declared": [
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_domain_accounts_disable",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_domain_accounts_enable",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_domain_accounts_reset_password",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_domain_accounts_sign_out",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_emails_delete",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_emails_quarantine",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_emails_restore",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "read",
+   "name": "response_endpoint_action_exceptions_list",
+   "declared": [
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_endpoint_action_exceptions_register",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_endpoints_collect_file",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_endpoints_isolate",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_endpoints_restore",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_endpoints_run_osquery",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_endpoints_run_script",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_endpoints_run_yara_rules_create",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_endpoints_start_malware_scan",
+   "declared": [
+    "endpoints"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_endpoints_terminate_process",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "read",
+   "name": "response_isolated_traffic_exceptions_list",
+   "declared": [
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_isolated_traffic_exceptions_register",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "read",
+   "name": "response_osquery_statements_list",
+   "declared": [
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "response",
+   "registered_as": "read",
+   "name": "response_setting_status_get",
+   "declared": [],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_setting_status_update",
+   "declared": [
+    "endpointActionException",
+    "isolatedTrafficException"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_suspicious_objects_create",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_suspicious_objects_delete",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "read",
+   "name": "response_task_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "response",
+   "registered_as": "write",
+   "name": "response_tasks_cancel",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "response",
+   "registered_as": "read",
+   "name": "response_tasks_list",
+   "declared": [
+    "startDateTime",
+    "endDateTime",
+    "dateTimeTarget",
+    "filter",
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "response",
+   "registered_as": "read",
+   "name": "response_yara_rule_files_list",
+   "declared": [
+    "filter",
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "sandbox",
+   "registered_as": "read",
+   "name": "sandbox_analysis_result_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "sandbox",
+   "registered_as": "read",
+   "name": "sandbox_analysis_result_investigation_package_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "sandbox",
+   "registered_as": "read",
+   "name": "sandbox_analysis_result_report_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "sandbox",
+   "registered_as": "read",
+   "name": "sandbox_analysis_result_suspicious_objects_list",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "sandbox",
+   "registered_as": "read",
+   "name": "sandbox_analysis_results_list",
+   "declared": [
+    "startDateTime",
+    "endDateTime",
+    "orderBy",
+    "filter",
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "sandbox",
+   "registered_as": "write",
+   "name": "sandbox_files_analyze",
+   "declared": [
+    "file",
+    "documentPassword",
+    "archivePassword",
+    "arguments"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "sandbox",
+   "registered_as": "read",
+   "name": "sandbox_submission_usage_get",
+   "declared": [],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "sandbox",
+   "registered_as": "read",
+   "name": "sandbox_task_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "sandbox",
+   "registered_as": "read",
+   "name": "sandbox_tasks_list",
+   "declared": [
+    "startDateTime",
+    "endDateTime",
+    "dateTimeTarget",
+    "orderBy",
+    "filter",
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "sandbox",
+   "registered_as": "write",
+   "name": "sandbox_urls_analyze",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "search",
+   "registered_as": "read",
+   "name": "search_activity_statistics_get",
+   "declared": [
+    "period"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "search",
+   "registered_as": "read",
+   "name": "search_cloud_activities_list",
+   "declared": [
+    "startDateTime",
+    "endDateTime",
+    "top",
+    "mode",
+    "select",
+    "query"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "search",
+   "registered_as": "read",
+   "name": "search_container_activities_list",
+   "declared": [
+    "startDateTime",
+    "endDateTime",
+    "top",
+    "mode",
+    "select",
+    "query"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "search",
+   "registered_as": "read",
+   "name": "search_detections_list",
+   "declared": [
+    "startDateTime",
+    "endDateTime",
+    "top",
+    "mode",
+    "select",
+    "query"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "search",
+   "registered_as": "read",
+   "name": "search_email_activities_list",
+   "declared": [
+    "top",
+    "startDateTime",
+    "endDateTime",
+    "mode",
+    "select",
+    "query"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "search",
+   "registered_as": "read",
+   "name": "search_endpoint_activities_list",
+   "declared": [
+    "startDateTime",
+    "endDateTime",
+    "top",
+    "mode",
+    "select",
+    "query"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "search",
+   "registered_as": "read",
+   "name": "search_identity_activities_list",
+   "declared": [
+    "top",
+    "startDateTime",
+    "endDateTime",
+    "mode",
+    "select",
+    "query"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "search",
+   "registered_as": "read",
+   "name": "search_mobile_activities_list",
+   "declared": [
+    "startDateTime",
+    "endDateTime",
+    "top",
+    "mode",
+    "select",
+    "query"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "search",
+   "registered_as": "read",
+   "name": "search_network_activities_list",
+   "declared": [
+    "startDateTime",
+    "endDateTime",
+    "top",
+    "mode",
+    "select",
+    "query"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "search",
+   "registered_as": "read",
+   "name": "search_sensor_statistics_get",
+   "declared": [
+    "period"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "awareness",
+   "registered_as": "read",
+   "name": "security_awareness_phishing_rate_trends_list",
+   "declared": [
+    "period",
+    "startDateTime",
+    "endDateTime"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "awareness",
+   "registered_as": "read",
+   "name": "security_awareness_phishing_simulation_round_get",
+   "declared": [
+    "id",
+    "roundId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "awareness",
+   "registered_as": "read",
+   "name": "security_awareness_phishing_simulation_round_recipients_list",
+   "declared": [
+    "id",
+    "roundId",
+    "top",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "awareness",
+   "registered_as": "read",
+   "name": "security_awareness_phishing_simulation_rounds_list",
+   "declared": [
+    "id",
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "awareness",
+   "registered_as": "read",
+   "name": "security_awareness_phishing_simulations_list",
+   "declared": [
+    "top",
+    "filter",
+    "orderBy"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "awareness",
+   "registered_as": "read",
+   "name": "security_awareness_training_campaign_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "awareness",
+   "registered_as": "read",
+   "name": "security_awareness_training_campaign_recipients_list",
+   "declared": [
+    "id",
+    "top",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "awareness",
+   "registered_as": "read",
+   "name": "security_awareness_training_campaigns_list",
+   "declared": [
+    "top",
+    "filter",
+    "orderBy"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "playbooks",
+   "registered_as": "read",
+   "name": "security_playbooks_playbooks_list",
+   "declared": [
+    "top",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "playbooks",
+   "registered_as": "write",
+   "name": "security_playbooks_playbooks_run",
+   "declared": [
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "playbooks",
+   "registered_as": "read",
+   "name": "security_playbooks_task_actions_list",
+   "declared": [
+    "id",
+    "top",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "playbooks",
+   "registered_as": "read",
+   "name": "security_playbooks_task_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "playbooks",
+   "registered_as": "read",
+   "name": "security_playbooks_tasks_list",
+   "declared": [
+    "startDateTime",
+    "endDateTime",
+    "dateTimeTarget",
+    "top",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "tags",
+   "registered_as": "read",
+   "name": "tag_management_custom_tag_assets_list",
+   "declared": [
+    "id",
+    "assetType",
+    "top",
+    "orderBy"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "tags",
+   "registered_as": "write",
+   "name": "tag_management_custom_tags_assign",
+   "declared": [
+    "assignments"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "tags",
+   "registered_as": "write",
+   "name": "tag_management_custom_tags_create",
+   "declared": [
+    "tags"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "tags",
+   "registered_as": "write",
+   "name": "tag_management_custom_tags_delete",
+   "declared": [
+    "tags"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "tags",
+   "registered_as": "read",
+   "name": "tag_management_custom_tags_list",
+   "declared": [
+    "top",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "tags",
+   "registered_as": "write",
+   "name": "tag_management_custom_tags_unassign",
+   "declared": [
+    "assignments"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "tags",
+   "registered_as": "read",
+   "name": "tag_management_customizable_tag_assets_list",
+   "declared": [
+    "id",
+    "assetType",
+    "top",
+    "orderBy"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "tags",
+   "registered_as": "write",
+   "name": "tag_management_customizable_tags_assign",
+   "declared": [
+    "assignments"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "tags",
+   "registered_as": "write",
+   "name": "tag_management_customizable_tags_create",
+   "declared": [
+    "tags"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "tags",
+   "registered_as": "write",
+   "name": "tag_management_customizable_tags_delete",
+   "declared": [
+    "tags"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "tags",
+   "registered_as": "read",
+   "name": "tag_management_customizable_tags_list",
+   "declared": [
+    "top",
+    "orderBy",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "tags",
+   "registered_as": "write",
+   "name": "tag_management_customizable_tags_unassign",
+   "declared": [
+    "assignments"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "tags",
+   "registered_as": "read",
+   "name": "tag_management_task_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "threatintel",
+   "registered_as": "write",
+   "name": "threatintel_exceptions_add",
+   "declared": [
+    "type",
+    "value",
+    "description"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "threatintel",
+   "registered_as": "write",
+   "name": "threatintel_exceptions_delete",
+   "declared": [
+    "type",
+    "value"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "threatintel",
+   "registered_as": "read",
+   "name": "threatintel_exceptions_list",
+   "declared": [
+    "filter",
+    "orderBy",
+    "top",
+    "startDateTime",
+    "endDateTime"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "threatintel",
+   "registered_as": "read",
+   "name": "threatintel_feed_filter_definition_get",
+   "declared": [],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "threatintel",
+   "registered_as": "read",
+   "name": "threatintel_feed_indicators_list",
+   "declared": [
+    "startDateTime",
+    "endDateTime",
+    "top",
+    "indicatorObjectFormat"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "threatintel",
+   "registered_as": "read",
+   "name": "threatintel_feeds_list",
+   "declared": [
+    "contextualFilter",
+    "startDateTime",
+    "endDateTime",
+    "topReport",
+    "responseObjectFormat"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "threatintel",
+   "registered_as": "read",
+   "name": "threatintel_intelligence_report_get",
+   "declared": [
+    "reportId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "threatintel",
+   "registered_as": "write",
+   "name": "threatintel_intelligence_reports_create",
+   "declared": [
+    "file",
+    "reportName"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "threatintel",
+   "registered_as": "write",
+   "name": "threatintel_intelligence_reports_delete",
+   "declared": [
+    "reportIds"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "threatintel",
+   "registered_as": "read",
+   "name": "threatintel_intelligence_reports_list",
+   "declared": [
+    "filter",
+    "orderBy",
+    "top",
+    "startDateTime",
+    "endDateTime"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "threatintel",
+   "registered_as": "write",
+   "name": "threatintel_suspicious_objects_add",
+   "declared": [
+    "type",
+    "value",
+    "description",
+    "scanAction",
+    "riskLevel",
+    "daysToExpiration"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "threatintel",
+   "registered_as": "write",
+   "name": "threatintel_suspicious_objects_delete",
+   "declared": [
+    "type",
+    "value"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "threatintel",
+   "registered_as": "read",
+   "name": "threatintel_suspicious_objects_list",
+   "declared": [
+    "filter",
+    "orderBy",
+    "top",
+    "startDateTime",
+    "endDateTime"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "threatintel",
+   "registered_as": "write",
+   "name": "threatintel_sweep_trigger",
+   "declared": [
+    "reportId",
+    "sweepType",
+    "description"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "threatintel",
+   "registered_as": "read",
+   "name": "threatintel_task_results_get",
+   "declared": [
+    "taskId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "threatintel",
+   "registered_as": "read",
+   "name": "threatintel_tasks_list",
+   "declared": [
+    "filter",
+    "orderBy",
+    "top",
+    "startDateTime",
+    "endDateTime"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "workbench",
+   "registered_as": "read",
+   "name": "workbench_alert_detail_get",
+   "declared": [
+    "alertId"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "workbench",
+   "registered_as": "read",
+   "name": "workbench_alert_note_get",
+   "declared": [
+    "alertId",
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "workbench",
+   "registered_as": "write",
+   "name": "workbench_alert_note_update",
+   "declared": [
+    "alertId",
+    "id",
+    "ifMatch",
+    "content"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "workbench",
+   "registered_as": "write",
+   "name": "workbench_alert_notes_create",
+   "declared": [
+    "alertId",
+    "content"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "workbench",
+   "registered_as": "write",
+   "name": "workbench_alert_notes_delete",
+   "declared": [
+    "alertId",
+    "items"
+   ],
+   "not_forwarded": [
+    "items"
+   ],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "workbench",
+   "registered_as": "read",
+   "name": "workbench_alert_notes_list",
+   "declared": [
+    "alertId",
+    "filter",
+    "skipToken",
+    "startDateTime",
+    "endDateTime"
+   ],
+   "not_forwarded": [
+    "skipToken"
+   ],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "workbench",
+   "registered_as": "write",
+   "name": "workbench_alert_update",
+   "declared": [
+    "id",
+    "ifMatch",
+    "investigationStatus",
+    "status",
+    "investigationResult"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": false
+  },
+  {
+   "toolset": "workbench",
+   "registered_as": "read",
+   "name": "workbench_alerts_list",
+   "declared": [
+    "filter",
+    "orderBy",
+    "startDateTime",
+    "endDateTime"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "workbench",
+   "registered_as": "read",
+   "name": "workbench_insight_get",
+   "declared": [
+    "id"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "workbench",
+   "registered_as": "read",
+   "name": "workbench_insight_impact_scope_entities_list",
+   "declared": [
+    "id",
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "workbench",
+   "registered_as": "read",
+   "name": "workbench_insight_indicators_list",
+   "declared": [
+    "id",
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "workbench",
+   "registered_as": "read",
+   "name": "workbench_insight_matched_highlights_list",
+   "declared": [
+    "id",
+    "top"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "workbench",
+   "registered_as": "read",
+   "name": "workbench_insights_list",
+   "declared": [
+    "orderBy",
+    "top",
+    "filter"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  },
+  {
+   "toolset": "workbench",
+   "registered_as": "read",
+   "name": "workbench_observed_attack_techniques_list",
+   "declared": [
+    "filter",
+    "top",
+    "detectedStartDateTime",
+    "detectedEndDateTime",
+    "ingestedStartDateTime",
+    "ingestedEndDateTime",
+    "nextBatchToken"
+   ],
+   "not_forwarded": [],
+   "readonly_hint": true
+  }
+ ]
+}

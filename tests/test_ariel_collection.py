@@ -200,7 +200,7 @@ class ErrorAndIsolationTests(unittest.IsolatedAsyncioTestCase):
 class ToolExposureTests(unittest.TestCase):
     def test_existing_tools_schemas_and_read_only_annotations(self):
         tools = {tool.name: tool for tool in asyncio.run(mcp.list_tools())}
-        self.assertEqual(len(tools), 18)
+        self.assertEqual(len(tools), 20)
         self.assertTrue(all(tool.annotations.readOnlyHint for tool in tools.values()))
         verify = tools["qradar_verify_offense"].inputSchema
         self.assertEqual(set(verify["properties"]), {"offense_id", "qradar_utc_offset_hours", "timezone_verified"})

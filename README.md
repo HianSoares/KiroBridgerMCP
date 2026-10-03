@@ -54,7 +54,7 @@ See [custom AQL setup, examples and limits](docs/dynamic-aql.md). Offense invest
 
 ## Verify an offense before concluding
 
-`qradar_verify_offense` performs the QRadar collection without Trend credentials; `qradar_get_rule` reads contributing rule metadata. Together with the existing tools, the bridge exposes **18 tools**. The report distinguishes original metadata times, observed event times and padded collection windows, follows result pages within a budget and preserves unresolved count/payload/attribution gaps.
+`qradar_verify_offense` performs the QRadar collection without Trend credentials; `qradar_get_rule` reads contributing rule metadata. Together with the existing tools, the bridge exposes **20 tools**. The report distinguishes original metadata times, observed event times and padded collection windows, follows result pages within a budget and preserves unresolved count/payload/attribution gaps.
 
 > Use `qradar_verify_offense` with the offense ID. Resume pending search IDs and collect missing evidence before assessing the case. For a historical case, confirm the actual QRadar timezone before setting `timezone_verified=true`.
 
@@ -67,6 +67,10 @@ Linux records now receive a census of sudo actors, targets and commands across a
 ## Investigate a Vision One alert
 
 `investigate_vision_alert` parses Workbench `impactScope` entities, typed indicators and matched rules with provenance, then searches endpoint/detection data and OAT by the alert's own identifiers (not the model name) under a shared time/call/record/partition budget. Search has no continuation token in the official MCP, so full pages are split into time partitions; OAT pages by `nextBatchToken`. Optional read-only enrichments (notes, inventory, DMM, intel lists, cases, existing sandbox results and response tasks) report missing tools, permissions and licenses separately. QRadar correlation reuses the budgeted Ariel collector with epoch predicates, and each Trend↔QRadar relation is labelled confirmed, candidate or unverified. The report ends with a recommended classification and a Portuguese note for human review; nothing is closed, posted or executed. Set `QRADAR_AQL_TIMEZONE_VERIFIED=true` only after confirming the console offset for historical windows. See [Trend alert investigation](docs/trend-alert-investigation.md).
+
+## Investigative coverage and closure decisions
+
+The bridge now integrates 34 of 83 QRadar MCP tools (GET reads plus Ariel validation/search creation) and 39 of 349 Trend Vision One MCP tools, each with a trigger, limits and handler-verified pagination; every upstream tool is classified in the [coverage matrix](docs/coverage-matrix.md). Alert investigations run in budgeted phases (primary evidence, hypothesis checks, reserved Trend↔QRadar correlation, optional enrichments), keep Insight values with explicit truncation, and offense investigations deepen up to two related Workbench alerts without recursion. `qradar_read_context` reads rules, building blocks, QIDs, log sources, assets and reference data by validated arguments; `qradar_assess_closure` evaluates each live closing reason against its own requirements and accepts cited analyst records. Conclusions use explicit evidence statuses instead of scores; nothing is closed or posted. See [investigative coverage (Portuguese)](docs/investigative-coverage.md).
 
 ## Scope and safety
 

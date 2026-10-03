@@ -13,6 +13,25 @@ from .aql_search import AQL_RESOURCES
 
 QRADAR_TOOLS = {"list_offenses", "get_offense", "get_rule", "list_offense_closing_reasons", "list_source_addresses", "list_local_destination_addresses",
                 "validate_aql", "create_ariel_search", "get_ariel_search_status", "get_ariel_search_results"}
+# GET-only context reads (qradar_context.py). Each was checked in the IBM handler: HTTP GET,
+# arguments forwarded, Range-header pagination where offset/limit exist.
+QRADAR_CONTEXT_TOOLS = {
+    "get_offense_notes", "list_offense_types", "list_assets", "list_asset_properties", "get_network_hierarchy",
+    "list_log_sources", "get_log_source", "list_log_source_types", "list_rules", "list_building_blocks",
+    "get_building_block", "get_qid_record_by_qid", "get_low_level_category", "get_high_level_category",
+    "list_dsm_event_mappings", "list_reference_sets", "list_reference_maps", "get_reference_map",
+    "list_reference_tables", "get_reference_table", "list_saved_searches", "list_vulnerabilities", "get_case",
+    "geolocate_ip"}
+QRADAR_READ_TOOLS = QRADAR_TOOLS | QRADAR_CONTEXT_TOOLS
+# Operations with an effect on QRadar besides Ariel search creation. Never allowlisted.
+QRADAR_MUTATIONS = {
+    "add_offense_note", "assign_offense", "set_offense_follow_up", "set_offense_protected", "set_offense_status",
+    "delete_ariel_search", "delete_saved_search", "add_staged_network", "delete_staged_network",
+    "update_staged_network", "deploy_qradar_config", "create_dsm_event_mapping", "create_qid_record",
+    "update_dsm_event_mapping", "update_qid_record", "add_to_reference_map", "add_to_reference_set",
+    "add_to_reference_table", "create_reference_map", "create_reference_set", "create_reference_table",
+    "delete_reference_map", "delete_reference_set", "delete_reference_table", "remove_from_reference_map",
+    "remove_from_reference_set", "remove_from_reference_table", "update_reference_set", "dns_lookup", "whois_lookup"}
 WORKBENCH_TOOLS = {"workbench_alerts_list", "workbench_alert_detail_get"}
 VISION_TOOLS = WORKBENCH_TOOLS | {"search_detections_list", "search_endpoint_activities_list",
                                   "endpoint_security_endpoints_list"}
@@ -27,11 +46,15 @@ ALERT_ENRICHMENT_TOOLS = {
     "threatintel_suspicious_objects_list", "threatintel_exceptions_list",
     "dmm_models_list", "dmm_custom_models_list", "dmm_custom_filters_list", "dmm_exceptions_list",
     "crem_attack_surface_devices_list", "crem_high_risk_devices_list",
-    "case_management_cases_list", "audit_logs_list", "sandbox_analysis_results_list", "response_tasks_list"}
+    "case_management_cases_list", "audit_logs_list", "sandbox_analysis_results_list", "response_tasks_list",
+    "workbench_insights_list", "sandbox_analysis_result_get", "sandbox_analysis_result_suspicious_objects_list",
+    "response_task_get", "case_management_case_get", "case_management_case_contents_list", "eiqs_endpoints_list",
+    "search_activity_statistics_get", "search_sensor_statistics_get", "crem_vulnerable_devices_list",
+    "search_container_activities_list", "search_mobile_activities_list"}
 ALERT_VISION_TOOLS = VISION_TOOLS | ALERT_ENRICHMENT_TOOLS
 # Toolsets loaded for alert-first investigation; with -readonly=true the upstream registers
 # only their read tools, and ALERT_VISION_TOOLS narrows further.
-ALERT_TOOLSETS = "workbench,search,endpoint,threatintel,dmm,crem,cases,audit,sandbox,response"
+ALERT_TOOLSETS = "workbench,search,endpoint,threatintel,dmm,crem,cases,audit,sandbox,response,eiqs"
 HTTP_STATUS = re.compile(r"\(HTTP (\d{3})\)")
 LICENSE_HINT = re.compile(r"licen[cs]e|not (?:enabled|activated|entitled|subscribed)|subscription|integration|"
                           r"not supported in your region|feature is not available", re.I)
@@ -99,8 +122,8 @@ class RestrictedMCP:
             if result.content and getattr(result.content[0], "text", "").startswith("✓ AQL query is valid"):
                 return {"valid": True}
             raise AQLValidationError("QRadar did not confirm that AQL is valid")
-        if name == "get_rule":
-            # IBM's get_rule formatter appends its JSON object after a fixed heading.
+        if name in ("get_rule", "get_building_block"):
+            # IBM's formatter appends the JSON object after a fixed heading.
             for block in result.content:
                 raw = getattr(block, "text", "")
                 if "\nFull JSON:\n" in raw:
@@ -109,7 +132,7 @@ class RestrictedMCP:
                     except json.JSONDecodeError:
                         raise ValueError("Rule metadata has invalid trailing JSON") from None
                     if not isinstance(data, dict):
-                        raise ValueError("Rule metadata must be a JSON object")
+                        raise ValueError("Rule/building block metadata must be a JSON object")
                     return data
         if name == "workbench_alerts_list":
             try:
@@ -154,9 +177,11 @@ async def live_qradar_query(operation: str, parameters: dict[str, Any], url: str
     if (parsed.scheme != "http" or parsed.hostname not in ("localhost", "127.0.0.1", "::1")
             or parsed.path != "/mcp" or parsed.username or parsed.password or parsed.query or parsed.fragment):
         raise ValueError("QRadar MCP URL must be a local http://127.0.0.1:<port>/mcp endpoint")
+    from .qradar_context import assess_closure, context_lookup
     operations = {"validate": validate_query, "start": start_query, "status": search_status,
                   "results": search_results, "run": run_query, "verify_offense": verify_offense,
-                  "find_offenses": find_offenses, "investigate_offenses": investigate_offenses}
+                  "find_offenses": find_offenses, "investigate_offenses": investigate_offenses,
+                  "context": context_lookup, "assess_closure": assess_closure}
     if operation not in {*operations, "resource", "rule"}:
         raise ValueError("Unknown QRadar query operation")
     required = {"validate": {"validate_aql"},
@@ -165,7 +190,8 @@ async def live_qradar_query(operation: str, parameters: dict[str, Any], url: str
                 "results": {"get_ariel_search_status", "get_ariel_search_results"},
                 "run": {"validate_aql", "create_ariel_search", "get_ariel_search_status", "get_ariel_search_results"},
                 "find_offenses": {"list_offenses"}, "investigate_offenses": {"get_offense"},
-                "resource": set(), "verify_offense": {"get_offense"}, "rule": {"get_rule"}}[operation]
+                "resource": set(), "verify_offense": {"get_offense"}, "rule": {"get_rule"},
+                "context": set(), "assess_closure": {"get_offense"}}[operation]
     stage = "QRadar MCP connection"
     try:
         async with AsyncExitStack() as stack:
@@ -177,7 +203,7 @@ async def live_qradar_query(operation: str, parameters: dict[str, Any], url: str
             await session.initialize()
             stage = "QRadar MCP tool listing"
             available = {tool.name for tool in (await session.list_tools()).tools}
-            client = RestrictedMCP(session, QRADAR_TOOLS, available, required, "QRadar")
+            client = RestrictedMCP(session, QRADAR_READ_TOOLS, available, required, "QRadar")
             stage = f"QRadar AQL {operation}"
             if operation == "resource":
                 return await client.read_aql_resource(**parameters)
@@ -231,7 +257,7 @@ async def live_investigation(offense_id: int, url: str, token: str | None,
                 command="docker",
                 args=["run", "-i", "--rm", "-e", "TREND_VISION_ONE_API_KEY",
                       "ghcr.io/trendmicro/vision-one-mcp-server", "-region", region,
-                      "-readonly=true", "-toolsets=workbench,search"],
+                      "-readonly=true", f"-toolsets={ALERT_TOOLSETS}"],
                 env={**os.environ, "TREND_VISION_ONE_API_KEY": api_key},
             )
             v_stream = await stack.enter_async_context(stdio_client(params))
@@ -243,10 +269,12 @@ async def live_investigation(offense_id: int, url: str, token: str | None,
             stage = "Vision One MCP tool listing"
             vtools = {t.name for t in (await vision.list_tools()).tools}
             stage = "offense evidence collection"
-            report = await investigate(RestrictedMCP(qr, QRADAR_TOOLS, qtools, {"get_offense"}, "QRadar"),
-                                       RestrictedMCP(vision, VISION_TOOLS, vtools,
+            # Related Workbench alerts get the alert-first Trend depth (deepening.py), bounded to two.
+            report = await investigate(RestrictedMCP(qr, QRADAR_READ_TOOLS, qtools, {"get_offense"}, "QRadar"),
+                                       RestrictedMCP(vision, ALERT_VISION_TOOLS, vtools,
                                                      WORKBENCH_TOOLS, source="Vision One"), offense_id,
-                                       deep=True, ariel_offset_hours=int(os.environ.get("QRADAR_AQL_UTC_OFFSET_HOURS", "-3")))
+                                       deep=True, ariel_offset_hours=int(os.environ.get("QRADAR_AQL_UTC_OFFSET_HOURS", "-3")),
+                                       deepen_alerts=2)
             stage = "MCP connection shutdown"
         return report
     except Exception as exc:
@@ -305,7 +333,7 @@ async def live_alert_investigation(alert_id: str, url: str, token: str | None,
             vtools = {t.name for t in (await vision.list_tools()).tools}
             stage = "Vision One Workbench alert retrieval and QRadar evidence collection"
             report = await investigate_vision_alert(
-                RestrictedMCP(qr, QRADAR_TOOLS, qtools, {"get_offense"}, "QRadar"),
+                RestrictedMCP(qr, QRADAR_READ_TOOLS, qtools, {"get_offense"}, "QRadar"),
                 RestrictedMCP(vision, ALERT_VISION_TOOLS, vtools, {"workbench_alert_detail_get"}, "Vision One"),
                 alert_id, event_evidence=event_evidence, ariel_offset_hours=ariel_offset_hours,
                 enable_vision_search=enable_vision_search, timezone_verified=timezone_verified)
@@ -400,7 +428,7 @@ async def live_extra_case(kind: str, parameters: dict[str, Any], url: str, token
             stage = "read-only tool listing"
             qtools = {t.name for t in (await qr.list_tools()).tools}
             vtools = {t.name for t in (await vision.list_tools()).tools}
-            q = RestrictedMCP(qr, QRADAR_TOOLS, qtools,
+            q = RestrictedMCP(qr, QRADAR_READ_TOOLS, qtools,
                               {"validate_aql", "create_ariel_search", "get_ariel_search_status", "get_ariel_search_results"}, "QRadar")
             v = RestrictedMCP(vision, VISION_TOOLS, vtools, {"search_detections_list"}, "Vision One")
             stage = "EPM UAC / FortiGate evidence collection"

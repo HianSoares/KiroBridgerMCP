@@ -23,10 +23,10 @@ NOT_CREATED = {"permission", "tool_unavailable"}
 class BudgetExhausted(TimeoutError):
     """The shared collection deadline ended before or during an upstream call."""
 
-    def __init__(self, stage: str, started: bool):
+    def __init__(self, stage: str, started: bool, reason: str = "time budget exhausted"):
         self.stage = stage
         self.started = started
-        super().__init__(f"time budget exhausted {'during' if started else 'before'} {stage}")
+        super().__init__(f"{reason} {'during' if started else 'before'} {stage}")
 
 
 def number(value: Any) -> int | None:
@@ -58,6 +58,9 @@ class Budget:
     calls_made: int = 0
     records_seen: int = 0
     partitions_used: int = 0
+    phase: str = "primary"
+    reservations: dict = field(default_factory=dict)
+    phase_log: list = field(default_factory=list)
     started: float = field(init=False)
 
     def __post_init__(self) -> None:
@@ -75,26 +78,63 @@ class Budget:
     def remaining_seconds(self) -> float:
         return self.max_seconds - (self.clock() - self.started)
 
+    # Reservations keep part of the budget for later phases (for example the Trend<->QRadar
+    # correlation) so that broad or optional reads cannot consume it first. A phase gets its
+    # reservation back when it is entered; a skipped phase releases it explicitly.
+    def reserve(self, phase: str, calls: int = 0, seconds: float = 0.0, queries: int = 0) -> None:
+        if phase == self.phase or min(calls, seconds, queries) < 0:
+            raise ValueError("Reservations are for later phases and must be nonnegative")
+        self.reservations[phase] = {"calls": calls, "seconds": float(seconds), "queries": queries}
+
+    def enter(self, phase: str) -> None:
+        self.reservations.pop(phase, None)
+        self.phase_log.append({"phase": phase, "entered_at_seconds": round(self.clock() - self.started, 3),
+                               "calls_made": self.calls_made, "queries_started": self.queries_started})
+        self.phase = phase
+
+    def release(self, phase: str, reason: str) -> None:
+        if self.reservations.pop(phase, None) is not None:
+            self.phase_log.append({"phase": phase, "released": reason})
+
+    def _held(self, key: str) -> float:
+        return sum(r[key] for r in self.reservations.values())
+
+    def _held_by(self) -> str:
+        return ", ".join(sorted(self.reservations)) or "none"
+
+    def available_seconds(self) -> float:
+        """Time this phase may use: the deadline minus what later phases hold."""
+        return self.remaining_seconds() - self._held("seconds")
+
     def blocked(self, kind: str) -> str | None:
         if self.remaining_seconds() <= 0:
             return "time budget exhausted"
-        limits = {"query": (self.queries_started, self.max_queries, "query budget exhausted"),
-                  "page": (self.pages_fetched, self.max_pages, "page budget exhausted"),
-                  "poll": (self.polls, self.max_polls, "status polling budget exhausted"),
-                  "call": (self.calls_made, self.max_calls, "upstream call budget exhausted"),
-                  "record": (self.records_seen, self.max_records, "record budget exhausted"),
-                  "partition": (self.partitions_used, self.max_partitions, "time-partition budget exhausted")}
-        used, ceiling, reason = limits[kind]
-        return reason if used >= ceiling else None
+        if self.available_seconds() <= 0:
+            return f"remaining time reserved for later phase(s): {self._held_by()}"
+        limits = {"query": (self.queries_started, self.max_queries, "query budget exhausted", "queries"),
+                  "page": (self.pages_fetched, self.max_pages, "page budget exhausted", None),
+                  "poll": (self.polls, self.max_polls, "status polling budget exhausted", None),
+                  "call": (self.calls_made, self.max_calls, "upstream call budget exhausted", "calls"),
+                  "record": (self.records_seen, self.max_records, "record budget exhausted", None),
+                  "partition": (self.partitions_used, self.max_partitions, "time-partition budget exhausted", None)}
+        used, ceiling, reason, held_key = limits[kind]
+        if used >= ceiling:
+            return reason
+        if held_key and used >= ceiling - self._held(held_key):
+            return f"remaining {held_key} reserved for later phase(s): {self._held_by()}"
+        return None
 
     def wait(self) -> int:
-        return max(0, min(self.poll_wait_seconds, int(self.remaining_seconds())))
+        return max(0, min(self.poll_wait_seconds, int(self.available_seconds())))
 
     async def run(self, operation: Callable[[], Awaitable[Any]], stage: str) -> Any:
-        """Run one upstream call under the shared deadline; never start it after the deadline."""
-        remaining = self.remaining_seconds()
+        """Run one upstream call under the shared deadline; never start it after the deadline
+        or inside time that a later phase holds."""
+        remaining = self.available_seconds()
         if remaining <= 0:
-            raise BudgetExhausted(stage, started=False)
+            reason = ("time budget exhausted" if self.remaining_seconds() <= 0 else
+                      f"time reserved for later phase(s) {self._held_by()}")
+            raise BudgetExhausted(stage, started=False, reason=reason)
         try:
             return await asyncio.wait_for(operation(), timeout=remaining)
         except asyncio.TimeoutError:
@@ -108,7 +148,8 @@ class Budget:
                 "validation_retries_without_optional_fields": self.validation_retries,
                 "max_calls": self.max_calls, "calls_made": self.calls_made,
                 "max_records": self.max_records, "records_seen": self.records_seen,
-                "max_partitions": self.max_partitions, "partitions_used": self.partitions_used}
+                "max_partitions": self.max_partitions, "partitions_used": self.partitions_used,
+                "phase": self.phase, "pending_reservations": dict(self.reservations), "phase_log": list(self.phase_log)}
 
 
 TOOLS = {"poll_same_search": ["qradar_get_search_status", "qradar_get_search_results"],

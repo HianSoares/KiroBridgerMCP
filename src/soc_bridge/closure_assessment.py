@@ -1,7 +1,61 @@
-"""Reviewable closing reason and note proposals. No offense mutation is exposed."""
+"""Reviewable closing reason and note proposals. No offense mutation is exposed.
+
+Each closing reason of the live QRadar catalog maps to the requirements it needs. A reason
+is recommended only when every one of its requirements is met; requirements the bridge
+cannot observe (authorization, CRE tuning, remediation, policy) can be met only by a cited
+analyst-supplied record, which the report labels as such. A gap blocks only the reasons
+that need it. The bridge never closes, assigns or annotates the offense.
+"""
 from __future__ import annotations
 
 from .ariel_collection import BudgetExhausted
+from .decision import STATUSES, evaluate, requirement
+
+# Requirements per standard reason text (normalized). Custom reasons are never auto-eligible.
+REASON_REQUIREMENTS = {
+    "non-issue": ["authorization", "relevant_collection_complete"],
+    "not an issue": ["authorization", "relevant_collection_complete"],
+    "false-positive, tuned": ["detection_error", "active_cre_reviewed", "tuning_applied", "relevant_collection_complete"],
+    "policy violation": ["policy_confirmed", "relevant_collection_complete"],
+    "duplicate": ["primary_offense"],
+    "misconfiguration": ["misconfiguration_confirmed"],
+    "resolved": ["remediation_verified"],
+    "unresolved": ["administrative_decision"],
+}
+ANALYST_REQUIREMENTS = {
+    "authorization": "owner/change/inventory record showing the activity was authorized and expected",
+    "active_cre_reviewed": "active CRE tests and responses reviewed against the trigger",
+    "detection_error": "positive evidence that the rule matched something that is not the described behavior",
+    "tuning_applied": "corrective tuning applied and verified",
+    "policy_confirmed": "applicable policy and the violation confirmed by the response workflow",
+    "misconfiguration_confirmed": "misconfiguration demonstrated by configuration evidence and agreed with the owner",
+    "remediation_verified": "remediation and post-remediation verification evidenced",
+    "primary_offense": "same incident established with a referenced primary offense",
+    "administrative_decision": "explicit analyst decision to close administratively with remaining risk recorded",
+}
+
+
+def validate_confirmations(confirmations: list | None, offense_id: int | None = None) -> list[dict]:
+    """Analyst-supplied records: requirement id, source and reference are mandatory and kept verbatim."""
+    out = []
+    for item in confirmations or []:
+        if not isinstance(item, dict):
+            raise ValueError("each confirmation must be an object")
+        rid = item.get("requirement")
+        if rid not in ANALYST_REQUIREMENTS:
+            raise ValueError(f"requirement must be one of {sorted(ANALYST_REQUIREMENTS)}; collection coverage "
+                             "is measured by the bridge and cannot be confirmed manually")
+        fields = {}
+        for key in ("source", "reference", "summary"):
+            value = item.get(key, "")
+            if not isinstance(value, str) or len(value) > 300 or (key != "summary" and not value.strip()):
+                raise ValueError(f"confirmation {key} must be a non-empty string up to 300 characters")
+            fields[key] = value.strip()
+        if rid == "primary_offense":
+            if not fields["reference"].isdigit() or int(fields["reference"]) == offense_id:
+                raise ValueError("primary_offense reference must be another offense ID")
+        out.append({"requirement": rid, **fields})
+    return out
 
 CONDITIONS = {
     "non-issue": "Authorization and expected behavior confirmed, relevant collection complete, no unresolved contradictory evidence",
@@ -36,7 +90,7 @@ async def closing_catalog(qradar, budget) -> dict:
                 "note": "Optional catalog unavailable; no closing reason ID invented"}
 
 
-def propose(result: dict) -> dict:
+def propose(result: dict, confirmations: list | None = None) -> dict:
     """Collection-only decision: cite facts, scope and why closure is still unsupported.
 
     Kiro may revise the proposal with cited analyst/owner evidence following the
@@ -67,9 +121,8 @@ def propose(result: dict) -> dict:
     # Do not let an irrelevant flow census prevent reporting Linux authentication facts.
     relevant_names = {"events", "linux_ssh_window", "linux_identity_window"} if linux.get("detected") else {"events", "flows"}
     relevant = [n for n in incomplete if n in relevant_names]
-    blockers = [{"id": "authorization", "summary": "Owner/change/inventory evidence of authorized activity not supplied"},
-                {"id": "active_cre", "summary": "Full active CRE tests and the actual trigger not verified"}]
-    blockers.extend({"id": f"coverage:{n}", "summary": f"Relevant collection incomplete: {n}"} for n in relevant)
+    confirmed = validate_confirmations(confirmations, result.get("offense_id"))
+    blockers = [{"id": f"coverage:{n}", "summary": f"Relevant collection incomplete: {n}"} for n in relevant]
     if result.get("count_comparison", {}).get("events", {}).get("status") == "unresolved":
         blockers.append({"id": "event_snapshot", "summary": "Event count/window/snapshot difference not reconciled"})
     if linked.get("unparsed_daemon_rows") or linked.get("truncated_payload_rows"):
@@ -84,6 +137,21 @@ def propose(result: dict) -> dict:
             blockers.append({"id": item["id"], "summary": item["summary"],
                              "next_action": item.get("next_action"), "source": item.get("evidence")})
             known.add(item["id"])
+    outside_ids = {g["id"] for g in result.get("gap_details", []) if g.get("state") == "outside_bridge"}
+    # Bridge-measured gaps; outside_bridge gaps are what the authorization record must address.
+    technical = [b for b in blockers if b["id"] not in outside_ids]
+    req = {}
+    outside = [g["id"] for g in result.get("gap_details", []) if g.get("state") == "outside_bridge"]
+    for rid, text in ANALYST_REQUIREMENTS.items():
+        cited = [c for c in confirmed if c["requirement"] == rid]
+        req[rid] = (requirement(rid, text, "confirmed", cited, source="analyst-supplied record (not verified by the bridge)")
+                    if cited else requirement(rid, text, "unverified",
+                                              {"bridge_gaps_it_must_address": outside} if rid == "authorization" else None,
+                                              "Cite the record with qradar_assess_closure (requirement, source, reference)"))
+    req["relevant_collection_complete"] = requirement(
+        "relevant_collection_complete", "collection relevant to a benign closure complete, reconciled and parsed",
+        "confirmed" if not technical else "unverified", [b["id"] for b in technical] or None,
+        "Resume the listed searches/pages or resolve the listed gaps")
     available = result.get("closing_reasons", {}).get("reasons", [])
     metadata = result.get("metadata", {})
     existing_id = metadata.get("closing_reason_id")
@@ -91,12 +159,40 @@ def propose(result: dict) -> dict:
                 "reason_text": next((r["text"] for r in available if r["id"] == existing_id), None),
                 "close_time": metadata.get("close_time"),
                 "meaning": "Observed metadata, not evidence that the original closure was justified"}
+    conclusions = [{"id": r["id"], "label": r["text"], "requires": REASON_REQUIREMENTS[r["text"].strip().lower()]}
+                   for r in available if r["text"].strip().lower() in REASON_REQUIREMENTS]
+    matrix = evaluate(conclusions, req)
+    by_id = {m["id"]: m for m in matrix}
     options = [{**r, "condition": CONDITIONS.get(r["text"].strip().lower(),
                 "Custom reason: obtain its local definition and supporting evidence before selecting it"),
-                "eligible_now": False} for r in available]
+                "eligible_now": by_id.get(r["id"], {}).get("sufficiency") == "sustained",
+                "unmet": [b["id"] for b in by_id.get(r["id"], {}).get("blocking", [])] if r["id"] in by_id else ["custom_reason_definition"]}
+               for r in available]
+    sustained = [o for o in options if o["eligible_now"]]
     already_closed = metadata.get("status") == "CLOSED"
-    primary = "Revisar justificativa do fechamento já registrado" if already_closed else "Manter aberta / pendente de validação do analista"
-    confidence = "Insuficiente para uma classificação final"
+    recommended = sustained[0] if len(sustained) == 1 else None
+    if recommended and not already_closed:
+        primary = f"Fechar com o motivo '{recommended['text']}' (ID {recommended['id']}) após revisão humana"
+        confidence = "Sustentada: todos os requisitos do motivo atendidos (ver matriz e fontes citadas)"
+    elif already_closed:
+        primary = "Revisar justificativa do fechamento já registrado"
+        confidence = "Insuficiente para uma classificação final" if not sustained else "Requisitos do motivo atendidos"
+    else:
+        primary = "Manter aberta / pendente de validação do analista"
+        confidence = "Insuficiente para uma classificação final"
+        if len(sustained) > 1:
+            confidence = "Mais de um motivo atende aos requisitos; escolha do analista necessária"
+    # Blocking list for the reason closest to being met (benign closure by default).
+    target = (by_id.get(recommended["id"]) if recommended else
+              min((m for m in matrix if m["sufficiency"] != "contradicted"),
+                  key=lambda m: (len(m["blocking"]), "authorization" not in REASON_REQUIREMENTS[m["label"].strip().lower()]),
+                  default=None))
+    for item in (target or {}).get("blocking", []):
+        if item["id"] != "relevant_collection_complete" and item["id"] not in {b["id"] for b in blockers}:
+            blockers.insert(0, {"id": item["id"], "summary": item["requirement"], "next_action": item["next_check"]})
+    if not matrix:
+        blockers.insert(0, {"id": "authorization", "summary": ANALYST_REQUIREMENTS["authorization"],
+                            "next_action": "Closing-reason catalog unavailable or custom-only; no reason can be evaluated"})
     interval = result.get("metadata_interval", {})
     note_facts = []
     if sudo:
@@ -136,8 +232,13 @@ def propose(result: dict) -> dict:
     if result.get("integrity", {}).get("integrity_events"):
         note_facts.append(f"{len(result['integrity']['integrity_events'])} registros de integridade de arquivo "
                           "identificados; vínculo com a cadeia e causa exigem avaliação separada")
-    blockers_pt = ["autorização da atividade pelo responsável não apresentada",
-                   "testes ativos da CRE e vínculo com o gatilho não verificados"]
+    pt = {"authorization": "autorização da atividade pelo responsável não apresentada",
+          "active_cre_reviewed": "testes ativos da CRE e vínculo com o gatilho não verificados",
+          "detection_error": "erro de detecção não demonstrado", "tuning_applied": "tuning não aplicado/verificado",
+          "policy_confirmed": "política e violação não confirmadas", "primary_offense": "offense primária não referenciada",
+          "misconfiguration_confirmed": "configuração incorreta não demonstrada",
+          "remediation_verified": "remediação não verificada", "administrative_decision": "decisão administrativa não registrada"}
+    blockers_pt = [pt[b["id"]] for b in blockers if b["id"] in pt]
     blockers_pt += [f"coleta relevante incompleta: {n}" for n in relevant]
     if any(b["id"] == "event_snapshot" for b in blockers):
         comparison = result["count_comparison"]["events"]
@@ -155,13 +256,23 @@ def propose(result: dict) -> dict:
             "Consultas: " + "; ".join(f"{e['query']} [{e['search_id'] or 'não iniciada'}]: {e['outcome']}, "
                                      f"{e['rows']} linhas, escopo={e['scope']}" for e in evidence) + ".",
             ("Fechamento já registrado nos metadados; a justificativa ainda requer validação. " if already_closed else
-             "Decisão sugerida: manter pendente. ") + "; ".join(blockers_pt) + ".",
-            "Motivo de fechamento ainda não selecionado. Nenhum fechamento, tuning ou contenção executado."]
-    return {"decision": "review_existing_closure" if already_closed else "keep_open",
-            "recommendation": primary, "ready_to_close": False, "existing_closure": existing,
-            "recommended_reason": None, "reason_catalog_state": result.get("closing_reasons", {}).get("state"),
+             (f"Decisão sugerida: fechar com o motivo '{recommended['text']}' (ID {recommended['id']}), sujeita a revisão humana. "
+              if recommended else "Decisão sugerida: manter pendente. ")) + "; ".join(blockers_pt) + ".",
+            *([f"Registros citados pelo analista (não verificados pela ponte): " +
+               "; ".join(f"{c['requirement']} — {c['source']} [{c['reference']}]" for c in confirmed) + "."] if confirmed else []),
+            ("Motivo de fechamento selecionado a partir do catálogo real do QRadar." if recommended else
+             "Motivo de fechamento ainda não selecionado.") + " Nenhum fechamento, tuning ou contenção executado."]
+    return {"decision": "review_existing_closure" if already_closed else "recommend_closure" if recommended else "keep_open",
+            "recommendation": primary, "ready_to_close": bool(recommended) and not already_closed,
+            "existing_closure": existing,
+            "recommended_reason": {"id": recommended["id"], "text": recommended["text"]} if recommended else None,
+            "reason_catalog_state": result.get("closing_reasons", {}).get("state"),
+            "decision_matrix": matrix, "requirements": req, "analyst_confirmations": confirmed,
+            "evidence_status_vocabulary": STATUSES,
             "conditional_reason_options": options, "justification": findings,
-            "confidence": confidence, "confidence_explanation": "Comportamento observado e cobertura não comprovam autorização nem o gatilho da CRE",
+            "confidence": confidence,
+            "confidence_explanation": ("Sem pontuação numérica: um motivo é recomendado somente quando todos os seus requisitos "
+                                       "estão atendidos; lacunas irrelevantes para o motivo não o bloqueiam."),
             "blocking_requirements": blockers, "secondary_collection_pending": [n for n in incomplete if n not in relevant],
             "evidence": evidence, "suggested_note": "\n".join(note),
             "observed_facts": assessment.get("confirmed_facts", []),
