@@ -7,11 +7,11 @@ import re
 from typing import Any
 
 from .diagnostics import MCPToolFailure, failure_reason, unavailable
-from .aql_errors import AQLValidationError
+from .aql_errors import AQLValidationError, ResponseFormatError
 from .aql_search import AQL_RESOURCES
 
 
-QRADAR_TOOLS = {"get_offense", "get_rule", "list_offense_closing_reasons", "list_source_addresses", "list_local_destination_addresses",
+QRADAR_TOOLS = {"list_offenses", "get_offense", "get_rule", "list_offense_closing_reasons", "list_source_addresses", "list_local_destination_addresses",
                 "validate_aql", "create_ariel_search", "get_ariel_search_status", "get_ariel_search_results"}
 WORKBENCH_TOOLS = {"workbench_alerts_list", "workbench_alert_detail_get"}
 VISION_TOOLS = WORKBENCH_TOOLS | {"search_detections_list", "search_endpoint_activities_list",
@@ -108,7 +108,14 @@ class RestrictedMCP:
                     if not isinstance(data, dict):
                         raise ValueError("Rule metadata must be a JSON object")
                     return data
-        return unpack(result)
+        data = unpack(result)
+        if name == "list_offenses" and isinstance(data, str):
+            # IBM FastMCP may wrap its JSON text in structuredContent.result.
+            try:
+                data = json.loads(data)
+            except ValueError:
+                raise ResponseFormatError("Offense listing returned invalid JSON") from None
+        return data
 
     async def read_aql_resource(self, resource: str) -> Any:
         """Read only the four documented upstream AQL metadata resources."""
@@ -140,13 +147,15 @@ async def live_qradar_query(operation: str, parameters: dict[str, Any], url: str
     import httpx
     from .aql_search import validate_query, start_query, search_status, search_results, run_query
     from .offense_evidence import verify_offense
+    from .offense_batch import find_offenses, investigate_offenses
 
     parsed = urlparse(url)
     if (parsed.scheme != "http" or parsed.hostname not in ("localhost", "127.0.0.1", "::1")
             or parsed.path != "/mcp" or parsed.username or parsed.password or parsed.query or parsed.fragment):
         raise ValueError("QRadar MCP URL must be a local http://127.0.0.1:<port>/mcp endpoint")
     operations = {"validate": validate_query, "start": start_query, "status": search_status,
-                  "results": search_results, "run": run_query, "verify_offense": verify_offense}
+                  "results": search_results, "run": run_query, "verify_offense": verify_offense,
+                  "find_offenses": find_offenses, "investigate_offenses": investigate_offenses}
     if operation not in {*operations, "resource", "rule"}:
         raise ValueError("Unknown QRadar query operation")
     required = {"validate": {"validate_aql"},
@@ -154,6 +163,7 @@ async def live_qradar_query(operation: str, parameters: dict[str, Any], url: str
                 "status": {"get_ariel_search_status"},
                 "results": {"get_ariel_search_status", "get_ariel_search_results"},
                 "run": {"validate_aql", "create_ariel_search", "get_ariel_search_status", "get_ariel_search_results"},
+                "find_offenses": {"list_offenses"}, "investigate_offenses": {"get_offense"},
                 "resource": set(), "verify_offense": {"get_offense"}, "rule": {"get_rule"}}[operation]
     stage = "QRadar MCP connection"
     try:

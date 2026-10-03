@@ -1,7 +1,7 @@
 ---
 name: case-investigator
 description: Investiga referências de QRadar ou Trend e documenta evidências, correlações e lacunas.
-tools: ["@soc-bridge-readonly/investigate_case", "@soc-bridge-readonly/investigate_offense", "@soc-bridge-readonly/investigate_vision_alert", "@soc-bridge-readonly/investigate_vision_event", "@soc-bridge-readonly/investigate_epm_uac", "@soc-bridge-readonly/investigate_web_reputation", "@soc-bridge-readonly/investigate_demo", "@soc-bridge-readonly/qradar_read_aql_resource", "@soc-bridge-readonly/qradar_validate_aql", "@soc-bridge-readonly/qradar_start_aql", "@soc-bridge-readonly/qradar_get_search_status", "@soc-bridge-readonly/qradar_get_search_results", "@soc-bridge-readonly/qradar_run_aql", "@soc-bridge-readonly/qradar_verify_offense", "@soc-bridge-readonly/qradar_get_rule"]
+tools: ["@soc-bridge-readonly/investigate_case", "@soc-bridge-readonly/investigate_offense", "@soc-bridge-readonly/investigate_vision_alert", "@soc-bridge-readonly/investigate_vision_event", "@soc-bridge-readonly/investigate_epm_uac", "@soc-bridge-readonly/investigate_web_reputation", "@soc-bridge-readonly/investigate_demo", "@soc-bridge-readonly/qradar_read_aql_resource", "@soc-bridge-readonly/qradar_validate_aql", "@soc-bridge-readonly/qradar_start_aql", "@soc-bridge-readonly/qradar_get_search_status", "@soc-bridge-readonly/qradar_get_search_results", "@soc-bridge-readonly/qradar_run_aql", "@soc-bridge-readonly/qradar_verify_offense", "@soc-bridge-readonly/qradar_get_rule", "@soc-bridge-readonly/qradar_find_offenses", "@soc-bridge-readonly/qradar_investigate_offenses"]
 includeMcpJson: true
 includePowers: false
 resources:

@@ -111,6 +111,45 @@ async def qradar_verify_offense(offense_id: int, qradar_utc_offset_hours: int = 
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def qradar_find_offenses(description: str, status: str = "OPEN", match: str = "exact",
+                               offset: int = 0, limit: int = 50, start_time_from: int | None = None,
+                               start_time_to: int | None = None) -> dict:
+    """Discover offenses by description through the QRadar offense API, not Ariel.
+
+    One page (1..100), +id order, raw descriptions and a continuation cursor.
+    Default exact description and OPEN status; ALL includes closed/hidden.
+    Optional bounds filter offense start_time (epoch milliseconds), not event time.
+    A page is not all offenses. Follow continuation_plan and retain seen IDs;
+    live pagination is not an immutable snapshot. No Trend key needed.
+    """
+    return await _qradar_query("find_offenses", description=description, status=status, match=match,
+        offset=offset, limit=limit, start_time_from=start_time_from, start_time_to=start_time_to)
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def qradar_investigate_offenses(description: str = "", offense_ids: list[int] | None = None,
+                                      status: str = "OPEN", match: str = "exact", offset: int = 0,
+                                      max_offenses: int = 3, start_time_from: int | None = None,
+                                      start_time_to: int | None = None, qradar_utc_offset_hours: int = -3,
+                                      timezone_verified: bool = False) -> dict:
+    """Discover a description and verify a batch, or verify explicit offense IDs (QRadar only).
+
+    Select either description or offense_ids. Investigates 1..5 cases per call,
+    with separate budgets/reports/closing notes and a shared 90-second ceiling.
+    Continue all batch cursors and pending IDs for an authorized request for all
+    matching offenses; use existing search IDs for incomplete Ariel jobs rather
+    than restarting a processed offense. Every case keeps its own conclusion.
+    Same description is not proof of the same cause or a duplicate incident.
+    Parses 4740 account/caller roles and candidate 4625/4771/4776 correlations.
+    Nothing is closed, posted, tuned or contained. The 15 existing tools are unchanged.
+    """
+    return await _qradar_query("investigate_offenses", description=description, offense_ids=offense_ids,
+        status=status, match=match, offset=offset, max_offenses=max_offenses,
+        start_time_from=start_time_from, start_time_to=start_time_to,
+        qradar_utc_offset_hours=qradar_utc_offset_hours, timezone_verified=timezone_verified)
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def qradar_get_rule(rule_id: int) -> dict:
     """Read contributing rule metadata by the ID returned in offense.rules.
 
