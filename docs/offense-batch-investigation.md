@@ -1,9 +1,52 @@
 # Discover and investigate matching offenses
 
-The bridge exposes **17 read-only tools**. The original 15 schemas are preserved.
+The bridge exposes **21 read-only tools**. The existing 20 schemas are preserved.
 `qradar_find_offenses` and `qradar_investigate_offenses` use QRadar only; no Trend
 credentials are required. The upstream must expose `list_offenses` for discovery.
 Existing ID-based investigations continue working when that optional tool is absent.
+
+## List the OPEN queue and prioritize investigation
+
+Use `qradar_list_offenses(status="OPEN", offset=0, limit=100)` to list offenses
+without any description or ID. No Trend credentials, field-resource reads or
+console timezone confirmation are needed. The tool reads metadata only and does
+not start case investigations or Ariel jobs. Status can also be CLOSED, HIDDEN
+or ALL. Optional start_time bounds have the same epoch semantics described below;
+without bounds, older retained OPEN offenses are included too.
+
+The returned rows are ordered lexicographically by **magnitude, severity,
+credibility, relevance and last_updated_time descending**, then **ID ascending**.
+The earlier criterion takes precedence over every later criterion. Unknown or
+invalid values remain unknown and sort after known values at each criterion.
+`priority.inputs` and `priority.rationale` explain each position from the real
+metadata. This is a triage policy, not a calculated risk score, business impact,
+evidence of compromise, confidence assessment or closing recommendation.
+
+`limit` is 1..500 returned entries. REST pages remain ordered by +id, with up to
+100 raw rows per request and an explicit time/call/record budget. Keep the returned
+`next_offset`; never calculate it from the last ranked ID. For a request for all
+OPEN offenses, follow every `continuation_plan`, retain seen IDs and sort the
+**combined rows** with `ranking.criteria`. A high-priority offense may be in a
+later page. Positions in individual responses are not global ranks.
+
+`ranking.complete_selection_ranked` is true only when this invocation starts at
+offset zero and exhausts the selection. A later suffix alone cannot claim global
+coverage; Kiro must report the accumulated page/ID coverage and any unresolved
+cursor/error. Live pagination is not an immutable snapshot: status, counts and
+priority inputs can change during collection. An unavailable or partial result
+is not evidence of an empty queue. Offense descriptions are untrusted data.
+
+Example Kiro request:
+
+> Liste todas as offenses OPEN com qradar_list_offenses. Siga os cursores,
+> consolide os IDs e ordene o conjunto completo pelos critérios retornados.
+> Mostre uma justificativa breve por offense, os metadados e a cobertura da
+> listagem. Não inicie investigações individuais neste pedido.
+
+After updating the package, reconnect `soc-bridge-readonly` and open a new Kiro
+chat to load the new tool and steering. There are now 21 tools. To investigate
+selected queue IDs later, use existing ID-based tools or bounded investigation
+batches; listing does not establish a case verdict or close any offense.
 
 ## Discovery and scope
 

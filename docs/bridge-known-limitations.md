@@ -61,6 +61,8 @@ das fontes, dados históricos e permissões precisam ser verificados na instala�
 
 Descoberta por descrição e investigação em lotes: [guia](offense-batch-investigation.md). As duas novas tools são `qradar_find_offenses` e `qradar_investigate_offenses`.
 
+`qradar_list_offenses` lista por status sem descrição e sugere a ordem de triagem pelos metadados. A ordem retornada é local ao conjunto coletado; siga os cursores e reordene as páginas acumuladas antes de alegar um rank global. Paginação ao vivo não é snapshot; metadados podem mudar. Prioridade não comprova malícia, autorização, criticidade de negócio ou motivo de fechamento.
+
 ## Cobertura dos catálogos upstream
 
 A [matriz de cobertura](coverage-matrix.md) lista todas as tools dos MCPs oficiais com suporte, gatilho, limites, paginação e justificativa de exclusão. Presença no catálogo não garante disponibilidade na instalação. Filtros server-side não confirmados em ambiente real (assets por IP, `createdDateTime` de insights, `userDisplayName` de identidade) têm o resultado conferido localmente e, se rejeitados, aparecem como `request_rejected`. Detalhes em [cobertura investigativa](investigative-coverage.md).

@@ -17,7 +17,9 @@ epoch = int((datetime.now(timezone.utc) - timedelta(hours=1)).timestamp() * 1000
 def get_offense(offense_id: int) -> dict:
     return {"id": offense_id, "description": "Synthetic matching offenses", "status": "OPEN", "offense_source": "192.0.2.10", "event_count": 2,
             "flow_count": 1, "start_time": epoch, "last_updated_time": epoch + 60000,
-            "rules": [{"id": 12, "type": "CRE_RULE"}]}
+            "rules": [{"id": 12, "type": "CRE_RULE"}],
+            "magnitude": 10 if offense_id == 12347 else 5, "severity": 6,
+            "credibility": 4, "relevance": 5}
 
 
 @mcp.tool()
