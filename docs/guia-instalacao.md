@@ -7,6 +7,8 @@ Este guia tem dois marcos independentes:
 
 Arquitetura: `Kiro → soc-bridge-readonly (Python/stdio) → QRadar MCP (HTTP local) + Vision One MCP (Docker/stdio)`. **Configure apenas `soc-bridge-readonly` no Kiro.** A própria ponte inicia o contêiner Trend quando você chama uma investigação com Trend; o contêiner QRadar deve estar em execução antes disso. As sete tools de investigação são `investigate_case`, `investigate_offense`, `investigate_vision_alert`, `investigate_vision_event`, `investigate_epm_uac`, `investigate_web_reputation` e `investigate_demo`. Além delas, seis tools `qradar_*` expõem AQL personalizada, resources, status e paginação de eventos/flows/payload, e `qradar_verify_offense`/`qradar_get_rule` fazem a verificação de offense e leitura de metadados das regras. São 18 tools, incluindo descoberta/lotes de offenses e `trend_find_alerts`, que lista Workbench sem ID e sem conexão QRadar. Veja [AQL](dynamic-aql.md) e [verificação de evidências](offense-verification.md). As tools qradar_* usam somente QRadar, sem iniciar o Trend.
 
+> **Usa WSL?** Se o Kiro roda no Windows e a ponte Python no WSL 2, siga o [guia WSL](guia-wsl.md). Nesse caso `configure_kiro.py` executado dentro do WSL gera um caminho Linux que o Kiro do Windows não consegue iniciar.
+
 > **Dados reais:** somente pessoas autorizadas devem acessar os ambientes. Uma resposta MCP com telemetria real entra no contexto do modelo configurado no Kiro. Confirme a política de dados da sua organização antes de investigar incidentes reais. Não publique relatórios ou credenciais.
 
 ## 1. Pré-requisitos
@@ -157,7 +159,7 @@ No Windows, se o comando `kiro` estiver disponível (`Get-Command kiro`), feche 
 
 O script volta a executar `configure_kiro.py`, preserva configurações já existentes, pede a chave Trend de forma oculta e pede o token QRadar via `Read-Host -AsSecureString`. Se você configurou o QRadar MCP da IBM para usar `config.json` e **não existe `QRADAR_MCP_TOKEN` herdado no ambiente**, pode pressionar Enter no prompt do token: a ponte não enviará `SEC`, cabendo ao servidor da IBM autenticar com a configuração dele. Se sua implantação da IBM exige credencial no cabeçalho, informe o token Authorized Service: a ponte o enviará como `SEC`. **Enter não apaga um `QRADAR_MCP_TOKEN` que já esteja definido no ambiente do processo**; nesse caso, a ponte continuará enviando o cabeçalho. O script coloca os valores no ambiente do processo que lança `kiro .` e restaura o ambiente anterior ao terminar. A credencial pode continuar na memória do processo iniciado; não a grave em arquivos, histórico nem chat.
 
-Se `Get-Command kiro` não encontrar o executável, o script não inicia o IDE. Você pode abrir a pasta pelo ícone para o demo; para um caso real, faça o processo do Kiro receber as variáveis de ambiente pelos mecanismos aprovados em sua organização e confirme como sua versão do Kiro resolve `${VAR}` em `.kiro/settings/mcp.json`. O configurador **não** injeta a API key no IDE já aberto. Não coloque chaves literais no `mcp.json`.
+Se `Get-Command kiro` não encontrar o executável, o script não inicia o IDE. Você pode abrir a pasta pelo ícone para o demo; para um caso real, faça o processo do Kiro receber as variáveis de ambiente pelos mecanismos aprovados em sua organização. Segundo a [documentação do Kiro](https://kiro.dev/docs/mcp/configuration/), `${VAR}` em `.kiro/settings/mcp.json` só é expandido para variáveis aprovadas em **Settings → Mcp Approved Env Vars**. O configurador **não** injeta a API key no IDE já aberto. Não coloque chaves literais no `mcp.json`.
 
 Em **MCP Servers**, confirme `soc-bridge-readonly` conectado. Execute novamente `investigate_demo` para verificar a ponte. Depois use **um ID autorizado**:
 
@@ -179,6 +181,7 @@ Para um alerta Trend, substitua a referência por `"<ID_WORKBENCH_AUTORIZADO>"`.
 | HTTP 401 no QRadar MCP | Confira se a ponte recebeu `QRADAR_MCP_TOKEN`: presente, ela envia `SEC`; ausente, não envia. Depois confira como **o QRadar MCP da IBM** está configurado para autenticar a requisição (arquivo `config.json` ou credencial no cabeçalho), além de expiração, role e Security Profile. |
 | Vision One falha na inicialização | Confira `docker info`, imagem, chave, região e role Workbench/Search; `docker pull` pode revelar problema de acesso à imagem. |
 | Kiro mostra “Python was not found” | Rode novamente `configure_kiro.py`; `command` no `mcp.json` deve apontar para o Python absoluto da `.venv`. |
+| Kiro no Windows e ponte no WSL: `soc-bridge-readonly` não conecta | Siga o [guia WSL](guia-wsl.md): o `command` precisa ser `wsl.exe`, gerado por `scripts/configure_kiro_wsl.py`. |
 | O demo funciona, mas o caso real falha | A ponte local está instalada; leia **a etapa da falha** no erro para distinguir QRadar MCP, Docker/Trend, autenticação ou coleta. |
 | Horários não casam | Confirme o fuso real do console QRadar. O offset inicial `QRADAR_AQL_UTC_OFFSET_HOURS=-3` é uma suposição, não uma medição; pode variar por instalação e data. |
 
