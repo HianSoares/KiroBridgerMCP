@@ -19,16 +19,20 @@ Decisions must follow from evidence: each disposition and each closing reason ha
 
 ### Requirement 2 — Precisely scoped confirmations
 
-**User Story:** As an analyst, I want my external records to count only for what they name, so that an authorization for one process on one host does not close other hosts or other commands.
+**User Story:** As an analyst, I want my external records to count only for the behavior they name, so that an authorization for one action on one host does not close other hosts, other commands of the same interpreter or other privileged commands.
 
 #### Acceptance Criteria
 
-1. THE SYSTEM SHALL accept for authorization, malicious_activity_confirmed and detection_error a scope with activity, entities and window, plus source and reference. A `process_execution` scope SHALL name the processes and MAY restrict command lines and parent processes; a `script_execution` scope SHALL name the script block IDs.
-2. THE SYSTEM SHALL evaluate each observed instance on its own: each process creation (host, image, command line, parent, time), each script block, and each entity of the other activities (with the times of its records).
-3. WHEN an instance's entity, process/chain or time is not covered by a scoped record THE SYSTEM SHALL keep the requirement unmet and SHALL list that instance with the reason.
-4. WHEN an instance otherwise matches a record but falls outside its window THE SYSTEM SHALL record an unresolved contradiction affecting that requirement.
-5. THE SYSTEM SHALL reject window times without an explicit timezone and SHALL NOT interpret local times as UTC.
-6. THE SYSTEM SHALL label every confirmation as analyst-supplied and not verified by the bridge.
+1. THE SYSTEM SHALL accept for authorization, malicious_activity_confirmed and detection_error a scope with activity, entities and window, plus source and reference.
+2. A `process_execution` scope SHALL name the processes and at least one behavior discriminator: exact command lines, script paths, artifact hashes, process instances, or an explicit breadth quoted from the external record. THE SYSTEM SHALL reject an artifact hash as the only discriminator of an interpreter (PowerShell, cmd, Python, bash and similar).
+3. A `privilege_use` scope SHALL name exact commands, an explicit identity switch (su) or an explicit breadth quoted from the record, and MAY restrict the run-as accounts. A `script_execution` scope SHALL name the script block IDs.
+4. THE SYSTEM SHALL evaluate each observed instance on its own: each process creation (host, image, original command line, executed script, hashes, instance, parent, time), each script block, each sudo command or su switch (host, account, run-as, command, times), and each entity of the other activities (with the times of its records).
+5. WHEN an instance's entity, behavior/chain or time is not covered by a scoped record THE SYSTEM SHALL keep the requirement unmet and SHALL list that instance with the reason. Command lines SHALL be compared as original strings.
+6. WHEN a broad authorization covers instances THE SYSTEM SHALL show it in the requirement evidence, the confidence basis and the note as declared by the external record.
+7. THE SYSTEM SHALL evaluate every collected instance up to an analysis cap independent of the presentation caps; instances it cannot evaluate SHALL be counted per activity with reason and next action, and SHALL keep authorization and detection error unmet without blocking conclusions that do not depend on them.
+8. WHEN an instance otherwise matches a record but falls outside its window THE SYSTEM SHALL record an unresolved contradiction affecting that requirement.
+9. THE SYSTEM SHALL reject window times without an explicit timezone and SHALL NOT interpret local times as UTC.
+10. THE SYSTEM SHALL label every confirmation as analyst-supplied and not verified by the bridge.
 
 ### Requirement 3 — Contradictions
 
@@ -42,13 +46,15 @@ Decisions must follow from evidence: each disposition and each closing reason ha
 
 ### Requirement 4 — QRadar↔Trend link
 
-**User Story:** As an analyst, I want a related Trend alert to confirm malicious activity in the offense only when both describe the same activity.
+**User Story:** As an analyst, I want a related Trend alert to confirm malicious activity in the offense only when the offense activity is the malicious execution or its demonstrated chain.
 
 #### Acceptance Criteria
 
-1. THE SYSTEM SHALL treat a related Trend alert as linked to the offense only when an offense-linked QRadar process record (INOFFENSE query) and the alert share a full file hash or the exact command line on the same host.
-2. WHEN a True Positive alert is related only by IP/time or weaker identifiers THE SYSTEM SHALL NOT confirm malicious activity, SHALL record an unresolved contradiction against benign dispositions and SHALL propose a pivot to demonstrate or exclude the link.
-3. THE SYSTEM SHALL NOT count QRadar records as corroboration unless they demonstrate the same activity as the second source.
+1. THE SYSTEM SHALL compare the offense-linked QRadar process records (INOFFENSE query) with the Trend records that sustain the malicious discriminator (executed instance with a high-risk verdict on its hash), not with alert-level observables.
+2. THE SYSTEM SHALL demonstrate a link only for the same execution (same endpoint, same artifact, equal PID or identical original command line, execution times within the tolerance) or for a parent/child relation shown by PID and launch times on the same endpoint, and SHALL describe the relation.
+3. THE SYSTEM SHALL NOT use a file hash alone, a parent or object hash, hashes of one endpoint with the hostname of another, or the alert creation time as an execution time to demonstrate a link.
+4. WHEN the link is not demonstrated THE SYSTEM SHALL keep a candidate association, SHALL NOT confirm malicious activity or corroboration, SHALL record an unresolved contradiction against benign dispositions and SHALL propose a pivot to verify the link.
+5. THE SYSTEM SHALL persist the structured basis (instances, roles, endpoints, times, verdict hashes, observables with role/source/cut flag) so the evaluation can be repeated without new calls.
 
 ### Requirement 5 — Sustained conclusions and confidence
 

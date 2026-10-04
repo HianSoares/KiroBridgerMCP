@@ -18,6 +18,9 @@
 - [x] 5. Correlation tiers and separate clocks in consolidated evidence
   - `case_store.TIERS`, `merge_query`, `merge_trend`; count comparison kept unresolved by the collector
   - _Requirements: 4.1, 4.2, 4.3_
+- [x] 5a. Absolute global deadline: a cut call closes the phase even when the budget clock lags the event loop timer
+  - `Budget.deadline_floor`, `Budget.now`; `test_case_review_round2.DeadlineTests`, `test_collection_deadline_dedup`
+  - _Requirements: 5.1, 5.2, 5.3_
 - [x] 6. Synthetic tests
   - `PivotTests`, `CaseFlowTests`, `ResumeTests`, `test_case_review_regressions`
   - _Requirements: 1.1-4.4_

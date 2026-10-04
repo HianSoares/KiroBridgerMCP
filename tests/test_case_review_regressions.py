@@ -19,6 +19,7 @@ from soc_bridge.closure_scope import validate_scope
 from soc_bridge.offense_evidence import collect_offense_evidence, resume_mismatch
 
 from synthetic_lab import G_OTHER, G_PS, HOST, IP, MS, NOW, SHA, Lab, offense, row, sysmon
+from test_case_review_round2 import tp_report
 
 OTHER_HOST = "ws-demo-02.example.test"
 WINDOW = {"window_start": "2026-10-09T15:00:00+00:00", "window_end": "2026-10-09T17:00:00+00:00"}
@@ -35,22 +36,23 @@ def plain_rows(count=7):
 
 
 def process_rows():
-    return [row(sysmon(G_PS, 4321, "C:\\Tools\\synthetic.exe", "synthetic.exe --run", hashes=f"SHA256={SHA}"),
-                name="Process Create")]
+    return [row(sysmon(G_PS, 4321, "C:\\Tools\\synthetic.exe", "synthetic.exe --run", parent_pid=1000,
+                       hashes=f"SHA256={SHA}"), name="Process Create")]
 
 
 def trend_overview(alert_id="WB-SYNTH-2", host=HOST, classification="True Positive", with_ids=True):
-    observables = {"hash": [{"value": SHA.lower()}], "host": [{"value": host}],
-                   "command": [{"value": "synthetic.exe --run"}]} if with_ids else {}
-    report = {"assessment": {"classification": classification, "facts": ["synthetic execution and discriminator"]},
-              "extraction": {"observables": observables}, "auto_pivots": {"records": {}}}
+    # The True Positive rests on a linked executed instance with a sandbox verdict (see test_case_review_round2).
+    report = tp_report(host=host, classification=classification, with_records=with_ids,
+                       observables=None if with_ids else {})
     return {"alerts": [{"alert_id": alert_id}], "deepened_alerts": {
         "state": "collected", "not_deepened": [], "investigations": [
             {"alert_id": alert_id, "state": "collected", "report": report,
              "association": {"temporal_check": "within window", "match_fields": ["impactScopeEntityValue"]}}]}}
 
 
-def authorization(reference="CHG-SYNTH-21", entities=(HOST,), processes=("synthetic.exe",), **extra):
+def authorization(reference="CHG-SYNTH-21", entities=(HOST,), processes=("synthetic.exe",),
+                  command_lines=("synthetic.exe --run",), **extra):
+    extra.setdefault("command_lines", list(command_lines))
     return {"requirement": "authorization", "source": "Change system", "reference": reference,
             "scope": {"activity": "process_execution", "entities": list(entities), "processes": list(processes),
                       **WINDOW, **extra}}
@@ -83,7 +85,9 @@ class ReassessmentKeepsTrendEvidenceTests(unittest.TestCase):
             with mock.patch("soc_bridge.core.investigate", mock.AsyncMock(side_effect=RuntimeError("synthetic"))):
                 failing = run(investigate_offense_case(lab, object(), 12345, store=store, now=NOW))
             self.assertEqual(failing["decision"]["disposition"]["category"], "malicious_confirmed")
-            self.assertEqual(store.load("offense-12345")["trend"]["earlier_results_kept"], ["WB-SYNTH-2"])
+            trend = store.load("offense-12345")["trend"]
+            self.assertEqual(trend["alerts"]["WB-SYNTH-2"]["current"]["classification"], "True Positive")
+            self.assertEqual([r["state"] for r in trend["runs"]], ["collected", "not_requested", "unavailable"])
 
 
 class OffenseIsolationTests(unittest.TestCase):
@@ -218,9 +222,9 @@ class CorrelationTests(unittest.TestCase):
     """Finding 4: a True Positive related only by IP/time confirmed malice and raised confidence."""
 
     def result(self, host=HOST, scope="offense_linked"):
-        return {"queries": {"events": {"returned_rows": 25}}, "processes": {"process_creations": [{
+        return {"queries": {"events": {"returned_rows": 25}}, "processes": {"process_instances": [{
             "host_norm": host, "command_line": "synthetic.exe --run", "image": "C:\\Tools\\synthetic.exe",
-            "hashes": {"SHA256": {"value": SHA, "comparable": True}},
+            "pid": "4321", "utc_time": "2026-10-09 16:00:01.000", "hashes": {"SHA256": SHA},
             "provenance": {"query": "events", "scope": scope, "search_id": "s1", "result_row_index": 0}}]}}
 
     def trend(self, **kw):
@@ -247,13 +251,15 @@ class CorrelationTests(unittest.TestCase):
         self.assertEqual(contradictions, [])
         link = findings["malicious_activity_confirmed"]["link"]
         self.assertEqual(link["level"], "demonstrated")
-        self.assertEqual(set(link["matches"][0]["shared_identifiers"]), {"file hash", "exact command line"})
+        self.assertEqual(set(link["matches"][0]["shared_identifiers"]),
+                         {"file hash", "identical image path", "process ID",
+                          "identical command line (original string)", "compatible execution time"})
 
     def test_uncorroborated_analyst_malice_record_is_not_high_confidence(self):
         base = ScopeTests().result()
         record = {"requirement": "malicious_activity_confirmed", "source": "IR ticket", "reference": "IR-SYNTH-3",
                   "scope": {"activity": "process_execution", "entities": [HOST], "processes": ["powershell.exe"],
-                            **WINDOW}}
+                            "command_lines": ["powershell.exe -File C:\\ops\\backup.ps1"], **WINDOW}}
         result = closure_assessment.propose(base, [record], [], {"corroborated": False})
         self.assertEqual(result["disposition"]["category"], "malicious_confirmed")
         self.assertEqual(result["confidence_detail"]["level"], "moderate")
@@ -284,7 +290,7 @@ class ScopeTests(unittest.TestCase):
                 "closing_reasons": {"state": "collected", "reasons": [{"id": 1, "text": "Non-Issue"}]}}
 
     def test_each_instance_needs_its_own_entity_process_and_window(self):
-        record = authorization(processes=("powershell.exe",))
+        record = authorization(processes=("powershell.exe",), command_lines=("powershell.exe -File C:\\ops\\backup.ps1",))
         result = closure_assessment.propose(self.result(), [record])
         evidence = result["requirements"]["authorization"]["evidence"]
         self.assertFalse(result["ready_to_close"])
@@ -294,19 +300,21 @@ class ScopeTests(unittest.TestCase):
         self.assertEqual(len(uncovered), 2)
         self.assertTrue(any(OTHER_HOST in k and "entity" in v for k, v in uncovered.items()))
         self.assertTrue(any("process cmd.exe not named" in v for v in uncovered.values()))
+        self.assertTrue(all(u["process"]["command_line"] for u in evidence["uncovered_instances"]))
         self.assertIn("2 uncovered instance(s)", result["requirements"]["authorization"]["next_check"])
 
     def test_command_line_and_parent_restrictions_are_enforced(self):
         narrow = authorization(entities=(HOST, OTHER_HOST), processes=("powershell.exe", "cmd.exe"),
-                               command_lines=["powershell.exe -File C:\\ops\\backup.ps1"])
+                               command_lines=("powershell.exe -File C:\\ops\\backup.ps1",))
         evidence = closure_assessment.propose(self.result(), [narrow])["requirements"]["authorization"]["evidence"]
         self.assertEqual(len(evidence["covered_instances"]), 2)
-        self.assertIn("command line not named", evidence["uncovered_instances"][0]["reason"])
+        self.assertIn("command line not identical", evidence["uncovered_instances"][0]["reason"])
+        both = ("powershell.exe -File C:\\ops\\backup.ps1", "cmd.exe /c whoami")
         parent = authorization(entities=(HOST, OTHER_HOST), processes=("powershell.exe", "cmd.exe"),
-                               parent_processes=["services.exe"])
+                               command_lines=both, parent_processes=["services.exe"])
         evidence = closure_assessment.propose(self.result(), [parent])["requirements"]["authorization"]["evidence"]
         self.assertEqual(evidence["covered_instances"], {})
-        full = authorization(entities=(HOST, OTHER_HOST), processes=("powershell.exe", "cmd.exe"))
+        full = authorization(entities=(HOST, OTHER_HOST), processes=("powershell.exe", "cmd.exe"), command_lines=both)
         result = closure_assessment.propose(self.result(), [full])
         self.assertEqual(result["requirements"]["authorization"]["status"], "confirmed")
         self.assertTrue(result["ready_to_close"])
@@ -316,7 +324,7 @@ class ScopeTests(unittest.TestCase):
             validate_scope({"activity": "process_execution", "entities": [HOST], **WINDOW})
         with self.assertRaisesRegex(ValueError, "script_block_ids is required"):
             validate_scope({"activity": "script_execution", "entities": [HOST], **WINDOW})
-        with self.assertRaisesRegex(ValueError, "apply only"):
+        with self.assertRaisesRegex(ValueError, "do not apply to a network_traffic scope"):
             validate_scope({"activity": "network_traffic", "entities": [IP], "processes": ["x.exe"], **WINDOW})
 
 

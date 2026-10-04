@@ -14,7 +14,7 @@
    - contexto.
 
    Falha determinística (`requires_resolution`) não é repetida. Falha transitória (`retryable`) tem uma nova tentativa. Pivô já executado com o mesmo motivo é `skipped_repeat`.
-7. **Correlação:** usa os alertas Trend relacionados, com profundidade de alerta (até dois, orçamento compartilhado, sem recursão). Os alertas são encontrados por IP e horário da offense; isso os torna candidatos, não o mesmo incidente. O vínculo só é `demonstrated` quando um registro de processo da offense (consulta INOFFENSE) e o alerta compartilham hash completo ou linha de comando exata no mesmo host. Os resultados ficam gravados no caso. Cada registro fica no nível de vínculo demonstrado:
+7. **Correlação:** usa os alertas Trend relacionados, com profundidade de alerta (até dois, orçamento compartilhado, sem recursão). Os alertas são encontrados por IP e horário da offense; isso os torna candidatos, não o mesmo incidente. O vínculo só é `demonstrated` quando o processo QRadar da offense (consulta INOFFENSE) é a própria instância Trend que sustenta o veredito malicioso ou seu pai/filho demonstrado (detalhes em "Alertas Trend"). As tentativas e os fatos ficam gravados no caso, por alerta. Cada registro fica no nível de vínculo demonstrado:
    - associado à offense;
    - vinculado ao alerta;
    - identificador demonstrado;
@@ -30,12 +30,17 @@
 - **Motivos customizados:** só são avaliados com definição local (`SOC_BRIDGE_CLOSING_REASONS`, JSON com `requires` e `definition`).
 - **Escopo das confirmações:** autorização, malícia confirmada e erro de detecção exigem escopo, além de fonte e referência:
   - atividade, entidades e janela com fuso explícito (`Z` ou `-03:00`); horário sem fuso é recusado, nunca lido como UTC;
-  - `process_execution`: `processes` obrigatório (nome ou caminho completo), `command_lines` e `parent_processes` opcionais;
+  - `process_execution`: `processes` (nome ou caminho completo) e ao menos um descritor de comportamento — `command_lines` (texto exato), `script_paths`, `artifact_hashes` (não aceito sozinho para intérpretes como PowerShell, cmd, Python e bash), `process_instances` (ProcessGuid) ou `breadth: "any_behavior_of_named_processes"` com `breadth_basis` citando o registro; `parent_processes` opcional;
+  - `privilege_use`: `commands` (comandos sudo exatos), `identity_switch: true` (su) ou `breadth: "any_privileged_command_of_named_accounts"` com `breadth_basis`; `run_as` opcional;
   - `script_execution`: `script_block_ids` obrigatório.
 
-  Cada instância observada é avaliada por entidade, processo/cadeia e janela: autorizar `powershell.exe` no host-a não cobre processos no host-b nem outros comandos no host-a. As instâncias não cobertas ficam listadas (`uncovered_instances`). Uma autorização genérica de host, conta ou aplicação não cobre toda atividade observada. Instância fora da janela do registro vira contradição não resolvida.
-- **Alertas Trend:** um alerta True Positive com vínculo demonstrado confirma atividade maliciosa e contradiz as disposições benignas. Com relação só por IP/horário (`candidate`), ele não confirma malícia nem corrobora a coleta QRadar; vira contradição não resolvida contra as disposições benignas e gera o pivô `verify_alert_link`.
-- **Reavaliação:** usa a coleta QRadar e os resultados Trend gravados; uma reavaliação nunca perde evidência de malícia por não consultar a Trend de novo.
+  Cada instância observada é avaliada por entidade, comportamento/cadeia e janela: autorizar o backup `-File C:\ops\backup.ps1` no host-a não cobre processos no host-b, outro script, o mesmo script com argumentos adicionais nem um `-EncodedCommand` no host-a; autorizar `systemctl status oracle-db` via sudo não cobre `/bin/bash` da mesma conta. Linhas de comando são comparadas como texto original (maiúsculas e espaços contam). As instâncias não cobertas ficam listadas (`uncovered_instances`); as não avaliadas aparecem em `instances_not_evaluated` com quantidade, motivo e ação, e nunca contam como cobertas. Autorização abrangente só vale quando declarada pelo registro externo e aparece no relatório e na nota. Instância fora da janela do registro vira contradição não resolvida.
+- **Alertas Trend:** a comparação usa os registros Trend que sustentam o veredito (instância executada com hash de veredito malicioso), não os observables do alerta.
+  - **Mesma execução:** mesmo host, mesmo artefato (hash ou caminho idêntico), PID igual ou linha de comando idêntica e horários de execução compatíveis (±2 s; Sysmon `UtcTime` ou horário do dispositivo).
+  - **Cadeia:** o processo QRadar é pai ou filho da instância maliciosa, demonstrado por PID e horário de início no mesmo host, e descrito como tal.
+  - **Candidato:** hash de arquivo isolado, hash do processo pai ou de objeto, hashes de um endpoint com o nome de outro, ou o horário de criação do alerta não demonstram vínculo; o alerta continua `candidate`, não confirma malícia nem corrobora, vira contradição não resolvida contra as disposições benignas e gera o pivô `verify_alert_link`.
+- **Revisão de fatos:** uma nova coleta inconclusiva, timeout ou falha não apaga fatos anteriores. Fatos só são refutados por evidência pertinente (nova avaliação sustentada como False Positive ou Benign True Positive, ou registro `trend_finding_refuted` do analista), com fundamento, fonte e fatos substituídos registrados.
+- **Reavaliação:** usa a coleta QRadar e os fatos Trend gravados, não apenas o último relatório.
 - **Confiança:**
 
   | Nível | Critério |
@@ -57,5 +62,7 @@
 - **Validação:** testado somente com dados sintéticos; nenhuma execução contra QRadar ou Vision One reais.
 - **Fontes fora da ponte:** autorização, mudanças, testes da CRE, remediação e inventários exigem registros citados pelo analista.
 - **Pivôs propostos:** particionar consultas, investigar alertas não aprofundados e verificar o vínculo de um alerta candidato são propostos, não executados automaticamente.
-- **Vínculo Trend:** depende de registros de criação de processo (Sysmon 1/4688 com hash ou linha de comando) nos eventos da offense. Sem eles, alertas relacionados permanecem candidatos.
+- **Vínculo Trend:** depende de registros de criação de processo (Sysmon 1/4688 com PID ou linha de comando e horário) nos eventos da offense e de registros Trend com a instância executada (PID, horário de início, hash com veredito). Sem eles, alertas relacionados permanecem candidatos.
+- **Scripts:** `script_paths` reconhece as formas comuns de chamada (`-File`, primeiro argumento); sintaxes incomuns não são cobertas e exigem a linha de comando exata.
+- **Limites de análise:** até 5000 criações de processo, script blocks e comandos sudo/su por classe; acima disso, as instâncias excedentes são declaradas não avaliadas.
 - **Armazenamento:** veja [casos locais](case-store.md).

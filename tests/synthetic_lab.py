@@ -21,8 +21,8 @@ def offense(oid=12345, **extra):
 
 
 def sysmon(guid, pid, image, command_line, parent_guid=None, parent_pid=None, host=HOST,
-           hashes=None, tail=""):
-    parts = [f"EventID=1 Computer={host} Process Create: RuleName: - UtcTime: 2026-10-09 16:00:01.000",
+           hashes=None, tail="", utc="2026-10-09 16:00:01.000"):
+    parts = [f"EventID=1 Computer={host} Process Create: RuleName: - UtcTime: {utc}",
              f"ProcessGuid: {guid}", f"ProcessId: {pid}", f"Image: {image}", f"CommandLine: {command_line}",
              "CurrentDirectory: C:\\Users\\demo.user\\", "User: EXAMPLE\\demo.user", "LogonId: 0x3E7",
              "TerminalSessionId: 1"]

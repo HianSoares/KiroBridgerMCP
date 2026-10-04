@@ -62,6 +62,8 @@ Investigations must survive restarts, cancellations and chat changes. A local, v
 #### Acceptance Criteria
 
 1. WHEN a run or reassessment completes THE SYSTEM SHALL append a report revision and a decision entry and SHALL keep earlier revisions (up to 50).
-2. THE SYSTEM SHALL persist the Trend results of each run (alert, assessment, dump analysis, identifiers, association) in the case.
-3. WHEN a case is reassessed THE SYSTEM SHALL make no upstream call and SHALL evaluate the stored QRadar collection together with the stored Trend results and their links.
-4. WHEN a later run does not collect a previously collected alert (Trend not requested, unavailable or failing) THE SYSTEM SHALL keep the earlier result and SHALL say so.
+2. THE SYSTEM SHALL persist per alert and per run the Trend attempts (state, classification, error), the assessments and the structured verdict basis, and the facts they establish with their provenance.
+3. WHEN a case is reassessed THE SYSTEM SHALL make no upstream call and SHALL evaluate the stored QRadar collection together with the stored Trend facts and links, not only the latest report.
+4. WHEN a later attempt is inconclusive, times out, fails or is not requested THE SYSTEM SHALL record the attempt and SHALL keep the earlier facts sustained: not observing a fact again does not refute it.
+5. WHEN pertinent new evidence contradicts a fact (a later evaluation sustained as False Positive or Benign True Positive, or an analyst `trend_finding_refuted` record) THE SYSTEM SHALL mark the facts refuted and SHALL record the basis, the source and the replaced facts; a refuted instance observed again with a malicious verdict SHALL be re-established with its own revision.
+6. THE SYSTEM SHALL derive the current assessment from the sustained and refuted facts and SHALL keep the history.

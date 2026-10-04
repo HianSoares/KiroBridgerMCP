@@ -34,8 +34,11 @@
 
 ## Trend results and reassessment (`case_investigation.py`)
 
-- `compact_trend()` keeps, per deepened alert, the alert summary, assessment, dump analysis, entities, strong identifiers and association. `merge_trend_state()` keeps earlier collected alerts when the new run did not collect them (`earlier_results_kept`).
-- `bridge_findings()` (used by runs and reassessments) recomputes the QRadar↔Trend link from the stored results; see the evidence-decisions-closure spec.
+- `trend_state.apply_run(state, raw, run_id)` records the run and, per alert, an attempt; a collected report adds an assessment with its `trend_link.evidence` basis. True Positive sustains the facts `assessment:true_positive` and `malicious_instance:<uuid>:<role>`; False Positive/Benign True Positive refutes the sustained facts with a revision; anything else (Inconclusive, failure, timeout, not requested) changes no fact.
+- `trend_state.current(entry)` derives the classification: True Positive while those facts are sustained (with "not observed again" in the basis when the latest attempt differs), the refuting classification, `Refuted` after an analyst refutation, else the latest collected assessment.
+- `trend_state.migrate()` converts states written by the previous format.
+- `bridge_findings()` (used by runs and reassessments) evaluates the link against the sustained instances and keeps demonstrated links as `qradar_link` facts; see the evidence-decisions-closure spec.
+- `reassess_case()` applies `trend_finding_refuted` records (alert and fact IDs validated against the case) before the evaluation.
 - `reassess_case()` rebuilds the decision from `last_result`, the stored rows and the stored Trend results. It makes no upstream call.
 - `collection_now` is stored on the first run and reused, so the same windows are planned.
 
@@ -57,6 +60,7 @@
 - `tests/test_professional_investigation.py`: `StoreTests`, `ResumeTests`, `CaseFlowTests`.
 - `tests/test_case_review_regressions.py`:
   - `ReassessmentKeepsTrendEvidenceTests`: reassessment, run without Trend and run with Trend failing keep the linked True Positive.
+- `tests/test_case_review_round2.py`: `EvidencePreservationTests` — inconclusive re-collection, timeout, Trend failure, refutation by a sustained False Positive and by an analyst record.
   - `OffenseIsolationTests`: case bound to another offense refused before any call; saved job of another offense/query never continued.
   - `CheckpointCancellationTests`: real `task.cancel()` during pagination, during creation and before the first call.
   - `ConcurrencyTests`: two processes (spawn) and two threads writing the same revision.

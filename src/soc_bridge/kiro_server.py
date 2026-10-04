@@ -392,8 +392,11 @@ async def investigate_offense_case(offense_id: int, case_id: str = "", qradar_ut
     rows. Call again with the same case_id to continue; a case_id bound to another offense is
     refused, and a saved job is resumed only for the same offense, database, scope and AQL.
     A related Trend True Positive confirms malicious activity only when an offense-linked
-    process record shares its file hash or exact command line on the same host; an IP/time
-    relation stays a candidate that blocks benign closure. Trend results are kept in the case.
+    QRadar process is the Trend instance that carries the malicious verdict (same host and
+    artifact, equal PID or identical command line, compatible execution times) or its
+    demonstrated parent/child; a shared hash, IP or time alone stays a candidate that blocks
+    benign closure. Trend attempts and facts are kept per alert: an inconclusive, failed or
+    skipped re-collection never erases facts established earlier.
     rerun_queries lists query names to start again as NEW jobs (for example after an expired
     or uncertain job). Writes only the local case file; nothing is closed, posted or contained.
     """
@@ -414,15 +417,21 @@ async def reassess_case(case_id: str, confirmations: list[dict] | None = None) -
     "remediation_verified"|"primary_offense"|"administrative_decision", "source": "...",
     "reference": "...", "summary": "...", "scope": {"activity": "<observed activity>",
     "entities": ["host/account/IP"], "window_start": "ISO-8601 with timezone",
-    "window_end": "ISO-8601 with timezone", "processes": ["powershell.exe" or full path]
-    (required for process_execution), "command_lines": [...] and "parent_processes": [...]
-    (optional, process_execution), "script_block_ids": [...] (required for script_execution)}}].
-    Scope is required for authorization, malicious_activity_confirmed and detection_error to
-    count. Each observed instance (process creation, script block, entity of another activity)
-    is evaluated on its own entity, process/chain and window; uncovered instances are listed.
-    Times without a timezone are rejected. Stored Trend results are reused, so evidence of
-    malicious activity is never dropped. Records stay labelled as analyst-supplied. Adds a new
-    report revision; earlier revisions are kept.
+    "window_end": "ISO-8601 with timezone", ...}}]. process_execution: "processes" plus at
+    least one behavior field — "command_lines" (exact original strings), "script_paths",
+    "artifact_hashes" (not for interpreters such as powershell/cmd/python/bash),
+    "process_instances" (ProcessGuid) or "breadth": "any_behavior_of_named_processes" with
+    "breadth_basis" quoting the record; optional "parent_processes". privilege_use: "commands"
+    (exact sudo commands), "identity_switch": true (su) or "breadth":
+    "any_privileged_command_of_named_accounts" with "breadth_basis"; optional "run_as".
+    script_execution: "script_block_ids". Scope is required for authorization,
+    malicious_activity_confirmed and detection_error to count. Each observed instance is
+    evaluated on its own entity, behavior/chain and window; uncovered and not-evaluated
+    instances are listed. Times without a timezone are rejected. To revise stored Trend facts
+    with new evidence, add {"requirement": "trend_finding_refuted", "alert_id": "...",
+    "source": "...", "reference": "...", "summary": "<the refuting evidence>", "facts": [ids]
+    (optional)}; the replaced facts are recorded. Records stay labelled as analyst-supplied.
+    Adds a new report revision; earlier revisions are kept.
     """
     from .case_investigation import reassess_case as run
     return run(case_id, confirmations or [])

@@ -11,7 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 TOOL_LIKE = re.compile(r"`((?:investigate|qradar|trend|bridge)_[a-z_]+|list_cases|get_case|reassess_case)\b")
 # Identifiers with a tool-like prefix that are report fields, parameters or pivot actions.
 NOT_TOOLS = {"qradar_correlation", "qradar_utc_offset_hours", "investigate_related_alert", "bridge_findings",
-             "trend_link"}  # functions and modules, not tools
+             "trend_link", "trend_state", "trend_finding_refuted",
+             "qradar_link"}  # functions, modules and record types, not tools
 SPECS = ["capability-discovery-diagnostics", "case-persistence-resume", "investigation-orchestration-pivots",
          "evidence-decisions-closure", "kiro-pack-quality"]
 
@@ -82,8 +83,11 @@ class PackConsistencyTests(unittest.TestCase):
 
     def test_case_rules_match_the_implemented_behavior(self):
         steering = (ROOT / ".kiro" / "steering" / "case-workflow.md").read_text(encoding="utf-8")
-        for phrase in ("verify_alert_link", "processes", "fuso explícito", "pertence a uma offense", "uncovered_instances"):
+        for phrase in ("verify_alert_link", "processes", "fuso explícito", "pertence a uma offense", "uncovered_instances",
+                       "instances_not_evaluated", "breadth_basis", "trend_finding_refuted", "não apaga fatos anteriores"):
             self.assertIn(phrase, steering)
+        # Superseded promise: a shared hash/command line alone no longer demonstrates the link.
+        self.assertNotIn("hash completo ou linha de comando exata compartilhados", steering)
         store = (ROOT / "docs" / "case-store.md").read_text(encoding="utf-8")
         for phrase in ("bloqueio exclusivo entre processos", "Checkpoints", "Isolamento por offense",
                        "não têm identidade suficiente"):

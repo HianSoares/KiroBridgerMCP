@@ -5,13 +5,19 @@
   - _Requirements: 3.1_
 - [x] 2. Precisely scoped confirmations: per-instance coverage by entity, process/chain and window; explicit timezone
   - `closure_scope.validate_scope`, `strict_instant`, `observed_profile`, `coverage`; `closure_assessment.validate_confirmations` stores `scope` and origin; `ScopeTests`, `TimezoneTests`
-  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
+  - _Requirements: 2.1, 2.4, 2.5, 2.8, 2.9, 2.10_
+- [x] 2a. Behavior-level authorization: discriminators per activity, interpreters, sudo commands, declared breadth
+  - `_process_scope`, `_privilege_scope`, `script_invocation`, `_behavior_covered`, `broad_authorizations`; `BehaviorAuthorizationTests`
+  - _Requirements: 2.2, 2.3, 2.5, 2.6_
+- [x] 2b. Analysis lists independent of presentation caps; not-evaluated instances counted with reason and action
+  - `process_chain.process_instances`, `linux_evidence.privilege_instances`, `offense_evidence` analysis rows, `instances_not_evaluated`; `OmittedRecordsTests`
+  - _Requirements: 2.7_
 - [x] 3. Dispositions separate from catalog reasons; demonstrated malicious evidence contradicts benign categories
   - `CATEGORIES`, `CATEGORY_REASONS`, `disposition`, `disposition_matrix`, `bridge_findings`
   - _Requirements: 1.1, 1.2, 3.2, 3.3_
-- [x] 4. QRadar↔Trend link: demonstrated only by shared hash/command line on the same host; candidates block benign closure
-  - `trend_link.identifiers/link`, `bridge_findings`, pivot `verify_alert_link`; `CorrelationTests`
-  - _Requirements: 4.1, 4.2, 4.3_
+- [x] 4. QRadar↔Trend link at the activity level (same execution or demonstrated chain); candidates block benign closure; persisted basis
+  - `trend_link.evidence/link`, `bridge_findings`, pivot `verify_alert_link`; `CorrelationTests`, `ActivityLinkTests`
+  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 - [x] 5. Live catalog only; custom reasons need validated local definitions
   - `load_reason_definitions`, `SOC_BRIDGE_CLOSING_REASONS`
   - _Requirements: 1.3, 1.4_
@@ -22,5 +28,5 @@
   - `case_investigation.build_report`, `render_case_markdown`, note with evidence references
   - _Requirements: 6.1, 6.2_
 - [x] 8. Synthetic tests
-  - `ScopedDecisionTests`, `CaseFlowTests`, `test_case_review_regressions`
+  - `ScopedDecisionTests`, `CaseFlowTests`, `test_case_review_regressions`, `test_case_review_round2`
   - _Requirements: 1.1-6.2_

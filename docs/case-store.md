@@ -8,7 +8,14 @@
 - **Metadados:** snapshots dos metadados da offense com o horário da coleta.
 - **Consultas:** cada consulta com offense, banco, escopo, AQL, search ID, estado, cursor (`next_start`), último checkpoint e linhas coletadas (até 5000 por consulta), além do histórico de jobs substituídos (search ID, AQL, offense, cursor e resultado).
 - **Evidências consolidadas:** registros devolvidos por várias consultas são unidos somente quando têm a mesma origem (log source), horários de recepção e do dispositivo, QID e payload idêntico. Registros sem payload, log source ou horário de recepção não têm identidade suficiente e ficam separados por consulta, job e linha. Registros com o mesmo payload mas propriedades diferentes (por exemplo, `ProcessGuid`) também ficam separados. Cada registro guarda todas as consultas que o devolveram (`seen_in`), a base da identidade, o nível de vínculo e relógios separados (recepção, horário do dispositivo e execução).
-- **Resultados Trend:** para cada alerta aprofundado, resumo, avaliação, análise de dump, identificadores fortes e associação. Uma execução posterior sem Trend, ou com Trend indisponível, mantém os resultados anteriores e diz isso.
+- **Resultados Trend:** por alerta aprofundado e por execução:
+  - **Tentativas:** estado, classificação e erro de cada coleta.
+  - **Avaliações:** cada avaliação recebida, com a base estruturada do veredito (registros Search da instância executada, papel, endpoint, PID, horário de início, hashes e veredito de sandbox; observables com papel, fonte e indicador de corte).
+  - **Fatos:** cada fato estabelecido (`sustained` ou `refuted`), com a execução em que surgiu e em que foi visto pela última vez, e a fonte.
+  - **Revisões:** cada revisão com fundamento, fonte e fatos substituídos.
+  - **Avaliação atual:** derivada dos fatos.
+
+  Uma coleta posterior inconclusiva, com timeout, com falha ou sem Trend registra a tentativa e mantém os fatos: não observar de novo não é refutar.
 - **Raciocínio:** pivôs, hipóteses, contradições e pendências.
 - **Confirmações do analista:** com origem explícita, "analyst-supplied; not verified by the bridge".
 - **Histórico:** decisões e revisões do relatório (até 50), sem apagar as anteriores.
@@ -24,7 +31,8 @@ Tokens, cabeçalhos de autenticação, sessões MCP e clientes de rede não são
 - **Retomada:** a retomada continua o mesmo job Ariel a partir do cursor salvo. Um resultado completo é reutilizado sem nova chamada.
 - **Criação incerta:** uma criação incerta (`creation_uncertain`) não é recriada. Confira no QRadar se o job existe e, se necessário, peça explicitamente `rerun_queries=["<nome>"]`.
 - **Sem garantia de execução única:** se o processo parar depois que o QRadar criou o job, mas antes de a resposta chegar, o caso fica com `creation_uncertain` sem o search ID. Cancelar localmente não prova que o upstream não criou o job.
-- **Reavaliação:** `reassess_case` usa a coleta QRadar e os resultados Trend gravados, sem consultas novas.
+- **Reavaliação:** `reassess_case` usa a coleta QRadar e os fatos Trend gravados, sem consultas novas. Um registro `trend_finding_refuted` do analista refuta fatos de um alerta com fundamento e fonte registrados.
+- **Listas de análise:** o resultado gravado guarda todas as criações de processo, script blocks e comandos sudo/su (até 5000 por classe) para as decisões; os relatórios continuam mostrando no máximo 100. Linhas de comando acima de 8192 caracteres ficam marcadas como cortadas.
 
 ## Retenção e exclusão
 

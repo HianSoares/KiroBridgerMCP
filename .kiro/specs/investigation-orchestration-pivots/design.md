@@ -25,6 +25,10 @@
 8. `bridge_findings` + `closure_assessment.propose(..., contradictions, bridge_findings)`. A deepened True Positive confirms malicious activity and corroborates the QRadar evidence only with a demonstrated link (shared hash or exact command line in an offense-linked process record on the same host). An IP/time relation stays a candidate: an unresolved contradiction against benign dispositions plus a `verify_alert_link` pivot.
 9. `build_report` → save a revision → return the report.
 
+## Deadline (`ariel_collection.Budget`)
+
+`Budget.run()` bounds each call with `asyncio.wait_for`. The event loop may fire that timer up to one clock resolution early (15.6 ms with `GetTickCount64` on Windows before Python 3.13), while the budget clock (`time.monotonic`) still shows a few milliseconds left; the next call could then start. When a call is cut, `deadline_floor` is set to the instant the timer stood for (`start + allowed time`), and `now()` never goes below it, so `remaining_seconds()`/`blocked()` see the phase as used. Later phases keep their reservations. Tests use a frozen budget clock to make this deterministic (`test_case_review_round2.DeadlineTests`).
+
 ## Planner (`pivot_planner.py`)
 
 Pivot actions:

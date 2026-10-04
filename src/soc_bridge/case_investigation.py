@@ -15,7 +15,7 @@ import asyncio
 from datetime import datetime, timezone
 from typing import Any
 
-from . import closure_assessment, pivot_planner, scenarios, trend_link
+from . import closure_assessment, pivot_planner, scenarios, trend_link, trend_state
 from .ariel_collection import Budget, CheckpointFailed
 from .case_store import CaseStore, merge_query, merge_trend, now_iso, scrub
 from .core import iso
@@ -27,77 +27,63 @@ def _strip(result: dict) -> dict:
     return {k: v for k, v in result.items() if k != "collected_rows"}
 
 
-def compact_trend(trend: dict, run_id: str) -> dict:
-    """What the case keeps from the Trend stage: enough to re-assess without new calls."""
-    out = {k: trend.get(k) for k in ("state", "criterion", "related_alert_ids", "not_deepened", "reason", "error")
-           if trend.get(k) is not None}
-    out["investigations"] = []
-    for item in trend.get("investigations", []):
-        entry = {k: item.get(k) for k in ("alert_id", "state", "association", "reason", "error") if item.get(k) is not None}
-        entry["collected_in_run"] = run_id
-        report = item.get("report") or {}
-        if item.get("state") == "collected":
-            entry["report"] = {"alert": report.get("alert"), "assessment": report.get("assessment"),
-                               "dump_analysis": report.get("dump_analysis"), "entities": report.get("entities"),
-                               "identifiers": report.get("identifiers") or trend_link.identifiers(report)}
-        out["investigations"].append(entry)
-    return out
+def bridge_findings(result: dict, trend: dict | None, run_id: str | None = None) -> tuple[dict, list[dict]]:
+    """Malicious activity is confirmed by a Trend alert only through a demonstrated link.
 
-
-def merge_trend_state(previous: dict | None, new: dict | None) -> dict | None:
-    """Keep collected alert results from earlier runs when this run did not collect them again."""
-    if not previous:
-        return new
-    if not new:
-        return {**previous, "state": f"from_case ({previous.get('state')})"}
-    by_id = {i["alert_id"]: i for i in previous.get("investigations", [])}
-    kept = []
-    for item in new.get("investigations", []):
-        old = by_id.get(item["alert_id"])
-        if item.get("state") == "collected" or not old or old.get("state") != "collected":
-            by_id[item["alert_id"]] = item
-        else:
-            by_id[item["alert_id"]] = {**old, "latest_attempt": {k: item.get(k) for k in ("state", "error", "reason",
-                                                                                            "collected_in_run")}}
-            kept.append(item["alert_id"])
-    merged = {**new, "investigations": list(by_id.values())}
-    kept += [i["alert_id"] for i in previous.get("investigations", [])
-             if i.get("state") == "collected" and i["alert_id"] not in {n["alert_id"] for n in new.get("investigations", [])}]
-    if kept:
-        merged["earlier_results_kept"] = sorted(set(kept))
-    return merged
-
-
-def bridge_findings(result: dict, trend: dict | None) -> tuple[dict, list[dict]]:
-    """Malicious activity is confirmed by a Trend alert only through a demonstrated link."""
+    ``trend`` is the case's per-alert state (``trend_state``) or, for a single call, the raw
+    deepening output. The link is computed against the sustained facts of each alert, so a
+    later inconclusive or failed attempt does not drop it; a link demonstrated in an earlier
+    run stays a sustained fact while the instance it links is sustained."""
+    state = trend if trend is None or "alerts" in trend else trend_state.from_raw(trend)
     findings: dict[str, Any] = {"corroborated": False}
     contradictions = []
-    for item in (trend or {}).get("investigations", []):
-        if item.get("state") != "collected":
-            continue
-        report = item.get("report") or {}
-        ids = report.get("identifiers") or trend_link.identifiers(report)
-        relation = trend_link.link(result, item["alert_id"], ids, item.get("association"))
-        item["link"] = relation
-        assessment = report.get("assessment") or {}
-        if assessment.get("classification") != "True Positive":
+    links = {}
+    for alert_id, entry in (state or {}).get("alerts", {}).items():
+        now = trend_state.current(entry)
+        instances = [x["data"] for x in entry["facts"].values() if x["kind"] == "malicious_instance"
+                     and x["status"] == "sustained"]
+        relation = trend_link.link(result, alert_id, {"malicious_instances": instances}, entry.get("association"))
+        stored = [x["data"] for x in entry["facts"].values() if x["kind"] == "qradar_link" and x["status"] == "sustained"
+                  and (entry["facts"].get(x["data"]["fact_id"]) or {}).get("status") == "sustained"]
+        if relation["level"] == "demonstrated":
+            if run_id:
+                trend_state.record_link(entry, relation, run_id)
+        elif stored:
+            relation = {"alert_id": alert_id, "level": "demonstrated", "matches": stored[:10],
+                        "basis": "link demonstrated in an earlier run and still sustained (QRadar record references kept)"}
+        entry["link"] = relation
+        links[alert_id] = relation
+        if now["classification"] != "True Positive":
             continue
         if relation["level"] == "demonstrated":
             findings.setdefault("malicious_activity_confirmed", {
-                "alert_id": item["alert_id"], "facts": (assessment.get("facts") or [])[:4],
-                "link": relation,
-                "meaning": "Trend alert-first evaluation sustained True Positive and an offense-linked QRadar record "
-                           "shares its strong identifier on the same host"})
+                "alert_id": alert_id, "facts": now["sustained_facts"][:6], "link": relation,
+                "basis": now["basis"],
+                "meaning": "Trend alert-first evaluation sustained True Positive on an executed instance, and the "
+                           "offense-linked QRadar process is that execution or its demonstrated parent/child"})
             findings["corroborated"] = True
         else:
             contradictions.append({
-                "id": f"related_alert_unlinked:{item['alert_id']}",
-                "summary": (f"Trend alert {item['alert_id']} was assessed True Positive but is related to the offense only "
-                            "by IP/time; it does not confirm malicious activity in the offense, and a benign closure "
-                            "must first demonstrate or exclude the link"),
+                "id": f"related_alert_unlinked:{alert_id}",
+                "summary": (f"Trend alert {alert_id} is assessed True Positive but the offense activity is not shown to be "
+                            "the malicious execution (only IP/time, a shared artifact or missing instance data); it does "
+                            "not confirm malicious activity in the offense, and a benign closure must first demonstrate "
+                            "or exclude the link"),
                 "affects": ["authorization", "detection_error"], "status": "unresolved",
-                "evidence": {"alert_id": item["alert_id"], "association": item.get("association"), "link": relation},
+                "evidence": {"alert_id": alert_id, "association": entry.get("association"), "link": relation},
                 "next_action": f"Look for {trend_link.REQUIRED}"})
+    for entry in (state or {}).get("alerts", {}).values():
+        for revision in entry.get("revisions", []):
+            if revision.get("replaced_facts"):
+                contradictions.append({"id": f"trend_finding_refuted:{entry['alert_id']}:{revision['run']}",
+                                       "summary": f"Trend facts of {entry['alert_id']} refuted: {revision['basis']}",
+                                       "affects": [], "status": "resolved",
+                                       "evidence": {"source": revision["source"], "replaced_facts": revision["replaced_facts"]}})
+    if state is not None:
+        state["investigations"] = trend_state.investigations(state)
+    if trend is not None and trend is not state:
+        for item in trend.get("investigations", []):
+            item["link"] = links.get(item.get("alert_id"))
     return findings, contradictions
 
 
@@ -149,8 +135,11 @@ def build_report(case: dict, result: dict, trend: dict | None, closure: dict, pi
                     "catalog_state": closure["reason_catalog_state"],
                     "custom_reason_definitions": closure["custom_reason_definitions"]},
         "related_alerts": [{"alert_id": i["alert_id"], "state": i["state"],
-                            "classification": (i.get("report") or {}).get("assessment", {}).get("classification"),
+                            "classification": ((i.get("report") or {}).get("assessment") or {}).get("classification"),
+                            "classification_basis": ((i.get("report") or {}).get("assessment") or {}).get("basis"),
                             "link": (i.get("link") or {}).get("level"),
+                            "link_relations": [m.get("relation") for m in (i.get("link") or {}).get("matches", [])],
+                            "latest_attempt": i.get("latest_attempt"),
                             "collected_in_run": i.get("collected_in_run")}
                            for i in (trend or {}).get("investigations", [])],
         "trend_state": (trend or {}).get("state", "not_requested"),
@@ -240,7 +229,7 @@ async def _run(qradar, vision, offense_id, state, save, checkpoint, offset_hours
     case["runs"][-1].update(merges=merges, budget=result.get("budget"))
     save("qradar_collected")  # QRadar progress survives a failure in later stages
     case = state["case"]
-    fresh = None
+    raw = None
     if vision is not None and include_trend:
         from .core import investigate
         try:
@@ -253,17 +242,15 @@ async def _run(qradar, vision, offense_id, state, save, checkpoint, offset_hours
                     merge_trend(case, item["alert_id"], (item["report"].get("auto_pivots") or {}).get("records"), run_id)
                     if item["alert_id"] not in case["references"]["alerts"]:
                         case["references"]["alerts"].append(item["alert_id"])
-            fresh = compact_trend(raw, run_id)
         except Exception as exc:  # Trend is a secondary source here; the QRadar case stays valid
-            fresh = {"state": "unavailable", "error": type(exc).__name__, "investigations": [], "not_deepened": []}
+            raw = {"state": "unavailable", "error": type(exc).__name__, "investigations": [], "not_deepened": []}
     elif include_trend:
-        fresh = {"state": "not_configured", "investigations": [], "not_deepened": [],
-                 "reason": "Vision One MCP not available in this session (key or Docker)"}
-    trend = merge_trend_state(case.get("trend"), fresh)
-    if trend is not None:
-        case["trend"] = scrub(trend)
-        trend = case["trend"]
-    findings, contradictions = bridge_findings(result, trend)
+        raw = {"state": "not_configured", "investigations": [], "not_deepened": [],
+               "reason": "Vision One MCP not available in this session (key or Docker)"}
+    # Each attempt is recorded per alert; earlier facts stay until pertinent evidence refutes them.
+    trend = trend_state.apply_run(case.get("trend"), raw, run_id)
+    findings, contradictions = bridge_findings(result, trend, run_id)
+    case["trend"] = trend
     closure = closure_assessment.propose({**result, "collected_rows": result.get("collected_rows", {})},
                                          case["confirmations"], contradictions, findings)
     pivots = pivot_planner.plan(result, trend, case["pivots"])
@@ -299,19 +286,32 @@ def reassess_case(case_id: str, confirmations: list | None = None, store: CaseSt
         raise ValueError("unknown case or case without a completed collection")
     offense_id = _bound_offense(case)
     new = closure_assessment.validate_confirmations(confirmations, offense_id)
+    trend = trend_state.migrate(case.get("trend"))
+    refutations = [c for c in new if c["requirement"] in closure_assessment.REVISION_RECORDS]
+    for record in refutations:
+        entry = trend["alerts"].get(record["alert_id"])
+        if entry is None:
+            raise ValueError(f"alert {record['alert_id']} has no stored Trend facts in case {case_id}")
+        unknown = [f for f in record.get("facts", []) if f not in entry["facts"]]
+        if unknown:
+            raise ValueError(f"unknown fact IDs for {record['alert_id']}: {unknown}; read them with get_case")
+    for record in refutations:
+        trend_state.refute(trend["alerts"][record["alert_id"]], record.get("facts"), "reassessment",
+                           f"analyst-supplied record (not verified by the bridge): {record['source']} {record['reference']}",
+                           record["summary"])
     known = {(c["requirement"], c["reference"], str(c.get("scope"))) for c in case["confirmations"]}
     case["confirmations"] += [c for c in new if (c["requirement"], c["reference"], str(c.get("scope"))) not in known]
     result = {**case["last_result"], "collected_rows": case["rows"]}
-    trend = case.get("trend") or {"state": "not_collected", "investigations": [], "not_deepened": []}
-    findings, contradictions = bridge_findings(result, trend)
+    findings, contradictions = bridge_findings(result, trend, "reassessment")
+    case["trend"] = trend
     closure = closure_assessment.propose(result, case["confirmations"], contradictions, findings)
     pivots = pivot_planner.plan(result, trend, case["pivots"])
     report = build_report(case, result, trend, closure, pivots, None)
     report["reassessment"] = {"upstream_calls": 0, "new_confirmations": len(new),
                               "basis": "stored QRadar collection and stored Trend results of the case plus "
                                        "analyst-supplied records",
-                              "trend_results_reused": [i["alert_id"] for i in trend.get("investigations", [])
-                                                       if i.get("state") == "collected"]}
+                              "trend_results_reused": sorted(trend.get("alerts", {})),
+                              "trend_facts_refuted_now": [r["alert_id"] for r in refutations]}
     _record(case, report, closure, pivots, "reassessment", reassessment=True)
     store.save(case, case["revision"])
     return report
@@ -328,9 +328,12 @@ def case_summary(case: dict) -> dict:
             "runs": [{k: r.get(k) for k in ("run", "stage", "started_at", "finished_at", "cancelled_at")}
                      for r in case.get("runs", [])[-5:]],
             "trend": {"state": (case.get("trend") or {}).get("state"),
-                      "alerts": [{"alert_id": i.get("alert_id"), "state": i.get("state"),
-                                  "classification": ((i.get("report") or {}).get("assessment") or {}).get("classification")}
-                                 for i in (case.get("trend") or {}).get("investigations", [])]},
+                      "alerts": [{"alert_id": a, "current": e.get("current"),
+                                  "attempts": e.get("attempts", [])[-5:], "revisions": e.get("revisions", [])[-5:],
+                                  "facts": {f: {k: x.get(k) for k in ("kind", "status", "first_run", "last_observed_run",
+                                                                      "source", "refuted_by")}
+                                            for f, x in e.get("facts", {}).items()}}
+                                 for a, e in ((case.get("trend") or {}).get("alerts") or {}).items()]},
             "evidence_records": len(case["evidence"]), "latest_report": last,
             "report_revisions": [{"revision": r.get("revision"), "generated_at": r.get("generated_at"),
                                   "decision": (r.get("decision") or {}).get("decision")}

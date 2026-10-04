@@ -296,6 +296,7 @@ class ScopedDecisionTests(unittest.TestCase):
         scope = {"activity": activity, "entities": list(entities), "window_start": start, "window_end": end}
         if activity == "process_execution":
             scope["processes"] = list(processes)
+            scope["command_lines"] = ["powershell.exe -NoProfile -File C:\\ops\\synthetic.ps1"]
         return {"requirement": "authorization", "source": "Change system", "reference": "CHG-SYNTH-7", "scope": scope}
 
     def test_sustained_when_scoped_authorization_covers_the_observed_activity(self):

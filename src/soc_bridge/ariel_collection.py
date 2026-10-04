@@ -103,6 +103,11 @@ class Budget:
     reservations: dict = field(default_factory=dict)
     phase_log: list = field(default_factory=list)
     started: float = field(init=False)
+    # Latest instant (in budget-clock units) at which a deadline already cut a call. asyncio may
+    # fire a timeout up to one clock resolution early (15.6 ms with GetTickCount64 on Windows
+    # before Python 3.13), so the budget clock can still show time left after the cut; elapsed
+    # time is never below this floor, so no new call starts in that gap.
+    deadline_floor: float = field(init=False)
 
     def __post_init__(self) -> None:
         for name in ("max_queries", "max_pages", "max_polls", "page_size", "poll_wait_seconds",
@@ -115,9 +120,13 @@ class Budget:
         if isinstance(self.max_seconds, bool) or not isinstance(self.max_seconds, (int, float)) or self.max_seconds <= 0:
             raise ValueError("Budget max_seconds must be positive")
         self.started = self.clock()
+        self.deadline_floor = self.started
+
+    def now(self) -> float:
+        return max(self.clock(), self.deadline_floor)
 
     def remaining_seconds(self) -> float:
-        return self.max_seconds - (self.clock() - self.started)
+        return self.max_seconds - (self.now() - self.started)
 
     # Reservations keep part of the budget for later phases (for example the Trend<->QRadar
     # correlation) so that broad or optional reads cannot consume it first. A phase gets its
@@ -129,7 +138,7 @@ class Budget:
 
     def enter(self, phase: str) -> None:
         self.reservations.pop(phase, None)
-        self.phase_log.append({"phase": phase, "entered_at_seconds": round(self.clock() - self.started, 3),
+        self.phase_log.append({"phase": phase, "entered_at_seconds": round(self.now() - self.started, 3),
                                "calls_made": self.calls_made, "queries_started": self.queries_started})
         self.phase = phase
 
@@ -176,13 +185,17 @@ class Budget:
             reason = ("time budget exhausted" if self.remaining_seconds() <= 0 else
                       f"time reserved for later phase(s) {self._held_by()}")
             raise BudgetExhausted(stage, started=False, reason=reason)
+        begun = self.now()
         try:
             return await asyncio.wait_for(operation(), timeout=remaining)
         except asyncio.TimeoutError:
+            # The timer marks the end of the time this phase may use, whatever the budget clock
+            # reads now: later phases keep their reservations, this phase has none left.
+            self.deadline_floor = max(self.deadline_floor, begun + remaining)
             raise BudgetExhausted(stage, started=True) from None
 
     def describe(self) -> dict:
-        return {"max_seconds": self.max_seconds, "elapsed_seconds": round(self.clock() - self.started, 3),
+        return {"max_seconds": self.max_seconds, "elapsed_seconds": round(self.now() - self.started, 3),
                 "max_queries": self.max_queries, "queries_started": self.queries_started,
                 "max_pages": self.max_pages, "pages_fetched": self.pages_fetched,
                 "max_polls": self.max_polls, "polls": self.polls, "page_size": self.page_size,

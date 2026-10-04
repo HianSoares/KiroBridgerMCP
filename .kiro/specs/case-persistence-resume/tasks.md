@@ -18,8 +18,8 @@
 - [x] 6. Conservative consolidation with identity, references, tiers, history and separate clocks
   - `evidence_identity`, `merge_query`, `merge_trend`, `epoch_utc`; `StoreTests`, `DeduplicationTests`
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6_
-- [x] 7. Trend results persisted and reused; report revisions and decisions appended; reassessment without upstream calls
-  - `compact_trend`, `merge_trend_state`, `reassess_case`; `ReassessmentKeepsTrendEvidenceTests`, `CaseFlowTests`
-  - _Requirements: 5.1, 5.2, 5.3, 5.4_
+- [x] 7. Trend attempts, facts, revisions and current assessment per alert; refutation only by pertinent evidence; reassessment without upstream calls
+  - `trend_state`, `bridge_findings`, `reassess_case`; `ReassessmentKeepsTrendEvidenceTests`, `EvidencePreservationTests`, `CaseFlowTests`
+  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
 - [x] 8. Documentation of storage, locking, checkpoints, retention and deletion (`docs/case-store.md`)
   - _Requirements: 1.5, 3.1-3.8_

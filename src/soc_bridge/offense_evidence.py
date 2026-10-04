@@ -572,6 +572,7 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
     from . import qradar_context
     result["context"] = await qradar_context.collect(
         qradar, budget, offense, result["queries"].get("events", {}).get("rows", []))
+    analysis_rows: dict[str, list] = {}
     for name, finding in result["queries"].items():
         for item in query_gaps(name, finding):
             result["gaps"].append(item["summary"])
@@ -581,6 +582,7 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
         # Keep witness rows explicitly bounded; full pages remain retrievable by search ID.
         samples = []
         rows = finding.pop("rows")
+        analysis_rows[name] = rows  # decisions use every collected row, never only the witness samples
         if keep_rows:
             result.setdefault("collected_rows", {})[name] = rows  # full rows for the case store only
         # Include distinct event/log-source witnesses before filling remaining slots.
@@ -627,7 +629,22 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
             "Windows session ID identifies a PSM recording", "username alone shows account nature"],
         **assess(result),
     }
-    result["closure_assessment"] = closure_assessment.propose(result, confirmations, **(closure_options or {}))
+    result["closure_assessment"] = closure_assessment.propose({**result, "collected_rows": analysis_rows},
+                                                              confirmations, **(closure_options or {}))
+    if not keep_rows:
+        strip_analysis_lists(result)
+    return result
+
+
+def strip_analysis_lists(result: dict) -> dict:
+    """Decision-level lists stay in the case store only; tool output keeps the presentation caps."""
+    processes = result.get("processes") or {}
+    for key in ("process_instances", "script_block_instances"):
+        if key in processes:
+            processes[f"{key}_evaluated"] = len(processes.pop(key))
+    for part in (result.get("linux") or {}).values():
+        if isinstance(part, dict) and "privilege_instances" in part:
+            part["privilege_instances_evaluated"] = len(part.pop("privilege_instances"))
     return result
 
 

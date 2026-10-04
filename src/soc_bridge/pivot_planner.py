@@ -111,14 +111,20 @@ def plan(result: dict, trend: dict | None = None, previous: list[dict] | None = 
     for item in (trend or {}).get("investigations", []):
         if item.get("state") != "collected" or (item.get("link") or {}).get("level") != "candidate":
             continue
-        ids = ((item.get("report") or {}).get("identifiers") or {})
+        instances = (((item.get("report") or {}).get("link_evidence") or {}).get("malicious_instances") or [])
         out.append(pivot("verify_alert_link", "the Trend alert and the offense describe the same activity",
-                         f"alert {item['alert_id']} related only by IP/time", "QRadar Ariel (INOFFENSE) + Vision One Search",
-                         {"alert_id": item["alert_id"], "hashes": ids.get("hashes", [])[:5],
-                          "commands": ids.get("commands", [])[:3], "hosts": ids.get("hosts", [])[:5]},
+                         f"alert {item['alert_id']}: {(item.get('link') or {}).get('why_not_demonstrated') or 'IP/time only'}",
+                         "QRadar Ariel (INOFFENSE, Sysmon 1/4688 on the endpoint) + Vision One Search",
+                         {"alert_id": item["alert_id"],
+                          "trend_instances": [{"uuid": i["trend_record"].get("uuid"),
+                                               "host": i["trend_record"].get("endpoint_host"),
+                                               "pid": i["instance"].get("pid"), "image": i["instance"].get("image"),
+                                               "launch_time_utc": i["instance"].get("launch_time_utc"),
+                                               "hashes": i["instance"].get("hashes", [])[:2]} for i in instances[:5]]},
                          "strong_identifier", {"queries": 1, "calls": 4},
-                         "an offense-linked process record shares the alert hash or exact command line on the same host",
-                         "the offense-linked records show other processes/hosts than the alert",
+                         "an offense-linked process record is the malicious Trend instance (host, artifact, PID or "
+                         "identical command line, execution time) or its demonstrated parent/child",
+                         "the offense-linked records show other processes, instances or hosts than the alert",
                          "stop when the link is demonstrated or the offense records are complete without it",
                          status="proposed", reason="IP/time association does not demonstrate the same activity",
                          tool="qradar_run_aql"))
