@@ -29,3 +29,7 @@
   - _Requirements: 5.7, 5.8, 5.10_
 - [x] 8. Documentation of storage, locking, checkpoints, retention and deletion (`docs/case-store.md`)
   - _Requirements: 1.5, 3.1-3.8_
+
+- [x] 7c. Validate current and historical links against all instance descriptors; bind refutations to executions rather than observation UUIDs; preserve legacy IDs and aliases
+  - `stored_link_conflicts`, `execution_identity`, `_instance_fact_id`, `_bind_link`, `enforce_refutations`; `test_case_review_round5`
+  - _Requirements: 5.12, 5.13_

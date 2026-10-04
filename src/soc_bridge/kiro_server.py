@@ -434,7 +434,8 @@ async def reassess_case(case_id: str, confirmations: list[dict] | None = None) -
     revise a refutation, "trend_finding_reinstated" with the same fields and its reasoning.
     No new observation undoes a refutation by itself (same evidence, new job, metadata,
     incomplete or changed identifiers are recorded for review). Records stay labelled as
-    analyst-supplied.
+    analyst-supplied. A different Trend event UUID observing the same execution does not
+    create an independent link; existing fact IDs and their refutations remain addressable.
     Adds a new report revision; earlier revisions are kept.
     """
     from .case_investigation import reassess_case as run

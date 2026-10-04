@@ -13,7 +13,10 @@ Not observing a fact again (Inconclusive, timeout, failure, Trend not requested)
 it. Each fact keeps three things apart: its identity (the fact ID), its probative content (the
 identifiers it asserts: complete hashes, PID, launch time, image, complete command line,
 QRadar instance, chain GUIDs) and its provenance (runs, jobs, rows, sources, lengths, cut
-flags, incomplete values). A refutation records its basis, source, the facts it replaced and
+flags, incomplete values). Event UUIDs are provenance: another telemetry record of the same
+endpoint/execution reuses the existing fact and cannot bypass its refutation. Legacy fact
+IDs stay addressable, and equivalent aliases inherit the same refutation. A refutation records
+its basis, source, the facts it replaced and
 the probative content it addressed. A refuted fact is never re-established automatically:
 re-reading the same evidence, a new run or Ariel job, metadata or incomplete values, and even
 changed probative content cannot show that the change is pertinent to the refutation basis.
@@ -74,7 +77,7 @@ def probative(kind: str, data: Any) -> Any:
     data = data or {}
     if kind == "malicious_instance":
         record = data.get("trend_record") or {}
-        return {"uuid": record.get("uuid"), "endpoint_host": record.get("endpoint_host"),
+        return {"execution": trend_link.execution_identity(data), "endpoint_host": record.get("endpoint_host"),
                 "endpoint_guid": record.get("endpoint_guid"), "instance": _probative_instance(data.get("instance")),
                 "parent": _probative_instance(data.get("parent")), "verdict_hashes": sorted(data.get("verdict_hashes") or [])}
     if kind == "qradar_link":
@@ -119,7 +122,10 @@ def _sustain(entry: dict, fact_id: str, kind: str, run_id: str, source: str, dat
         entry["facts"][fact_id] = {"kind": kind, "status": "sustained", "first_run": run_id, "last_observed_run": run_id,
                                    "source": source, "data": data, "probative": content, "fingerprint": print_,
                                    **({"criteria": criteria} if criteria else {})}
+        fact = entry["facts"][fact_id]
+        _observe(fact, data, run_id, source)
         return "new"
+    _observe(fact, data, run_id, source)
     if fact["status"] == "refuted":
         addressed = (fact.get("refuted_by") or {}).get("probative")
         changed = changes(addressed, content) if addressed is not None else []
@@ -144,6 +150,67 @@ def _sustain(entry: dict, fact_id: str, kind: str, run_id: str, source: str, dat
     fact.update(status="sustained", last_observed_run=run_id, data=data, probative=content, fingerprint=print_,
                 **({"criteria": criteria} if criteria else {}))
     return outcome
+
+
+def _observe(fact: dict, data: dict, run_id: str, source: str) -> None:
+    """Retain observation references without letting new UUIDs change execution identity."""
+    observation = {"run": run_id, "source": source, "trend_record": data.get("trend_record"),
+                   "qradar_record": data.get("qradar_record")}
+    refs = fact.setdefault("provenance", [])
+    if observation not in refs:
+        refs.append(observation)
+        del refs[:-MAX_ATTEMPTS]
+
+
+def _same_execution_fact(a: dict, b: dict, kind: str) -> bool:
+    left, right = trend_link.execution_identity(a), trend_link.execution_identity(b)
+    if left is None or right is None or left.get("endpoint") != right.get("endpoint"):
+        return False
+    if kind == "qradar_link":
+        if (a.get("relation"), a.get("qradar_instance_key")) != (b.get("relation"), b.get("qradar_instance_key")):
+            return False
+        # One QRadar process instance cannot be two independent executions or have
+        # two independent creators. A parent may launch different malicious children.
+        if a.get("relation") in ("same_process_instance", "child_of_malicious_instance"):
+            return True
+    if left != right:
+        # Earlier stored descriptors may have no Trend instance ID. A newly populated ID
+        # does not make the same PID and exact launch time a new execution. Two known,
+        # different IDs are never merged through this fallback.
+        if left.get("instance") and right.get("instance"):
+            return False
+        def fallback(item):
+            instance = item.get("instance") or item.get("trend_instance") or {}
+            return trend_link.execution_identity({**item, "instance": {**instance, "instance_id": None}})
+        p, q = fallback(a), fallback(b)
+        if not p or p != q:
+            return False
+    return True
+
+
+def enforce_refutations(entry: dict) -> None:
+    """Old UUID-based aliases of a refuted execution/relation inherit that refutation.
+
+    Fact IDs already referenced by analysts remain usable; no history is deleted.
+    """
+    refuted = [(f, x) for f, x in entry["facts"].items() if x["status"] == "refuted"]
+    for original_id, original in refuted:
+        for fact_id, fact in entry["facts"].items():
+            if (fact["status"] != "refuted" and fact["kind"] == original["kind"]
+                    and _same_execution_fact(original["data"], fact["data"], fact["kind"])):
+                fact.setdefault("status_history", []).append({"from": fact["status"], "to": "refuted",
+                                                              "basis": f"same execution/relation as {original_id}"})
+                fact.update(status="refuted", refuted_by={**original["refuted_by"], "applied_from_fact": original_id})
+
+
+def _instance_fact_id(entry: dict, data: dict) -> str:
+    """Reuse legacy IDs for an execution; new IDs are independent of telemetry UUIDs."""
+    existing = [(f, x) for f, x in entry["facts"].items() if x["kind"] == "malicious_instance"
+                and _same_execution_fact(x["data"], data, "malicious_instance")]
+    if existing:
+        return min(existing, key=lambda item: item[1]["status"] != "refuted")[0]
+    identity = trend_link.execution_identity(data)
+    return "malicious_instance:" + fingerprint(identity) if identity else data["fact_id"]
 
 
 def contradict(entry: dict, fact_id: str, run_id: str, conflicts: list[str]) -> None:
@@ -184,6 +251,7 @@ def reinstate(entry: dict, fact_ids: list[str] | None, run_id: str, source: str,
 
 def apply_attempt(state: dict, item: dict, run_id: str) -> None:
     entry = _entry(state, item["alert_id"])
+    enforce_refutations(entry)
     entry["association"] = item.get("association") or entry["association"]
     report = item.get("report") if item.get("state") == "collected" else None
     assessment = (report or {}).get("assessment") or {}
@@ -205,6 +273,7 @@ def apply_attempt(state: dict, item: dict, run_id: str) -> None:
         _sustain(entry, ASSESSMENT_FACT, "alert_assessment", run_id, source,
                  {"classification": classification, "facts": (assessment.get("facts") or [])[:6]})
         for fact in basis["malicious_instances"]:
+            fact = {**fact, "fact_id": _instance_fact_id(entry, fact)}
             _sustain(entry, fact["fact_id"], "malicious_instance", run_id,
                      f"Vision One Search record {fact['trend_record'].get('uuid')} with a high-risk sandbox verdict "
                      f"({run_id})", fact)
@@ -221,15 +290,38 @@ def apply_attempt(state: dict, item: dict, run_id: str) -> None:
 
 def link_fact_id(match: dict) -> str:
     """Stable across queries and jobs: Trend fact, relation and the QRadar process instance identity."""
-    return f"link:{match['fact_id']}:{match['relation']}:{match.get('qradar_instance_key')}"
+    return match.get("persisted_fact_id") or f"link:{match['fact_id']}:{match['relation']}:{match.get('qradar_instance_key')}"
+
+
+def _bind_link(entry: dict, match: dict) -> str:
+    existing = [(f, x) for f, x in entry["facts"].items() if x["kind"] == "qradar_link"
+                and _same_execution_fact(x["data"], match, "qradar_link")]
+    if existing:
+        match["persisted_fact_id"] = min(existing, key=lambda item: item[1]["status"] != "refuted")[0]
+    return link_fact_id(match)
 
 
 def record_link(entry: dict, relation: dict, run_id: str) -> dict[str, str]:
     """Record each demonstrated match as a qradar_link fact; returns the outcome per fact ID."""
-    return {link_fact_id(match): _sustain(entry, link_fact_id(match), "qradar_link", run_id,
-                                          f"bridge comparison of QRadar and Trend records ({run_id})", match,
-                                          criteria=trend_link.LINK_CRITERIA)
+    return {_bind_link(entry, match): _sustain(entry, link_fact_id(match), "qradar_link", run_id,
+                                              f"bridge comparison of QRadar and Trend records ({run_id})", match,
+                                              criteria=trend_link.LINK_CRITERIA)
             for match in relation.get("matches", [])}
+
+
+def record_conflicted_link(entry: dict, match: dict, run_id: str, conflicts: list[str]) -> tuple[str, str]:
+    """Record a contradictory comparison without revalidating a saved or refuted link."""
+    fact_id = _bind_link(entry, match)
+    if fact_id not in entry["facts"] or entry["facts"][fact_id]["status"] == "refuted":
+        outcome = _sustain(entry, fact_id, "qradar_link", run_id,
+                           "bridge comparison with conflicting instance records", match, trend_link.LINK_CRITERIA)
+        if outcome == "refutation_stands":
+            return fact_id, outcome
+    else:
+        _observe(entry["facts"][fact_id], match, run_id, "bridge comparison with conflicting instance records")
+    if entry["facts"][fact_id]["status"] != "contradicted":
+        contradict(entry, fact_id, run_id, conflicts)
+    return fact_id, "contradicted"
 
 
 def mark_unvalidated_links(entry: dict, rematched: set[str], run_id: str) -> list[str]:

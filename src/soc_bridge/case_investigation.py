@@ -43,16 +43,27 @@ def bridge_findings(result: dict, trend: dict | None, run_id: str | None = None)
     contradictions = []
     links = {}
     for alert_id, entry in (state or {}).get("alerts", {}).items():
+        trend_state.enforce_refutations(entry)
         now = trend_state.current(entry)
         instances = [x["data"] for x in entry["facts"].values() if x["kind"] == "malicious_instance"
                      and x["status"] == "sustained"]
         computed = trend_link.link(result, alert_id, {"malicious_instances": instances}, entry.get("association"))
-        outcomes = trend_state.record_link(entry, computed, run_id)
+        current_instances = {f: x["data"] for f, x in entry["facts"].items()
+                             if x["kind"] == "malicious_instance" and x["status"] == "sustained"}
+        valid, blocked = [], []
+        for match in computed.get("matches", []):
+            conflicts = trend_link.stored_link_conflicts(match, current_instances.get(match["fact_id"]), computed, result)
+            if conflicts:
+                blocked.append((match, conflicts))
+            else:
+                valid.append(match)
+        outcomes = trend_state.record_link(entry, {**computed, "matches": valid}, run_id)
+        for match, conflicts in blocked:
+            fact_id, outcome = trend_state.record_conflicted_link(entry, match, run_id, conflicts)
+            outcomes[fact_id] = outcome
         stale = trend_state.mark_unvalidated_links(entry, set(outcomes), run_id)
         facts = entry["facts"]
-        current_instances = {f: x["data"] for f, x in facts.items()
-                             if x["kind"] == "malicious_instance" and x["status"] == "sustained"}
-        current_links = [m for m in computed.get("matches", [])
+        current_links = [m for m in valid
                          if facts[trend_state.link_fact_id(m)]["status"] == "sustained"]
         kept = {trend_state.link_fact_id(m) for m in current_links}
         # A stored link (not demonstrated again now, e.g. QRadar data changed) is reused only while no
@@ -62,7 +73,7 @@ def bridge_findings(result: dict, trend: dict | None, run_id: str | None = None)
             if (x["kind"] != "qradar_link" or x["status"] != "sustained" or f in kept
                     or x.get("criteria") != trend_link.LINK_CRITERIA or x["data"].get("fact_id") not in current_instances):
                 continue
-            conflicts = trend_link.stored_link_conflicts(x["data"], current_instances[x["data"]["fact_id"]], computed)
+            conflicts = trend_link.stored_link_conflicts(x["data"], current_instances[x["data"]["fact_id"]], computed, result)
             if conflicts:
                 trend_state.contradict(entry, f, run_id, conflicts)
             else:

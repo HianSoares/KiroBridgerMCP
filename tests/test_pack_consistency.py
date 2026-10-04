@@ -89,6 +89,9 @@ class PackConsistencyTests(unittest.TestCase):
                        "trend_finding_reinstated", "ParentProcessGuid", "link_conflict", "link_contradicted",
                        "observations_after_refutation"):
             self.assertIn(phrase, steering)
+        self.assertIn("UUID de evento Trend é proveniência", steering)
+        self.assertIn("vínculos atuais e históricos", steering)
+        self.assertIn("fora da tolerância temporal", steering)
         # Superseded promise: a shared hash/command line alone no longer demonstrates the link.
         self.assertNotIn("hash completo ou linha de comando exata compartilhados", steering)
         store = (ROOT / "docs" / "case-store.md").read_text(encoding="utf-8")

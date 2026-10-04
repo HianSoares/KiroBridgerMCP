@@ -40,7 +40,7 @@ from .process_chain import guid as normalize_guid, instance_key, same_host
 from .structured import find_paths
 from .time_anchor import parse
 
-LINK_CRITERIA = "activity-v3"
+LINK_CRITERIA = "activity-v4"
 BASIS_VERSION = 2
 TOLERANCE_SECONDS = 2.0
 ALGORITHMS = {"sha256": 64, "sha1": 40, "md5": 32}
@@ -193,6 +193,28 @@ def trend_states(instance: dict) -> dict:
     return instance.get("hash_states") or _legacy_states(instance.get("hashes"), "Trend (stored by an earlier version)")
 
 
+def execution_identity(data: dict) -> dict | None:
+    """Trend execution identity, independent of the UUID of a telemetry observation.
+
+    Hashes and command strings are claims about the instance, not its identity: changing
+    them must not create another execution that bypasses a refutation.
+    """
+    record = data.get("trend_record") or {}
+    endpoint = str(record.get("endpoint_host") or data.get("host") or "").strip().lower()
+    if not endpoint:
+        endpoint = "guid:" + str(record.get("endpoint_guid") or "").strip().lower()
+        if endpoint == "guid:":
+            return None
+    instance = data.get("instance") or data.get("trend_instance") or {}
+    if instance.get("instance_id"):
+        return {"endpoint": endpoint, "namespace": "Trend process hash ID",
+                "instance": str(instance["instance_id"])}
+    pid, launched = _pid(instance.get("pid")), _when(instance.get("launch_time_utc"))
+    if pid is not None and launched:
+        return {"endpoint": endpoint, "pid": pid, "launched": _iso(launched)}
+    return None
+
+
 def _qradar_instances(result: dict) -> list[dict]:
     processes = result.get("processes") or {}
     items = processes.get("process_instances")
@@ -314,6 +336,7 @@ def link(result: dict, alert_id: str, basis: dict | None, association: dict | No
                 continue
             base = {"trend_record": record, "trend_instance": t, "qradar_record": q["reference"],
                     "qradar_instance_key": q["key"], "host": q["host"],
+                    "qradar_instance": {**q, "time": _iso(q["time"])},
                     "qradar_execution_time": _iso(q["time"]), "qradar_time_basis": q["time_basis"],
                     "fact_id": fact["fact_id"], "criteria": LINK_CRITERIA}
             check = same_execution(q, t)
@@ -383,7 +406,18 @@ def link(result: dict, alert_id: str, basis: dict | None, association: dict | No
             "trend_instances_compared": len(malicious), "qradar_instances_compared": len(offense)}
 
 
-def stored_link_conflicts(match: dict, current: dict | None, computed: dict) -> list[str]:
+def _positive_instance_conflicts(q: dict, instance: dict) -> list[str]:
+    """Check a known linked identity even outside the time tolerance used to discover links."""
+    check = same_execution(q, instance)
+    out = list(check["conflicts"])
+    launched = _when(instance.get("launch_time_utc"))
+    if q["time"] and launched and not _close(q["time"], launched):
+        out.append(f"execution start times differ ({_iso(q['time'])} vs {_iso(launched)})")
+    return out
+
+
+def stored_link_conflicts(match: dict, current: dict | None, computed: dict,
+                          result: dict | None = None) -> list[str]:
     """Positive contradictions between a stored link and the current evidence of its own identifiers.
 
     A stored link stays usable only while nothing current contradicts it: a conflict found now for the
@@ -393,7 +427,8 @@ def stored_link_conflicts(match: dict, current: dict | None, computed: dict) -> 
     out = []
     key = (match.get("fact_id"), match.get("qradar_instance_key"))
     for conflict in computed.get("conflicts", []):
-        if (conflict.get("fact_id"), conflict.get("qradar_instance_key")) == key:
+        if ((conflict.get("fact_id"), conflict.get("qradar_instance_key")) == key
+                and conflict.get("relation_tested") == match.get("relation")):
             out += [f"current comparison: {c}" for c in conflict["conflicts"]]
     if not current:
         return list(dict.fromkeys(out))
@@ -414,4 +449,26 @@ def stored_link_conflicts(match: dict, current: dict | None, computed: dict) -> 
     if against["state"] == "conflict":
         out.append("full " + ", ".join(a for a, v in against["by_algorithm"].items() if v["state"] == "conflict")
                    + " hashes of the linked QRadar process differ from the current Trend instance")
+    # Inspect every currently observed descriptor of the linked QRadar instance, including
+    # matching descriptors. A good row cannot outweigh a conflicting row of the same GUID.
+    every = _qradar_instances(result or {})
+    for q in every:
+        if q["key"] != match.get("qradar_instance_key"):
+            continue
+        if match.get("relation") == "child_of_malicious_instance":
+            parent_guid = (match.get("chain") or {}).get("parent_guid")
+            if q["parent_guid"] and parent_guid and q["parent_guid"] != parent_guid:
+                out.append("QRadar child ParentProcessGuid differs from the linked parent instance")
+            for parent in every:
+                if parent["guid"] == parent_guid and parent["host"] == q["host"]:
+                    out += ["current QRadar parent: " + c for c in _positive_instance_conflicts(parent, now)]
+        else:
+            out += ["current QRadar instance: " + c for c in _positive_instance_conflicts(q, target)]
+        saved = match.get("qradar_instance") or {}
+        if saved:
+            descriptor = {"pid": saved.get("pid"), "image": saved.get("image"),
+                          "command_line": saved.get("command_line"),
+                          "command_line_cut": saved.get("command_line_cut"),
+                          "launch_time_utc": saved.get("time"), "hash_states": saved.get("hash_states")}
+            out += ["QRadar instance changed: " + c for c in _positive_instance_conflicts(q, descriptor)]
     return list(dict.fromkeys(out))
