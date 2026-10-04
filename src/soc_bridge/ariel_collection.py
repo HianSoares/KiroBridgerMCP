@@ -103,11 +103,15 @@ class Budget:
     reservations: dict = field(default_factory=dict)
     phase_log: list = field(default_factory=list)
     started: float = field(init=False)
-    # Latest instant (in budget-clock units) at which a deadline already cut a call. asyncio may
-    # fire a timeout up to one clock resolution early (15.6 ms with GetTickCount64 on Windows
-    # before Python 3.13), so the budget clock can still show time left after the cut; elapsed
-    # time is never below this floor, so no new call starts in that gap.
+    # A call cut by the deadline ends the time of its phase, whatever the budget clock reads:
+    # asyncio may fire a timeout up to one clock resolution early (15.6 ms with GetTickCount64
+    # on Windows before Python 3.13), and recomputing "start + allowed - elapsed" in floating
+    # point can leave a positive residue of ~1e-14 s. Both used to let the next call start.
+    # The cut is therefore recorded as state, not derived from arithmetic: the phase is closed
+    # (later phases keep their reservations) and, without reservations, the whole budget is.
     deadline_floor: float = field(init=False)
+    cut_phases: set = field(init=False)
+    expired: bool = field(init=False)
 
     def __post_init__(self) -> None:
         for name in ("max_queries", "max_pages", "max_polls", "page_size", "poll_wait_seconds",
@@ -121,12 +125,15 @@ class Budget:
             raise ValueError("Budget max_seconds must be positive")
         self.started = self.clock()
         self.deadline_floor = self.started
+        self.cut_phases = set()
+        self.expired = False
 
     def now(self) -> float:
         return max(self.clock(), self.deadline_floor)
 
     def remaining_seconds(self) -> float:
-        return self.max_seconds - (self.now() - self.started)
+        remaining = self.max_seconds - (self.now() - self.started)
+        return min(remaining, 0.0) if self.expired else remaining
 
     # Reservations keep part of the budget for later phases (for example the Trend<->QRadar
     # correlation) so that broad or optional reads cannot consume it first. A phase gets its
@@ -154,7 +161,8 @@ class Budget:
 
     def available_seconds(self) -> float:
         """Time this phase may use: the deadline minus what later phases hold."""
-        return self.remaining_seconds() - self._held("seconds")
+        available = self.remaining_seconds() - self._held("seconds")
+        return min(available, 0.0) if self.phase in self.cut_phases else available
 
     def blocked(self, kind: str) -> str | None:
         if self.remaining_seconds() <= 0:
@@ -192,6 +200,9 @@ class Budget:
             # The timer marks the end of the time this phase may use, whatever the budget clock
             # reads now: later phases keep their reservations, this phase has none left.
             self.deadline_floor = max(self.deadline_floor, begun + remaining)
+            self.cut_phases.add(self.phase)
+            if self._held("seconds") <= 0:
+                self.expired = True
             raise BudgetExhausted(stage, started=True) from None
 
     def describe(self) -> dict:

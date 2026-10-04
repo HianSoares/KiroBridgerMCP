@@ -27,7 +27,12 @@
 
 ## Deadline (`ariel_collection.Budget`)
 
-`Budget.run()` bounds each call with `asyncio.wait_for`. The event loop may fire that timer up to one clock resolution early (15.6 ms with `GetTickCount64` on Windows before Python 3.13), while the budget clock (`time.monotonic`) still shows a few milliseconds left; the next call could then start. When a call is cut, `deadline_floor` is set to the instant the timer stood for (`start + allowed time`), and `now()` never goes below it, so `remaining_seconds()`/`blocked()` see the phase as used. Later phases keep their reservations. Tests use a frozen budget clock to make this deterministic (`test_case_review_round2.DeadlineTests`).
+`Budget.run()` bounds each call with `asyncio.wait_for`. Two effects let a new call start right after a cut:
+
+- the event loop may fire the timer up to one clock resolution early (15.6 ms with `GetTickCount64` on Windows before Python 3.13), while the budget clock (`time.monotonic`) still shows time left;
+- recomputing `start + allowed - elapsed` in floating point can leave a positive residue of about 1e-14 s.
+
+A cut is therefore recorded as state, not derived from arithmetic: the phase goes to `cut_phases` (`available_seconds()` is 0 for it) and, when no later phase holds a reservation, `expired` makes `remaining_seconds()` 0. Later phases keep their reservations. `deadline_floor` keeps the reported elapsed time consistent. Tests use frozen and residue-producing budget clocks to make this deterministic (`test_case_review_round2.DeadlineTests`).
 
 ## Planner (`pivot_planner.py`)
 

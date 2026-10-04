@@ -381,6 +381,34 @@ class DeadlineTests(unittest.IsolatedAsyncioTestCase):
         names = [name for name, _ in lab.calls]
         self.assertFalse({"validate_aql", "create_ariel_search", "get_rule"} & set(names), names)
 
+    async def test_floating_point_residue_after_a_cut_starts_no_call(self):
+        # With these clock readings, start + allowed - elapsed leaves ~9e-14 s "remaining" after the cut
+        # (the CI failure on windows-latest): the cut must close the budget as state, not arithmetic.
+        class Readings:
+            def __init__(self):
+                self.values = iter([1323.833])
+
+            def __call__(self):
+                return next(self.values, 1323.855)
+
+        budget = Budget(max_seconds=0.1, clock=Readings())
+
+        async def forever():
+            await asyncio.Event().wait()
+        with self.assertRaises(BudgetExhausted):
+            await budget.run(forever, "slow read")
+        self.assertEqual(budget.remaining_seconds(), 0)
+        self.assertEqual(budget.blocked("query"), "time budget exhausted")
+
+        class SlowCatalog(Lab):
+            async def read_aql_resource(self, resource):
+                await asyncio.sleep(5)
+
+        lab = SlowCatalog({"FROM events": ("events", [], None)}, catalog={})
+        await collect_offense_evidence(lab, offense(), now=NOW, budget=Budget(max_seconds=0.1, clock=Readings()))
+        names = [name for name, _ in lab.calls]
+        self.assertFalse({"validate_aql", "create_ariel_search", "get_rule"} & set(names), names)
+
     async def test_reserved_phase_time_is_released_when_the_phase_is_entered(self):
         budget = Budget(max_seconds=0.4, clock=FrozenClock())
         budget.reserve("correlation", seconds=0.3)
