@@ -203,8 +203,14 @@ def _records(name: str, finding: dict, property_map: dict, seen: dict) -> list[d
 
 async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int = -3,
                                    timezone_verified: bool = False, now: datetime | None = None,
-                                   budget: Budget | None = None, confirmations: list | None = None) -> dict:
-    """Collect linked records, flow census, rules, host context and evidence-triggered pivots."""
+                                   budget: Budget | None = None, confirmations: list | None = None,
+                                   resume: dict | None = None, rerun: set[str] | None = None,
+                                   closure_options: dict | None = None, keep_rows: bool = False) -> dict:
+    """Collect linked records, flow census, rules, host context and evidence-triggered pivots.
+
+    ``resume`` maps query names to saved findings (with rows): known jobs continue from their
+    cursor, complete ones are reused, uncertain creations are not recreated. ``rerun`` names
+    queries the analyst explicitly asked to start again as new jobs."""
     oid = offense.get("id")
     if isinstance(oid, bool) or not isinstance(oid, int) or oid < 1:
         raise ValueError("Positive integer offense ID required")
@@ -247,7 +253,15 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
     plans: dict[str, Any] = {}
 
     async def run(name: str, query: str, database: str, scope: str, plan: Any, fallback: str | None) -> dict:
-        finding = await collect_query(qradar, query, database, scope, budget, fallback, plan)
+        saved = (resume or {}).get(name)
+        if saved is not None and name not in (rerun or set()) and (
+                saved.get("search_id") or saved.get("outcome") in ("creation_uncertain", "empty", "complete_in_window")):
+            finding = await collect_query(qradar, query, database, scope, budget, fallback, plan, resume=saved)
+            if finding.get("aql") != query and finding.get("aql") != fallback:
+                finding.setdefault("warnings", []).append(
+                    "Resumed the saved job: its AQL differs from the one this run would plan (window/time changed)")
+        else:
+            finding = await collect_query(qradar, query, database, scope, budget, fallback, plan)
         result["queries"][name] = finding
         plans[name] = plan
         return finding
@@ -537,6 +551,8 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
         # Keep witness rows explicitly bounded; full pages remain retrievable by search ID.
         samples = []
         rows = finding.pop("rows")
+        if keep_rows:
+            result.setdefault("collected_rows", {})[name] = rows  # full rows for the case store only
         # Include distinct event/log-source witnesses before filling remaining slots.
         witnesses, witness_keys = [], set()
         for index, row in enumerate(rows):
@@ -581,7 +597,7 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
             "Windows session ID identifies a PSM recording", "username alone shows account nature"],
         **assess(result),
     }
-    result["closure_assessment"] = closure_assessment.propose(result, confirmations)
+    result["closure_assessment"] = closure_assessment.propose(result, confirmations, **(closure_options or {}))
     return result
 
 

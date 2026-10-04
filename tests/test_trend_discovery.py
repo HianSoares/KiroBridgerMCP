@@ -188,7 +188,7 @@ class DiscoveryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(run.call_args.args[1:], ('synthetic-key', 'eu'))
         self.assertEqual(run.call_args.args[0]['severity'], 'high')
         tools = {t.name: t for t in await mcp.list_tools()}
-        self.assertEqual(len(tools), 21)
+        self.assertEqual(len(tools), 26)
         self.assertTrue(tools['trend_find_alerts'].annotations.readOnlyHint)
         self.assertEqual(set(tools['trend_find_alerts'].inputSchema['properties']),
                          {'status', 'severity', 'start_date_time', 'end_date_time', 'limit'})

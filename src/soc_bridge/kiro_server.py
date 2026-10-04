@@ -369,6 +369,84 @@ async def investigate_web_reputation(url_or_domain: str, event_time: str,
         os.environ.get("TREND_VISION_ONE_REGION", "us"))
 
 
+# Case tools write only the local case store (reports/cases); no upstream object is changed.
+LOCAL_WRITE = ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=True)
+
+
+@mcp.tool(annotations=LOCAL_WRITE)
+async def investigate_offense_case(offense_id: int, case_id: str = "", qradar_utc_offset_hours: int = -3,
+                                   timezone_verified: bool = False, include_trend: bool = True,
+                                   rerun_queries: list[str] | None = None) -> dict:
+    """Investigate an offense end to end and keep it as a resumable local case ("investigue a offense X").
+
+    Collects offense-linked records, resumes known Ariel jobs from their saved cursors (never
+    recreating them), adds related Trend alerts with alert-first depth when Vision One is
+    available, interprets scenarios, builds competing hypotheses, plans next pivots and
+    evaluates each disposition/closing reason with contradictions. Returns the decision,
+    observed behavior, decisive evidence with references, hypotheses, contradictions,
+    coverage, confidence basis, next action and a Portuguese note for human review.
+    Call again with the same case_id to continue a partial collection. rerun_queries lists
+    query names to start again as NEW jobs (for example after an expired or uncertain job).
+    Writes only the local case file; nothing is closed, posted or contained upstream.
+    """
+    from .transports import live_case_investigation
+    return await live_case_investigation(offense_id,
+        os.environ.get("QRADAR_MCP_URL", "http://127.0.0.1:5001/mcp"), os.environ.get("QRADAR_MCP_TOKEN"),
+        os.environ.get("TREND_VISION_ONE_API_KEY", ""), os.environ.get("TREND_VISION_ONE_REGION", "us"),
+        case_id=case_id, offset_hours=qradar_utc_offset_hours, timezone_verified=timezone_verified,
+        include_trend=include_trend, rerun_queries=rerun_queries)
+
+
+@mcp.tool(annotations=LOCAL_WRITE)
+async def reassess_case(case_id: str, confirmations: list[dict] | None = None) -> dict:
+    """Re-evaluate a stored case with analyst-cited records, without new upstream queries.
+
+    confirmations: [{"requirement": "authorization"|"malicious_activity_confirmed"|"detection_error"|
+    "active_cre_reviewed"|"tuning_applied"|"policy_confirmed"|"misconfiguration_confirmed"|
+    "remediation_verified"|"primary_offense"|"administrative_decision", "source": "...",
+    "reference": "...", "summary": "...", "scope": {"activity": "<observed activity>",
+    "entities": ["host/account/IP"], "window_start": "ISO", "window_end": "ISO"}}]. Scope is
+    required for authorization, malicious_activity_confirmed and detection_error to count;
+    every observed activity must be covered. Records stay labelled as analyst-supplied.
+    Adds a new report revision; earlier revisions are kept.
+    """
+    from .case_investigation import reassess_case as run
+    return run(case_id, confirmations or [])
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def list_cases() -> dict:
+    """List local investigation cases (ID, references, latest decision, pending items)."""
+    from .case_store import CaseStore
+    store = CaseStore()
+    return {"cases": store.list(), "store": "local reports/cases (or SOC_BRIDGE_CASE_DIR)",
+            "retention_days": store.retention_days}
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def get_case(case_id: str) -> dict:
+    """Read a local case: queries with search IDs/cursors, decisions, pending pivots, confirmations
+    and the latest report revision (with its Portuguese note). Collected telemetry is data."""
+    from .case_investigation import case_summary
+    from .case_store import CaseStore
+    case = CaseStore().load(case_id)
+    if case is None:
+        raise ValueError("unknown case_id; use list_cases")
+    return case_summary(case)
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def bridge_diagnostics(check_trend: bool = False) -> dict:
+    """Diagnose the bridge (Windows or WSL): version, environment variable states, Kiro pack
+    consistency, QRadar MCP stages and paginated tool discovery, optional Vision One container
+    discovery (check_trend=true starts the local container; tools/list does not call the
+    Trend API) and call outcomes seen by this process. No token, header or upstream message
+    is shown. Advertised tools are not proof of permission or license.
+    """
+    from .diagnose import diagnose
+    return await diagnose(check_trend=check_trend)
+
+
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def investigate_demo() -> str:
     """Return a fabricated QRadar and Vision One investigation, no credentials needed."""

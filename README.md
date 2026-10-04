@@ -54,7 +54,7 @@ See [custom AQL setup, examples and limits](docs/dynamic-aql.md). Offense invest
 
 ## Verify an offense before concluding
 
-`qradar_verify_offense` performs the QRadar collection without Trend credentials; `qradar_get_rule` reads contributing rule metadata. Together with the existing tools, the bridge exposes **21 tools**. The report distinguishes original metadata times, observed event times and padded collection windows, follows result pages within a budget and preserves unresolved count/payload/attribution gaps.
+`qradar_verify_offense` performs the QRadar collection without Trend credentials; `qradar_get_rule` reads contributing rule metadata. Together with the existing tools, the bridge exposes **26 tools** (24 read-only; the two case tools write only the local case store). The report distinguishes original metadata times, observed event times and padded collection windows, follows result pages within a budget and preserves unresolved count/payload/attribution gaps.
 
 > Use `qradar_verify_offense` with the offense ID. Resume pending search IDs and collect missing evidence before assessing the case. For a historical case, confirm the actual QRadar timezone before setting `timezone_verified=true`.
 
@@ -67,6 +67,10 @@ Linux records now receive a census of sudo actors, targets and commands across a
 ## Investigate a Vision One alert
 
 `investigate_vision_alert` parses Workbench `impactScope` entities, typed indicators and matched rules with provenance, then searches endpoint/detection data and OAT by the alert's own identifiers (not the model name) under a shared time/call/record/partition budget. Search has no continuation token in the official MCP, so full pages are split into time partitions; OAT pages by `nextBatchToken`. Optional read-only enrichments (notes, inventory, DMM, intel lists, cases, existing sandbox results and response tasks) report missing tools, permissions and licenses separately. QRadar correlation reuses the budgeted Ariel collector with epoch predicates, and each Trend↔QRadar relation is labelled confirmed, candidate or unverified. The report ends with a recommended classification and a Portuguese note for human review; nothing is closed, posted or executed. Set `QRADAR_AQL_TIMEZONE_VERIFIED=true` only after confirming the console offset for historical windows. See [Trend alert investigation](docs/trend-alert-investigation.md).
+
+## Investigate an offense end to end (persistent case)
+
+Ask Kiro: "Investigue a offense 12345". `investigate_offense_case` collects offense-linked records, resumes known Ariel jobs from their saved cursors instead of recreating them, deepens related Trend alerts when Vision One is available, separates observed behavior from rule names, builds competing hypotheses, plans the next pivots (hypothesis, motivation, cost, stop criterion) and evaluates each disposition and live closing reason with explicit contradictions. Analyst records count only within their scope (activity, entities, window). The result is a decision with justified confidence (no numeric score), decisive evidence with query/row references and a Portuguese note for human review. The case is stored locally in `reports/cases` (ignored by Git), can be continued with the same `case_id` and re-evaluated with `reassess_case` without new queries; earlier report revisions are kept. `soc-bridge doctor` / `bridge_diagnostics` show versions, connection stages and paginated tool discovery without secrets. See [professional investigation](docs/professional-investigation.md) and [case store](docs/case-store.md).
 
 ## Investigative coverage and closure decisions
 

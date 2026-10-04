@@ -4,6 +4,8 @@ import asyncio
 import itertools
 import unittest
 
+from soc_bridge.capabilities import LOCAL_WRITE_TOOLS
+
 from soc_bridge.aql_errors import AQLPolicyError, AQLValidationError, ResponseFormatError, classify_failure
 from soc_bridge.aql_fields import EVENT_COLUMNS, FieldCatalog, plan_select
 from soc_bridge.ariel_collection import Budget, collect_query
@@ -200,8 +202,8 @@ class ErrorAndIsolationTests(unittest.IsolatedAsyncioTestCase):
 class ToolExposureTests(unittest.TestCase):
     def test_existing_tools_schemas_and_read_only_annotations(self):
         tools = {tool.name: tool for tool in asyncio.run(mcp.list_tools())}
-        self.assertEqual(len(tools), 21)
-        self.assertTrue(all(tool.annotations.readOnlyHint for tool in tools.values()))
+        self.assertEqual(len(tools), 26)
+        self.assertTrue(all((tool.annotations.readOnlyHint or tool.name in LOCAL_WRITE_TOOLS) and not tool.annotations.destructiveHint for tool in tools.values()))
         verify = tools["qradar_verify_offense"].inputSchema
         self.assertEqual(set(verify["properties"]), {"offense_id", "qradar_utc_offset_hours", "timezone_verified"})
         self.assertEqual(verify["required"], ["offense_id"])

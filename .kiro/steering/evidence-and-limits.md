@@ -26,3 +26,7 @@ inclusion: always
 ## Vocabulário de status de evidência
 
 Use exatamente estes termos ao citar `requirements`/`decision_matrix`: **confirmado** (demonstrado por registros coletados ou por registro citado pelo analista, indicado como tal); **compatível** (consistente, mas não demonstra); **candidato** (vínculo possível por identificador/tempo/IP, não demonstrado); **não verificado** (não checado ou fora do alcance das fontes); **não retornou nas consultas executadas** (não é prova de ausência); **não executado** (orçamento, permissão, tool ou licença: nada se conclui). Não use pontuação como substituta da evidência; o rank de alertas da offense é só ordenação, com pesos descritos em `rank_criteria`.
+
+## Confirmações com escopo e contradições
+
+Uma confirmação do analista vale apenas para a atividade, as entidades e a janela que declara, com fonte e referência. Autorização genérica de host, conta ou aplicação não autoriza toda atividade observada. Registro fora da janela observada gera contradição não resolvida, que bloqueia as conclusões dependentes até ser esclarecida. Confiança é justificada por qualidade do vínculo, procedência (ponte ou registro externo), cobertura, corroboração entre fontes e contradições — nunca por número inventado.

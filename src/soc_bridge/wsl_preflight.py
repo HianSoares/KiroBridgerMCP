@@ -121,8 +121,11 @@ def check_tools(report: Report) -> dict[str, dict] | None:
         report.add(FAIL, f"Importacao de soc_bridge falhou ({type(exc).__name__})",
                    "Na raiz do projeto: ./.venv/bin/python -m pip install -e .")
         return None
-    readonly = all(tool.annotations and tool.annotations.readOnlyHint for tool in tools)
-    report.add(OK if readonly else FAIL, f"soc_bridge importado: {len(tools)} tools, todas read-only: {readonly}")
+    from .capabilities import LOCAL_WRITE_TOOLS
+    readonly = all(tool.annotations and (tool.annotations.readOnlyHint or tool.name in LOCAL_WRITE_TOOLS)
+                   and not tool.annotations.destructiveHint for tool in tools)
+    report.add(OK if readonly else FAIL, f"soc_bridge importado: {len(tools)} tools, read-only exceto escrita "
+                                         f"local de casos ({', '.join(sorted(LOCAL_WRITE_TOOLS))}): {readonly}")
     return expected_surface(tools) if readonly else None
 
 
@@ -192,8 +195,9 @@ def _check_tools(message: dict, expected: dict[str, dict] | None) -> list[dict]:
     names = [t["name"] for t in tools]
     if len(set(names)) != len(names):
         raise ProbeError("tools/list repeats tool names")
+    from .capabilities import LOCAL_WRITE_TOOLS
     unsafe = sum(1 for t in tools if not isinstance(t.get("annotations"), dict)
-                 or t["annotations"].get("readOnlyHint") is not True
+                 or (t["annotations"].get("readOnlyHint") is not True and t.get("name") not in LOCAL_WRITE_TOOLS)
                  or t["annotations"].get("destructiveHint") is True)
     if unsafe:
         raise ProbeError(f"{unsafe} tool(s) not marked read-only")
