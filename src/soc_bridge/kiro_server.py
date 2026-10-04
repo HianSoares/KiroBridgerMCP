@@ -219,10 +219,12 @@ async def qradar_assess_closure(offense_id: int, confirmations: list[dict] | Non
     Re-runs the qradar_verify_offense collection and returns a per-reason decision matrix,
     the recommended reason (only when every requirement is met and the reason exists in the
     live catalog) and a Portuguese note draft. confirmations cite records the bridge cannot
-    read: [{"requirement": "authorization"|"active_cre_reviewed"|"detection_error"|
-    "tuning_applied"|"policy_confirmed"|"misconfiguration_confirmed"|"remediation_verified"|
-    "primary_offense"|"administrative_decision", "source": "...", "reference": "...",
-    "summary": "..."}]. They are labelled analyst-supplied, never verified. Collection coverage
+    read: [{"requirement": "authorization"|"malicious_activity_confirmed"|"active_cre_reviewed"|
+    "detection_error"|"tuning_applied"|"policy_confirmed"|"misconfiguration_confirmed"|
+    "remediation_verified"|"primary_offense"|"administrative_decision", "source": "...",
+    "reference": "...", "summary": "...", "scope": {...}}]. authorization,
+    malicious_activity_confirmed and detection_error count only with a scope (see
+    reassess_case). They are labelled analyst-supplied, never verified. Collection coverage
     cannot be confirmed manually. Nothing is closed, posted or assigned.
     """
     return await _qradar_query("assess_closure", offense_id=offense_id, confirmations=confirmations or [],
@@ -385,9 +387,15 @@ async def investigate_offense_case(offense_id: int, case_id: str = "", qradar_ut
     evaluates each disposition/closing reason with contradictions. Returns the decision,
     observed behavior, decisive evidence with references, hypotheses, contradictions,
     coverage, confidence basis, next action and a Portuguese note for human review.
-    Call again with the same case_id to continue a partial collection. rerun_queries lists
-    query names to start again as NEW jobs (for example after an expired or uncertain job).
-    Writes only the local case file; nothing is closed, posted or contained upstream.
+    The case is saved before the first upstream call, before each Ariel job creation, when the
+    search ID arrives and after every page, so an interrupted run keeps search IDs, cursors and
+    rows. Call again with the same case_id to continue; a case_id bound to another offense is
+    refused, and a saved job is resumed only for the same offense, database, scope and AQL.
+    A related Trend True Positive confirms malicious activity only when an offense-linked
+    process record shares its file hash or exact command line on the same host; an IP/time
+    relation stays a candidate that blocks benign closure. Trend results are kept in the case.
+    rerun_queries lists query names to start again as NEW jobs (for example after an expired
+    or uncertain job). Writes only the local case file; nothing is closed, posted or contained.
     """
     from .transports import live_case_investigation
     return await live_case_investigation(offense_id,
@@ -405,10 +413,16 @@ async def reassess_case(case_id: str, confirmations: list[dict] | None = None) -
     "active_cre_reviewed"|"tuning_applied"|"policy_confirmed"|"misconfiguration_confirmed"|
     "remediation_verified"|"primary_offense"|"administrative_decision", "source": "...",
     "reference": "...", "summary": "...", "scope": {"activity": "<observed activity>",
-    "entities": ["host/account/IP"], "window_start": "ISO", "window_end": "ISO"}}]. Scope is
-    required for authorization, malicious_activity_confirmed and detection_error to count;
-    every observed activity must be covered. Records stay labelled as analyst-supplied.
-    Adds a new report revision; earlier revisions are kept.
+    "entities": ["host/account/IP"], "window_start": "ISO-8601 with timezone",
+    "window_end": "ISO-8601 with timezone", "processes": ["powershell.exe" or full path]
+    (required for process_execution), "command_lines": [...] and "parent_processes": [...]
+    (optional, process_execution), "script_block_ids": [...] (required for script_execution)}}].
+    Scope is required for authorization, malicious_activity_confirmed and detection_error to
+    count. Each observed instance (process creation, script block, entity of another activity)
+    is evaluated on its own entity, process/chain and window; uncovered instances are listed.
+    Times without a timezone are rejected. Stored Trend results are reused, so evidence of
+    malicious activity is never dropped. Records stay labelled as analyst-supplied. Adds a new
+    report revision; earlier revisions are kept.
     """
     from .case_investigation import reassess_case as run
     return run(case_id, confirmations or [])

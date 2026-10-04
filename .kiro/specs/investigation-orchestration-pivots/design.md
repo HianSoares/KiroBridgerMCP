@@ -2,7 +2,7 @@
 
 ## Flow (`case_investigation.investigate_offense_case`)
 
-1. Load or create the case (`offense-<id>`). Record the scope ("read-only pivots needed for this offense") and the sources.
+1. Load or create the case (`offense-<id>`). A case bound to another offense is refused. Record the scope ("read-only pivots needed for this offense") and the sources, and save the case before any upstream call.
 2. Snapshot `get_offense` (selected fields and collection time).
 3. Call `collect_offense_evidence`, reusing the existing collector. The pivots it already contains are:
    - INOFFENSE events and flows;
@@ -17,12 +17,12 @@
    - host flows;
    - QRadar context.
 
-   Known jobs are resumed. The shared `Budget` limits time, queries, pages and polls.
-4. Checkpoint save.
-5. Trend: `core.investigate(..., deepen_alerts=2)`. Alerts are discovered by offense IPs and up to two are deepened with the alert-first flow, using a shared budget, a call cache and no QRadar recursion. Linked records are merged into the case.
+   Known jobs of the same offense and query are resumed. The shared `Budget` limits time, queries, pages and polls. The case is saved before each job creation, when the search ID arrives and after every page.
+4. Save after the QRadar collection.
+5. Trend: `core.investigate(..., deepen_alerts=2)`. Alerts are discovered by offense IPs and up to two are deepened with the alert-first flow, using a shared budget, a call cache and no QRadar recursion. Linked records are merged into the case and the alert results are stored (`compact_trend`), keeping earlier results when this run does not collect them.
 6. `scenarios.interpret` and `scenarios.hypotheses`.
 7. `pivot_planner.plan(result, trend, previous_pivots)`.
-8. `closure_assessment.propose(..., contradictions, bridge_findings)`. A deepened True Positive becomes bridge evidence of malicious activity and, with offense-linked records, corroboration.
+8. `bridge_findings` + `closure_assessment.propose(..., contradictions, bridge_findings)`. A deepened True Positive confirms malicious activity and corroborates the QRadar evidence only with a demonstrated link (shared hash or exact command line in an offense-linked process record on the same host). An IP/time relation stays a candidate: an unresolved contradiction against benign dispositions plus a `verify_alert_link` pivot.
 9. `build_report` → save a revision → return the report.
 
 ## Planner (`pivot_planner.py`)
@@ -35,6 +35,7 @@ Pivot actions:
 - `resolve_query_failure`
 - `request_external_evidence`
 - `investigate_related_alert`
+- `verify_alert_link`
 
 Each pivot carries a deterministic ID (hash of action and parameters) used to detect repeats. Priority classes are `trigger_records` < `strong_identifier` < `process_session` < `context` < `external`. Retry decisions use the `retryable` and `requires_resolution` flags from `aql_errors`.
 
@@ -53,7 +54,7 @@ It creates no new taxonomy.
 ## Compatibility and limitations
 
 - `investigate_offense`, `qradar_verify_offense` (QRadar only) and `trend_find_alerts` (Trend only) are unchanged.
-- Partition and related-alert pivots are proposed, not executed automatically. A new AQL or a full alert flow needs its own call.
+- Partition, related-alert and alert-link pivots are proposed, not executed automatically. A new AQL or a full alert flow needs its own call.
 - The investigation is synthetic-tested only; live behavior depends on the upstream deployments.
 
 ## Testing
@@ -62,4 +63,6 @@ It creates no new taxonomy.
 - `PivotTests`
 - `CaseFlowTests`
 - `ResumeTests`
-- `test_related_true_positive_alert_is_bridge_evidence_against_benign_closure`
+- `test_related_true_positive_alert_by_ip_only_does_not_confirm_malice_but_blocks_benign_closure`
+
+`tests/test_case_review_regressions.py`: `CorrelationTests`, `CheckpointCancellationTests`, `OffenseIsolationTests`.

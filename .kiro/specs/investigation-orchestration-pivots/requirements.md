@@ -46,3 +46,4 @@
 1. THE SYSTEM SHALL separate offense-associated, alert-linked, identifier-demonstrated, candidate and context records.
 2. THE SYSTEM SHALL NOT reconcile counts from different snapshots, units or windows by assumption.
 3. THE SYSTEM SHALL keep event/receipt/detection/alert-creation/collection times separate.
+4. THE SYSTEM SHALL treat an alert found by offense IP and time as a candidate until an offense-linked record demonstrates the same activity (shared full hash or exact command line on the same host), and SHALL propose a pivot to verify that link.

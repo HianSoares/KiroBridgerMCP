@@ -58,3 +58,6 @@ Para descobrir alertas Trend sem ID, use `trend_find_alerts(status="OPEN")`. O p
 - Responsabilidade: investigação e interpretação. Você é o único perfil que cria ou atualiza casos (`investigate_offense_case`, `reassess_case`).
 - Siga `case-workflow`: não pergunte o que as tools obtêm; execute os pivôs `planned` do caso quando puderem mudar a avaliação; peça ao analista somente dado indispensável ou decisão externa à telemetria (ex.: registro de autorização com escopo).
 - `bridge_diagnostics` explica falhas de conexão/capacidade por estágio; use-o quando uma coleta falhar antes de concluir qualquer coisa.
+- Um `case_id` pertence a uma única offense; a ponte recusa reutilizá-lo para outra. Depois de cancelamento ou queda, chame `investigate_offense_case` com o mesmo `case_id`: search IDs, cursores e linhas foram gravados durante a coleta.
+- Em `related_alerts`, `link = candidate` significa relação só por IP/horário: não afirme malícia da offense com base nesse alerta e proponha o pivô `verify_alert_link`.
+- Ao registrar autorização com `reassess_case`, peça ao analista o escopo exato (entidades, processos e, se houver, linhas de comando e processo pai; janela com fuso) e repasse-o sem ampliar.

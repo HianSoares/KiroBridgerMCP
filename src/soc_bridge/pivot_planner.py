@@ -108,6 +108,20 @@ def plan(result: dict, trend: dict | None = None, previous: list[dict] | None = 
                          {"calls": 40}, "linked Search records on the offense entities",
                          "the alert concerns another host/time", "stop after one alert-first investigation",
                          status="proposed", reason=item.get("reason", ""), tool="investigate_vision_alert"))
+    for item in (trend or {}).get("investigations", []):
+        if item.get("state") != "collected" or (item.get("link") or {}).get("level") != "candidate":
+            continue
+        ids = ((item.get("report") or {}).get("identifiers") or {})
+        out.append(pivot("verify_alert_link", "the Trend alert and the offense describe the same activity",
+                         f"alert {item['alert_id']} related only by IP/time", "QRadar Ariel (INOFFENSE) + Vision One Search",
+                         {"alert_id": item["alert_id"], "hashes": ids.get("hashes", [])[:5],
+                          "commands": ids.get("commands", [])[:3], "hosts": ids.get("hosts", [])[:5]},
+                         "strong_identifier", {"queries": 1, "calls": 4},
+                         "an offense-linked process record shares the alert hash or exact command line on the same host",
+                         "the offense-linked records show other processes/hosts than the alert",
+                         "stop when the link is demonstrated or the offense records are complete without it",
+                         status="proposed", reason="IP/time association does not demonstrate the same activity",
+                         tool="qradar_run_aql"))
     executed = {p["id"]: p for p in previous or [] if p.get("status") in ("executed", "completed")}
     for item in out:
         prior = executed.get(item["id"])

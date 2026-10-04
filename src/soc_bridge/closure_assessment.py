@@ -169,11 +169,15 @@ def propose(result: dict, confirmations: list | None = None, contradictions: lis
                 if rid == "malicious_activity_confirmed" else cov["status"]
             req[rid] = requirement(
                 rid, text, status,
-                {"records": cited, "covered_activities": cov["covered"], "uncovered_activities": cov["uncovered"],
+                {"records": cited, "covered_activities": cov["covered_activities"],
+                 "covered_instances": cov["covered"], "uncovered_activities": cov["uncovered_activities"],
+                 "uncovered_instances": cov["uncovered"], "uncovered_count": cov["uncovered_count"],
+                 "instances_not_evaluated": cov["instances_not_evaluated"],
                  "records_without_scope": cov["unscoped_records"],
                  **({"bridge_gaps_it_must_address": outside} if rid == "authorization" else {})},
-                ("Cite a scoped record (activity, entities, window, source, reference) for: "
-                 + ", ".join(cov["uncovered"])) if cov["uncovered"] else "",
+                ("Cite a scoped record (activity, entities, processes for process_execution, window with timezone, "
+                 "source, reference) for: " + ", ".join(cov["uncovered_activities"])
+                 + f" ({cov['uncovered_count']} uncovered instance(s))") if cov["uncovered_activities"] else "",
                 source="analyst-supplied record (not verified by the bridge)" if cited else "bridge")
         else:
             req[rid] = (requirement(rid, text, "confirmed", cited, source="analyst-supplied record (not verified by the bridge)")

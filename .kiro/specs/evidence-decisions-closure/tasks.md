@@ -3,21 +3,24 @@
 - [x] 1. Contradiction-aware evaluation in the decision engine
   - `decision.evaluate(..., contradictions)`
   - _Requirements: 3.1_
-- [x] 2. Scoped confirmations, observed activity profile, coverage and window contradictions
-  - `closure_scope.validate_scope`, `observed_profile`, `coverage`; `closure_assessment.validate_confirmations` stores `scope` and origin
-  - _Requirements: 2.1, 2.2, 2.3, 2.4_
-- [x] 3. Dispositions separate from catalog reasons; malicious evidence contradicts benign categories
-  - `CATEGORIES`, `CATEGORY_REASONS`, `disposition`, `disposition_matrix`, bridge findings from deepened Trend alerts
+- [x] 2. Precisely scoped confirmations: per-instance coverage by entity, process/chain and window; explicit timezone
+  - `closure_scope.validate_scope`, `strict_instant`, `observed_profile`, `coverage`; `closure_assessment.validate_confirmations` stores `scope` and origin; `ScopeTests`, `TimezoneTests`
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
+- [x] 3. Dispositions separate from catalog reasons; demonstrated malicious evidence contradicts benign categories
+  - `CATEGORIES`, `CATEGORY_REASONS`, `disposition`, `disposition_matrix`, `bridge_findings`
   - _Requirements: 1.1, 1.2, 3.2, 3.3_
-- [x] 4. Live catalog only; custom reasons need validated local definitions
+- [x] 4. QRadar↔Trend link: demonstrated only by shared hash/command line on the same host; candidates block benign closure
+  - `trend_link.identifiers/link`, `bridge_findings`, pivot `verify_alert_link`; `CorrelationTests`
+  - _Requirements: 4.1, 4.2, 4.3_
+- [x] 5. Live catalog only; custom reasons need validated local definitions
   - `load_reason_definitions`, `SOC_BRIDGE_CLOSING_REASONS`
   - _Requirements: 1.3, 1.4_
-- [x] 5. Sustained recommendation, precise pending items, rule-based confidence
+- [x] 6. Sustained recommendation, precise pending items, rule-based confidence with demonstrated corroboration
   - `ready_to_close`, `blocking_requirements`, `confidence_detail`
-  - _Requirements: 4.1, 4.2, 4.3_
-- [x] 6. Standard report and note reflecting the current decision
+  - _Requirements: 5.1, 5.2, 5.3_
+- [x] 7. Standard report and note reflecting the current decision
   - `case_investigation.build_report`, `render_case_markdown`, note with evidence references
-  - _Requirements: 5.1, 5.2_
-- [x] 7. Synthetic tests
-  - `ScopedDecisionTests`, `CaseFlowTests`
-  - _Requirements: 1.1-5.2_
+  - _Requirements: 6.1, 6.2_
+- [x] 8. Synthetic tests
+  - `ScopedDecisionTests`, `CaseFlowTests`, `test_case_review_regressions`
+  - _Requirements: 1.1-6.2_

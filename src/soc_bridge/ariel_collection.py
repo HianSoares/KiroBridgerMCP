@@ -20,6 +20,47 @@ TRUNCATED_PATH = re.compile(r"^rows\[(\d+)\]\.?(.*)$")
 NOT_CREATED = {"permission", "tool_unavailable"}
 
 
+class CheckpointFailed(RuntimeError):
+    """Persisting collection progress failed; the collection stops instead of continuing unsaved."""
+
+
+Progress = Callable[[dict, str], None]
+
+
+def snapshot(finding: dict, stage: str, cursor: int | None = None) -> dict:
+    """Resumable copy of an in-flight finding.
+
+    "creating" is written before the creation call: if the run stops during that call QRadar
+    may have created the job without returning its ID, so the saved state is
+    creation_uncertain. Later stages carry the known search ID, the rows already fetched and
+    the cursor of the next page to read."""
+    snap = {k: (list(v) if isinstance(v, list) else dict(v) if isinstance(v, dict) else v)
+            for k, v in finding.items()}
+    snap["result_set_complete"] = False
+    snap["checkpoint"] = stage
+    if stage == "creating":
+        snap.update(outcome="creation_uncertain", state="creation_uncertain")
+        snap["continuation"] = continuation(finding, "verify_creation_before_retry",
+                                            "run stopped while the job was being created")
+    else:
+        rows = len(snap.get("rows", []))
+        snap["outcome"] = "partial" if rows else "pending"
+        snap["next_start"] = cursor if cursor is not None else rows
+        snap["continuation"] = continuation(finding, "fetch_next_page" if rows else "poll_same_search",
+                                            f"checkpoint {stage}", snap["next_start"])
+    snap["returned_rows"] = len(snap.get("rows", []))
+    return snap
+
+
+def _notify(progress: Progress | None, finding: dict, stage: str, cursor: int | None = None) -> None:
+    if progress is None:
+        return
+    try:
+        progress(snapshot(finding, stage, cursor), stage)
+    except Exception as exc:
+        raise CheckpointFailed(f"checkpoint {stage} not saved: {type(exc).__name__}") from exc
+
+
 class BudgetExhausted(TimeoutError):
     """The shared collection deadline ended before or during an upstream call."""
 
@@ -178,14 +219,16 @@ def continuation(finding: dict, action: str, reason: str, cursor: int | None = N
 
 async def collect_query(qradar: Any, query: str, database: str, scope: str,
                         budget: Budget | None = None, fallback_query: str | None = None,
-                        plan: Any = None, resume: dict | None = None) -> dict:
+                        plan: Any = None, resume: dict | None = None, progress: Progress | None = None) -> dict:
     """Validate, create once, poll and page; classify the outcome and keep a resume cursor.
 
     With ``resume`` (a saved finding that has a search ID), the same job is continued from its
-    saved cursor: no validation, no creation, rows already collected are kept."""
+    saved cursor: no validation, no creation, rows already collected are kept. ``progress``
+    receives a resumable snapshot before creation, when the search ID arrives and after
+    every page, so a cancelled run keeps the job ID, cursor and rows."""
     budget = budget or Budget()
     if resume is not None:
-        return await _resume(qradar, resume, budget)
+        return await _resume(qradar, resume, budget, progress)
     finding: dict = {"aql": query, "database": database, "scope": scope, "query_limit": None,
                      "state": "not started", "outcome": "not_started", "rows": [], "warnings": [],
                      "truncated_fields": [], "truncated_rows": {}, "result_set_complete": False,
@@ -224,15 +267,20 @@ async def collect_query(qradar: Any, query: str, database: str, scope: str,
         stage = "creation"
         aql = finding["aql"]
         budget.queries_started += 1
+        _notify(progress, finding, "creating")
         created = await budget.run(lambda: create_search(qradar, aql), "creation")
         sid = created["search_id"]
         finding.update(search_id=sid, state=str(created.get("status") or "WAIT").upper())
-        return await _drive(qradar, finding, budget, database, 0)
+        _notify(progress, finding, "created", 0)
+        return await _drive(qradar, finding, budget, database, 0, progress)
+    except CheckpointFailed:
+        raise
     except Exception as exc:
         return _failed(finding, exc, stage, start)
 
 
-async def _drive(qradar: Any, finding: dict, budget: Budget, database: str, start: int) -> dict:
+async def _drive(qradar: Any, finding: dict, budget: Budget, database: str, start: int,
+                 progress: Progress | None = None) -> dict:
     """Poll the known job and page from ``start``; never creates or recreates a search."""
     sid = finding["search_id"]
     stage = "polling"
@@ -290,6 +338,9 @@ async def _drive(qradar: Any, finding: dict, budget: Budget, database: str, star
                 finding["continuation"] = continuation(finding, "fetch_next_page", "non-advancing cursor", start)
                 break
             start = next_start
+            _notify(progress, finding, "page", start)
+    except CheckpointFailed:
+        raise
     except Exception as exc:
         return _failed(finding, exc, stage, start)
     return _finish(finding)
@@ -298,7 +349,7 @@ async def _drive(qradar: Any, finding: dict, budget: Budget, database: str, star
 FINAL = ("complete_in_window", "empty")
 
 
-async def _resume(qradar: Any, saved: dict, budget: Budget) -> dict:
+async def _resume(qradar: Any, saved: dict, budget: Budget, progress: Progress | None = None) -> dict:
     """Continue a saved finding. Complete results are reused; an uncertain creation is never
     recreated; a known job is polled/paged from its saved cursor and rows are appended."""
     finding = {k: (list(v) if isinstance(v, list) else dict(v) if isinstance(v, dict) else v)
@@ -323,11 +374,12 @@ async def _resume(qradar: Any, saved: dict, budget: Budget) -> dict:
     finding.update(outcome="not_started", warnings=[], result_set_complete=False)
     finding.pop("continuation", None)
     finding.pop("error", None)
+    finding.pop("checkpoint", None)
     finding["resume"] = {"action": "continued_same_search", "search_id": saved["search_id"], "cursor": cursor,
                          "previous_outcome": previous, "rows_kept": len(finding["rows"])}
     if str(finding.get("state", "")).upper() != "COMPLETED":
         finding["state"] = str(finding.get("state") or "WAIT").upper()
-    return await _drive(qradar, finding, budget, finding["database"], cursor)
+    return await _drive(qradar, finding, budget, finding["database"], cursor, progress)
 
 
 def _not_started(finding: dict, reason: str) -> dict:

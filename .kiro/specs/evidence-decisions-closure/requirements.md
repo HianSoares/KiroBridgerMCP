@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Decisions must follow from evidence: each disposition and each closing reason has explicit requirements, supporting and contradicting evidence is evaluated, analyst records carry scope and origin, and confidence is justified without numeric scores.
+Decisions must follow from evidence: each disposition and each closing reason has explicit requirements, supporting and contradicting evidence is evaluated, analyst records carry precise scope and origin, a second source counts only when it demonstrably describes the same activity, and confidence is justified without numeric scores.
 
 ## Requirements
 
@@ -17,16 +17,18 @@ Decisions must follow from evidence: each disposition and each closing reason ha
 3. THE SYSTEM SHALL read the live closing-reason catalog and SHALL NOT invent a reason or ID.
 4. WHEN a catalog reason is custom THE SYSTEM SHALL evaluate it only with a valid local definition (`SOC_BRIDGE_CLOSING_REASONS`) whose requirements are known IDs.
 
-### Requirement 2 — Scoped confirmations
+### Requirement 2 — Precisely scoped confirmations
 
-**User Story:** As an analyst, I want my external records to count only for what they cover, so that a generic authorization does not close unrelated activity.
+**User Story:** As an analyst, I want my external records to count only for what they name, so that an authorization for one process on one host does not close other hosts or other commands.
 
 #### Acceptance Criteria
 
-1. THE SYSTEM SHALL accept for authorization, malicious_activity_confirmed and detection_error a scope with activity, entities and window, plus source and reference.
-2. WHEN an observed activity is not covered by a scoped record (activity, entity overlap, window covering the observed interval) THE SYSTEM SHALL keep the requirement unmet and name the uncovered activities.
-3. WHEN a record's window does not cover the observed interval THE SYSTEM SHALL record an unresolved contradiction affecting that requirement.
-4. THE SYSTEM SHALL label every confirmation as analyst-supplied and not verified by the bridge.
+1. THE SYSTEM SHALL accept for authorization, malicious_activity_confirmed and detection_error a scope with activity, entities and window, plus source and reference. A `process_execution` scope SHALL name the processes and MAY restrict command lines and parent processes; a `script_execution` scope SHALL name the script block IDs.
+2. THE SYSTEM SHALL evaluate each observed instance on its own: each process creation (host, image, command line, parent, time), each script block, and each entity of the other activities (with the times of its records).
+3. WHEN an instance's entity, process/chain or time is not covered by a scoped record THE SYSTEM SHALL keep the requirement unmet and SHALL list that instance with the reason.
+4. WHEN an instance otherwise matches a record but falls outside its window THE SYSTEM SHALL record an unresolved contradiction affecting that requirement.
+5. THE SYSTEM SHALL reject window times without an explicit timezone and SHALL NOT interpret local times as UTC.
+6. THE SYSTEM SHALL label every confirmation as analyst-supplied and not verified by the bridge.
 
 ### Requirement 3 — Contradictions
 
@@ -38,7 +40,17 @@ Decisions must follow from evidence: each disposition and each closing reason ha
 2. WHEN bridge evidence confirms malicious activity THE SYSTEM SHALL mark authorized_activity and detection_error as contradicted.
 3. THE SYSTEM SHALL still report confirmed facts and evaluate an administrative decision separately.
 
-### Requirement 4 — Sustained conclusions and confidence
+### Requirement 4 — QRadar↔Trend link
+
+**User Story:** As an analyst, I want a related Trend alert to confirm malicious activity in the offense only when both describe the same activity.
+
+#### Acceptance Criteria
+
+1. THE SYSTEM SHALL treat a related Trend alert as linked to the offense only when an offense-linked QRadar process record (INOFFENSE query) and the alert share a full file hash or the exact command line on the same host.
+2. WHEN a True Positive alert is related only by IP/time or weaker identifiers THE SYSTEM SHALL NOT confirm malicious activity, SHALL record an unresolved contradiction against benign dispositions and SHALL propose a pivot to demonstrate or exclude the link.
+3. THE SYSTEM SHALL NOT count QRadar records as corroboration unless they demonstrate the same activity as the second source.
+
+### Requirement 5 — Sustained conclusions and confidence
 
 **User Story:** As an analyst, I want a conclusion when the evidence supports it, and precise pending items when it does not.
 
@@ -46,13 +58,13 @@ Decisions must follow from evidence: each disposition and each closing reason ha
 
 1. WHEN every requirement of exactly one reason is met THE SYSTEM SHALL recommend it with `ready_to_close=true` for human review.
 2. WHEN requirements are missing THE SYSTEM SHALL report inconclusive with each missing requirement and its next check.
-3. THE SYSTEM SHALL justify confidence by link quality, provenance (bridge or external), coverage, corroboration and contradictions, with no numeric score.
+3. THE SYSTEM SHALL justify confidence by link quality, provenance (bridge or external), coverage, demonstrated corroboration and contradictions, with no numeric score; high confidence SHALL require bridge-demonstrated requirements and demonstrated corroboration.
 
-### Requirement 5 — Report and note
+### Requirement 6 — Report and note
 
 **User Story:** As a reviewer, I want a standard report and a Portuguese note reflecting the current decision.
 
 #### Acceptance Criteria
 
-1. THE SYSTEM SHALL output the decision, observed behavior, decisive evidence with references, hypotheses and tests, contradictions, coverage, limitations, confidence and basis, closing reason or impediments, next action and the note.
+1. THE SYSTEM SHALL output the decision, observed behavior, decisive evidence with references, hypotheses and tests, contradictions, coverage, limitations, confidence and basis, related alerts with their link level, closing reason or impediments, next action and the note.
 2. THE SYSTEM SHALL build the note from the current decision and collected facts only, and SHALL NOT close, post, alter rules or contain.

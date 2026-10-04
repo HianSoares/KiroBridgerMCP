@@ -2,19 +2,24 @@
 
 - [x] 1. Versioned case model, atomic save with optimistic revision, secret refusal, list/show/delete/purge
   - `case_store.CaseStore`, `scrub`, `CaseConflict`, `SecretInCase`; CLI `soc-bridge cases`
-  - _Requirements: 1.1, 1.2, 1.3, 1.4_
-- [x] 2. Resume known Ariel jobs from saved cursors; reuse complete results; never recreate uncertain creations
-  - `ariel_collection._resume/_drive`, `collect_query(resume=...)`, `collect_offense_evidence(resume, rerun, keep_rows)`
-  - _Requirements: 2.1, 2.2, 2.3, 2.5_
-- [x] 3. Stable planning windows across runs (`collection_now`) and a checkpoint after QRadar collection
-  - `case_investigation.investigate_offense_case`
-  - _Requirements: 2.4_
-- [x] 4. Consolidation with identity, references, tiers and separate clocks
-  - `merge_query`, `merge_trend`, `evidence_key`, `epoch_utc`
-  - _Requirements: 3.1, 3.2, 3.3, 3.4_
-- [x] 5. Report revisions and decisions appended; reassessment without upstream calls
-  - `report_revisions`, `decisions`, `reassess_case`
-  - _Requirements: 4.1, 4.2_
-- [x] 6. Documentation of storage, retention and deletion (`docs/case-store.md`) and synthetic tests
-  - `StoreTests`, `ResumeTests`, `CaseFlowTests`
-  - _Requirements: 1.4, 2.1-4.2_
+  - _Requirements: 1.1, 1.4, 1.5_
+- [x] 2. Inter-process lock around read, compare and replace of the revision
+  - `CaseStore.lock`, `save`, `load`, `delete`, `CaseLocked`; `ConcurrencyTests`
+  - _Requirements: 1.2, 1.3_
+- [x] 3. Case bound to one offense; saved jobs resumed only for the same offense, database, scope and AQL
+  - `investigate_offense_case`, `offense_evidence.resume_mismatch`; `OffenseIsolationTests`
+  - _Requirements: 2.1, 2.2_
+- [x] 4. Checkpoints before the first call, before creation, at the search ID and after each page; cancellation keeps them
+  - `ariel_collection.snapshot/_notify`, `collect_query(progress=)`, `case_investigation.checkpoint`; `CheckpointCancellationTests`
+  - _Requirements: 3.1, 3.2, 3.3, 3.8_
+- [x] 5. Resume known Ariel jobs from saved cursors; reuse complete results; never recreate uncertain creations
+  - `ariel_collection._resume/_drive`, `collect_query(resume=...)`, `collect_offense_evidence(resume, rerun, keep_rows)`; `ResumeTests`
+  - _Requirements: 3.4, 3.5, 3.6, 3.7_
+- [x] 6. Conservative consolidation with identity, references, tiers, history and separate clocks
+  - `evidence_identity`, `merge_query`, `merge_trend`, `epoch_utc`; `StoreTests`, `DeduplicationTests`
+  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6_
+- [x] 7. Trend results persisted and reused; report revisions and decisions appended; reassessment without upstream calls
+  - `compact_trend`, `merge_trend_state`, `reassess_case`; `ReassessmentKeepsTrendEvidenceTests`, `CaseFlowTests`
+  - _Requirements: 5.1, 5.2, 5.3, 5.4_
+- [x] 8. Documentation of storage, locking, checkpoints, retention and deletion (`docs/case-store.md`)
+  - _Requirements: 1.5, 3.1-3.8_

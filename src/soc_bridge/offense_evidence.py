@@ -201,16 +201,35 @@ def _records(name: str, finding: dict, property_map: dict, seen: dict) -> list[d
     return out
 
 
+def resume_mismatch(saved: dict, offense_id: int, query: str, fallback: str | None, database: str,
+                    scope: str) -> list[str]:
+    """Fields of a saved finding that do not match the query planned now (empty = resumable)."""
+    out = []
+    if saved.get("offense_id") is not None and saved.get("offense_id") != offense_id:
+        out.append("offense_id")
+    if saved.get("database") != database:
+        out.append("database")
+    if saved.get("scope") != scope:
+        out.append("scope")
+    if saved.get("aql") not in {query, fallback} - {None}:
+        out.append("aql")
+    return out
+
+
 async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int = -3,
                                    timezone_verified: bool = False, now: datetime | None = None,
                                    budget: Budget | None = None, confirmations: list | None = None,
                                    resume: dict | None = None, rerun: set[str] | None = None,
-                                   closure_options: dict | None = None, keep_rows: bool = False) -> dict:
+                                   closure_options: dict | None = None, keep_rows: bool = False,
+                                   progress: Any = None) -> dict:
     """Collect linked records, flow census, rules, host context and evidence-triggered pivots.
 
     ``resume`` maps query names to saved findings (with rows): known jobs continue from their
-    cursor, complete ones are reused, uncertain creations are not recreated. ``rerun`` names
-    queries the analyst explicitly asked to start again as new jobs."""
+    cursor, complete ones are reused, uncertain creations are not recreated. A saved finding is
+    resumed only when it belongs to this offense and to the same database, scope and AQL as
+    the query planned now; otherwise it is not touched and the planned query runs as a new
+    job. ``rerun`` names queries the analyst explicitly asked to start again as new jobs.
+    ``progress(name, finding, stage)`` receives resumable checkpoints during the collection."""
     oid = offense.get("id")
     if isinstance(oid, bool) or not isinstance(oid, int) or oid < 1:
         raise ValueError("Positive integer offense ID required")
@@ -254,14 +273,25 @@ async def collect_offense_evidence(qradar: Any, offense: dict, offset_hours: int
 
     async def run(name: str, query: str, database: str, scope: str, plan: Any, fallback: str | None) -> dict:
         saved = (resume or {}).get(name)
-        if saved is not None and name not in (rerun or set()) and (
+        checkpoint = (lambda snap, stage: progress(name, snap, stage)) if progress else None
+        mismatch = resume_mismatch(saved, oid, query, fallback, database, scope) if saved is not None else []
+        if saved is not None and not mismatch and name not in (rerun or set()) and (
                 saved.get("search_id") or saved.get("outcome") in ("creation_uncertain", "empty", "complete_in_window")):
-            finding = await collect_query(qradar, query, database, scope, budget, fallback, plan, resume=saved)
-            if finding.get("aql") != query and finding.get("aql") != fallback:
-                finding.setdefault("warnings", []).append(
-                    "Resumed the saved job: its AQL differs from the one this run would plan (window/time changed)")
+            finding = await collect_query(qradar, query, database, scope, budget, fallback, plan, resume=saved,
+                                          progress=checkpoint)
         else:
-            finding = await collect_query(qradar, query, database, scope, budget, fallback, plan)
+            finding = await collect_query(qradar, query, database, scope, budget, fallback, plan, progress=checkpoint)
+            if mismatch:
+                finding["resume"] = {"action": "not_resumed_state_mismatch", "mismatched": mismatch,
+                                     "previous_search_id": saved.get("search_id"),
+                                     "previous_outcome": saved.get("outcome"),
+                                     "reason": "the saved job belongs to another offense or query; it was not "
+                                               "continued and stays in the query history"}
+                finding.setdefault("warnings", []).append(
+                    "Saved job not resumed: " + ", ".join(mismatch) + " differ from the query planned now")
+        finding["offense_id"] = oid
+        if progress:
+            progress(name, finding, "finished")
         result["queries"][name] = finding
         plans[name] = plan
         return finding

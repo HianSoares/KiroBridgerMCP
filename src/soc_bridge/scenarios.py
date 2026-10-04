@@ -150,7 +150,8 @@ def hypotheses(result: dict, closure: dict, trend: dict | None, scenarios: dict)
         tests["detection_error"].append(f"{name}: {finding.get('outcome')}")
     for item in (trend or {}).get("investigations", []):
         if item.get("state") == "collected":
-            tests["malicious"].append(f"Trend alert {item['alert_id']}: {item['report']['assessment']['classification']}")
+            tests["malicious"].append(f"Trend alert {item['alert_id']}: {item['report']['assessment']['classification']} "
+                                      f"(link to the offense: {(item.get('link') or {}).get('level', 'not evaluated')})")
     discriminators = [d for s in scenarios.get("scenarios", {}).values() for d in s.get("discriminating_evidence", [])]
     return [
         {"id": "malicious", "status": status("malicious_activity_confirmed"), "tests": tests["malicious"],
