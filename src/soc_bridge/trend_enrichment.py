@@ -124,7 +124,7 @@ async def optional_read(vision: Any, budget: Budget, tool: str, args: dict, purp
             result["error"] = {"category": error["category"], "next_action": error["next_action"]}
             return result
         result["pages_read"] += 1
-        budget.records_seen += len(page)
+        budget.observe_rows(len(page))
         rows.extend(page)
         token, more = next_token(response)
         if not more or tool not in SKIP_TOKEN_TOOLS or not token:

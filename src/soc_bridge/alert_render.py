@@ -19,6 +19,22 @@ def render(report: dict[str, Any]) -> str:
     ex = report["extraction"]
     lines = [f"# Vision One alert {report['alert_id']} -> QRadar", "", f"Generated (UTC): {report['generated_at']}", "",
              "## Vision One evidence", ""]
+    collection = report.get("collection", {})
+    if collection:
+        lines += [f"- Collection: {collection['state']}. {collection['note']}"]
+        for error in collection.get("errors", []):
+            lines.append(f"- Phase failure: {error['stage']}; source {error['source']}; category {error['category']}; "
+                         f"retryable={error['retryable']}; {error['reason']}; {error['next_action']}")
+    if report.get("connection_lifecycle"):
+        lines += ["- Connection shutdown failed after collection returned. Evidence is preserved; "
+                  "this is not a reason to rerun completed searches."]
+    if report.get("resumption"):
+        lines += [f"- Resumption: {report['resumption']['note']}"]
+    if report.get("call_outcomes"):
+        lines += [f"- Call outcomes ({report['call_outcomes']['scope']}): " +
+                  json.dumps(report['call_outcomes']['calls'], ensure_ascii=False),
+                  "- reused_read means a previous successful read was reused, not a new upstream call. "
+                  "Diagnostic process-wide totals do not prove which calls belong to this alert."]
     lines += [f"- {k}: {_clip(a[k], 500)}" for k in SUMMARY_KEYS if k in a]
     lines += [f"- IPs in alert API detail: {', '.join(report['alert_ips']) or 'none'}",
               f"- IPs searched in QRadar address indexes: {', '.join(report['searched_ips']) or 'none'}",
@@ -85,7 +101,8 @@ def render(report: dict[str, Any]) -> str:
                              f"object={_clip(record.get('object', {}).get('filePath'), 160)} "
                              f"reasons={record['relation']['reasons']} cut={record.get('cut_by_bridge')}")
         if auto.get("continuation"):
-            lines.append(f"- Pending Trend partitions/refinements: {_clip(auto['continuation'][:10], 1500)}")
+            lines.append("- Pending Trend partitions/refinements (complete continuation values): `" +
+                         json.dumps(auto["continuation"], ensure_ascii=False) + "`")
     dumps = report.get("dump_analysis") or {}
     if dumps.get("applicable"):
         lines += ["", "## Memory-dump tool analysis (intent, execution and file kept apart)", ""]
@@ -155,11 +172,15 @@ def render(report: dict[str, Any]) -> str:
                          f"rows {query.get('returned_rows')}; AQL: `{_clip(query['aql'], 600)}`")
         for relation in corr["relations"][:15]:
             lines.append(f"  - relation {relation['label']}: Trend {relation['trend_uuid']} ({relation['trend_role']}) vs "
-                         f"QRadar {relation['qradar']} — {relation['identifiers_equal'] or 'no identifier equal'}")
+                         f"QRadar {relation['qradar']} — {relation['identifiers_equal'] or 'no identifier equal'}"
+                         + (f"; conflicts={relation['conflicts']}" if relation.get("conflicts") else ""))
         if corr["relations"]:
             lines.append(f"- Criteria: {corr['relations'][0]['criteria']}")
         if corr["plan"]:
-            lines.append(f"- QRadar plan/pending: {_clip(corr['plan'][:8], 1500)}")
+            lines.append("- QRadar plan/pending (same search ID/cursor; do not recreate): `" +
+                         json.dumps(corr["plan"], ensure_ascii=False) + "`")
+        if corr.get("error"):
+            lines.append(f"- Correlation interrupted: {corr['error']['category']}; earlier checkpoints preserved.")
         lines.append("- Hostname text or a shared IP does not link a QRadar event to the Trend process.")
     tl = report["timeline"]
     lines += ["", "## Evidence timeline (UTC, collected sample)", ""]

@@ -101,6 +101,9 @@ def _requirements(report: dict, facts: list, signals: list, secondary: list) -> 
     reads = _reads(report)
     anchor = (report.get("clocks") or {}).get("anchor", {})
     coverage_gaps: list[str] = []
+    for error in (report.get("collection") or {}).get("errors", []):
+        if error.get("stage") in ("Trend Search/OAT", "Trend dump analysis", "Trend hypothesis checks"):
+            coverage_gaps.append(f"{error['stage']} failed ({error['category']}); no negative finding inferred")
     if discovery.get("continuation"):
         coverage_gaps.append(f"{len(discovery['continuation'])} Trend search partition(s) pending or limited")
     for result in discovery.get("pivots", []) + discovery.get("instance_followups", []):

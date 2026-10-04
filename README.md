@@ -36,9 +36,11 @@ For macOS/Linux commands, Docker setup, QRadar and Trend credentials, and a live
 
 ## Investigate a real case
 
+Clear investigation requests authorize the required read-only pivots. Completed reports survive connection shutdown errors; partial evidence and known Ariel search IDs are preserved. See [execution and resumption (Portuguese)](docs/investigation-recovery.md) for the temporary alert cache and recovery limits.
+
 After completing the live setup in the guide, give Kiro a QRadar offense number or a Vision One Workbench alert ID:
 
-> Use `investigate_case` with reference `<OFFENSE_ID>`. Show the queries run, confirmed findings, candidate links, and gaps.
+> Investigate offense `<OFFENSE_ID>` end to end. Show the evidence, decision, confidence, pending checks and a draft note.
 
 > Use `investigate_case` with reference `WB-EXAMPLE-20260924-00001`. Explain which endpoint details were retrieved and which remain unverified.
 

@@ -6,8 +6,10 @@ import json
 import re
 from typing import Any
 
-from .capabilities import GLOBAL_LEDGER, outcome_for, tool_names
-from .diagnostics import MCPToolFailure, failure_reason, unavailable
+from .capabilities import GLOBAL_LEDGER, Ledger, outcome_for, tool_names
+from .diagnostics import MCPToolFailure, collection_failure, failure_reason, unavailable
+from .connection_lifecycle import InvestigationConnections
+from .alert_resume import ALERT_READ_CACHE
 from .aql_errors import AQLValidationError, ResponseFormatError
 from .aql_search import AQL_RESOURCES
 
@@ -91,12 +93,14 @@ def unpack(result: Any) -> Any:
 
 class RestrictedMCP:
     def __init__(self, session: Any, allowed: set[str], available: set[str],
-                 required: set[str] | None = None, source: str = "MCP"):
+                 required: set[str] | None = None, source: str = "MCP", ledger: Ledger | None = None, read_state=None):
         self.session = session
         self.allowed = allowed
         self.available = available
         self.source = source
         self.ledger = GLOBAL_LEDGER
+        self.run_ledger = ledger
+        self.read_state = read_state
         discovery = getattr(available, "discovery", None)
         missing = (required if required is not None else allowed) - available
         if missing and discovery is not None and not discovery.complete:
@@ -114,13 +118,30 @@ class RestrictedMCP:
             if discovery is not None and not discovery.complete:
                 raise RuntimeError(f"Optional MCP tool availability unknown: {name}")
             raise RuntimeError(f"Optional MCP tool unavailable: {name}")
+        if self.read_state is not None:
+            reused, value = self.read_state.get(self.source, name, arguments)
+            if reused:
+                from .ariel_collection import ACTIVE_READ_BUDGET
+                active = ACTIVE_READ_BUDGET.get()
+                if active is not None:
+                    active[0].reuse_read(active[1])
+                if self.run_ledger is not None:
+                    self.run_ledger.record(name, "reused_read")
+                return value
         try:
             value = await self._call(name, arguments)
         except Exception as exc:
             from .aql_errors import classify_failure
-            self.ledger.record(name, outcome_for(classify_failure(exc)["category"]))
+            outcome = outcome_for(classify_failure(exc)["category"])
+            self.ledger.record(name, outcome)
+            if self.run_ledger is not None:
+                self.run_ledger.record(name, outcome)
             raise
         self.ledger.record(name, "tested_ok")
+        if self.run_ledger is not None:
+            self.run_ledger.record(name, "tested_ok")
+        if self.read_state is not None:
+            self.read_state.put(self.source, name, arguments, value)
         return value
 
     async def _call(self, name: str, arguments: dict[str, Any]) -> Any:
@@ -184,7 +205,6 @@ class RestrictedMCP:
 async def live_qradar_query(operation: str, parameters: dict[str, Any], url: str,
                             token: str | None) -> dict[str, Any]:
     """QRadar-only query session. Does not require Trend credentials or Docker."""
-    from contextlib import AsyncExitStack
     from urllib.parse import urlparse
     from mcp import ClientSession
     from mcp.client.streamable_http import streamable_http_client
@@ -217,11 +237,11 @@ async def live_qradar_query(operation: str, parameters: dict[str, Any], url: str
                 "context": set(), "assess_closure": {"get_offense"}}[operation]
     stage = "QRadar MCP connection"
     try:
-        async with AsyncExitStack() as stack:
+        async with InvestigationConnections() as stack:
             # This is always loopback: never route telemetry/tokens through an environment proxy.
-            http = await stack.enter_async_context(httpx.AsyncClient(headers={"SEC": token} if token else {}, timeout=30.0, trust_env=False))
-            stream = await stack.enter_async_context(streamable_http_client(url, http_client=http))
-            session = await stack.enter_async_context(ClientSession(stream[0], stream[1]))
+            http = await stack.enter(httpx.AsyncClient(headers={"SEC": token} if token else {}, timeout=30.0, trust_env=False), "QRadar", "HTTP client")
+            stream = await stack.enter(streamable_http_client(url, http_client=http), "QRadar", "Streamable HTTP transport")
+            session = await stack.enter(ClientSession(stream[0], stream[1]), "QRadar", "MCP session")
             stage = "QRadar MCP initialization"
             await session.initialize()
             stage = "QRadar MCP tool listing"
@@ -229,16 +249,20 @@ async def live_qradar_query(operation: str, parameters: dict[str, Any], url: str
             client = RestrictedMCP(session, QRADAR_READ_TOOLS, available, required, "QRadar")
             stage = f"QRadar AQL {operation}"
             if operation == "resource":
-                return await client.read_aql_resource(**parameters)
-            if operation == "rule":
+                report = await client.read_aql_resource(**parameters)
+            elif operation == "rule":
                 rule_id = parameters.get("rule_id")
                 if isinstance(rule_id, bool) or not isinstance(rule_id, int) or rule_id < 0:
                     raise ValueError("rule_id must be a nonnegative integer")
                 rule = await client.call("get_rule", {"rule_id": rule_id})
                 if not isinstance(rule, dict) or rule.get("id") != rule_id:
                     raise ValueError("Unexpected rule metadata ID")
-                return rule
-            return await operations[operation](client, **parameters)
+                report = rule
+            else:
+                report = await operations[operation](client, **parameters)
+            stack.collected(report)
+            stage = "QRadar MCP connection shutdown"
+        return stack.deliver(report)
     except (ValueError, MCPToolFailure):
         raise
     except Exception as exc:
@@ -248,7 +272,6 @@ async def live_qradar_query(operation: str, parameters: dict[str, Any], url: str
 async def live_investigation(offense_id: int, url: str, token: str | None,
                              api_key: str, region: str) -> dict[str, Any]:
     """QRadar Streamable HTTP on loopback + local Vision One stdio container."""
-    from contextlib import AsyncExitStack
     import os
     from urllib.parse import urlparse
     from mcp import ClientSession, StdioServerParameters
@@ -268,10 +291,10 @@ async def live_investigation(offense_id: int, url: str, token: str | None,
     headers = {"SEC": token} if token else {}
     stage = "QRadar MCP connection"
     try:
-        async with AsyncExitStack() as stack:
-            http = await stack.enter_async_context(httpx.AsyncClient(headers=headers, timeout=30.0, trust_env=False))
-            qr_stream = await stack.enter_async_context(streamable_http_client(url, http_client=http))
-            qr = await stack.enter_async_context(ClientSession(qr_stream[0], qr_stream[1]))
+        async with InvestigationConnections() as stack:
+            http = await stack.enter(httpx.AsyncClient(headers=headers, timeout=30.0, trust_env=False), "QRadar", "HTTP client")
+            qr_stream = await stack.enter(streamable_http_client(url, http_client=http), "QRadar", "Streamable HTTP transport")
+            qr = await stack.enter(ClientSession(qr_stream[0], qr_stream[1]), "QRadar", "MCP session")
             stage = "QRadar MCP initialization"
             await qr.initialize()
 
@@ -283,8 +306,8 @@ async def live_investigation(offense_id: int, url: str, token: str | None,
                       "-readonly=true", f"-toolsets={ALERT_TOOLSETS}"],
                 env={**os.environ, "TREND_VISION_ONE_API_KEY": api_key},
             )
-            v_stream = await stack.enter_async_context(stdio_client(params))
-            vision = await stack.enter_async_context(ClientSession(v_stream[0], v_stream[1]))
+            v_stream = await stack.enter(stdio_client(params), "Vision One", "Docker stdio transport")
+            vision = await stack.enter(ClientSession(v_stream[0], v_stream[1]), "Vision One", "MCP session")
             stage = "Vision One MCP initialization"
             await vision.initialize()
             stage = "QRadar MCP tool listing"
@@ -298,8 +321,9 @@ async def live_investigation(offense_id: int, url: str, token: str | None,
                                                      WORKBENCH_TOOLS, source="Vision One"), offense_id,
                                        deep=True, ariel_offset_hours=int(os.environ.get("QRADAR_AQL_UTC_OFFSET_HOURS", "-3")),
                                        deepen_alerts=2)
+            stack.collected(report)
             stage = "MCP connection shutdown"
-        return report
+        return stack.deliver(report)
     except Exception as exc:
         raise unavailable(stage, exc) from None
 
@@ -309,7 +333,6 @@ async def live_case_investigation(offense_id: int, url: str, token: str | None, 
                                  include_trend: bool = True, rerun_queries: list[str] | None = None) -> dict[str, Any]:
     """Persisted, resumable offense case. Trend is used when a key and Docker are available;
     otherwise the case records Vision One as not configured instead of failing."""
-    from contextlib import AsyncExitStack
     import os
     import shutil
     from urllib.parse import urlparse
@@ -327,11 +350,11 @@ async def live_case_investigation(offense_id: int, url: str, token: str | None, 
         raise ValueError("Unsupported Vision One region")
     stage = "QRadar MCP connection"
     try:
-        async with AsyncExitStack() as stack:
-            http = await stack.enter_async_context(httpx.AsyncClient(headers={"SEC": token} if token else {},
-                                                                     timeout=30.0, trust_env=False))
-            qr_stream = await stack.enter_async_context(streamable_http_client(url, http_client=http))
-            qr = await stack.enter_async_context(ClientSession(qr_stream[0], qr_stream[1]))
+        async with InvestigationConnections() as stack:
+            http = await stack.enter(httpx.AsyncClient(headers={"SEC": token} if token else {},
+                                                                     timeout=30.0, trust_env=False), "QRadar", "HTTP client")
+            qr_stream = await stack.enter(streamable_http_client(url, http_client=http), "QRadar", "Streamable HTTP transport")
+            qr = await stack.enter(ClientSession(qr_stream[0], qr_stream[1]), "QRadar", "MCP session")
             stage = "QRadar MCP initialization"
             await qr.initialize()
             stage = "QRadar MCP tool discovery"
@@ -346,8 +369,8 @@ async def live_case_investigation(offense_id: int, url: str, token: str | None, 
                         "run", "-i", "--rm", "-e", "TREND_VISION_ONE_API_KEY", "ghcr.io/trendmicro/vision-one-mcp-server",
                         "-region", region, "-readonly=true", f"-toolsets={ALERT_TOOLSETS}"],
                         env={**os.environ, "TREND_VISION_ONE_API_KEY": api_key})
-                    v_stream = await stack.enter_async_context(stdio_client(params))
-                    vsession = await stack.enter_async_context(ClientSession(v_stream[0], v_stream[1]))
+                    v_stream = await stack.enter(stdio_client(params), "Vision One", "Docker stdio transport")
+                    vsession = await stack.enter(ClientSession(v_stream[0], v_stream[1]), "Vision One", "MCP session")
                     trend_stage = "Vision One MCP initialization"
                     await vsession.initialize()
                     trend_stage = "Vision One MCP tool discovery"
@@ -366,7 +389,9 @@ async def live_case_investigation(offense_id: int, url: str, token: str | None, 
                 case_id=case_id, offset_hours=offset_hours, timezone_verified=timezone_verified,
                 include_trend=include_trend, rerun_queries=rerun_queries, capabilities=capabilities)
             report["capabilities"]["call_outcomes"] = GLOBAL_LEDGER.describe()
-        return report
+            stack.collected(report)
+            stage = "MCP connection shutdown"
+        return stack.deliver(report)
     except (ValueError, MCPToolFailure):
         raise
     except Exception as exc:
@@ -379,8 +404,22 @@ async def live_alert_investigation(alert_id: str, url: str, token: str | None,
                                    ariel_offset_hours: int | None = None,
                                    enable_vision_search: bool = True,
                                    timezone_verified: bool = False) -> dict[str, Any]:
+    """Resume an alert's reads/jobs in this bridge process, isolated by credentials and scope."""
+    identity = [url, token, api_key, region, alert_id, event_evidence, ariel_offset_hours,
+                enable_vision_search, timezone_verified]
+    async with ALERT_READ_CACHE.session(identity) as state:
+        return await _live_alert_investigation(
+            alert_id, url, token, api_key, region, event_evidence, ariel_offset_hours,
+            enable_vision_search, timezone_verified, read_state=state)
+
+
+async def _live_alert_investigation(alert_id: str, url: str, token: str | None,
+                                   api_key: str, region: str,
+                                   event_evidence: dict[str, str] | None = None,
+                                   ariel_offset_hours: int | None = None,
+                                   enable_vision_search: bool = True,
+                                   timezone_verified: bool = False, read_state=None) -> dict[str, Any]:
     """Investigate one Vision One alert: Workbench, Search/OAT, read-only enrichments and QRadar."""
-    from contextlib import AsyncExitStack
     import os
     from urllib.parse import urlparse
     from mcp import ClientSession, StdioServerParameters
@@ -397,17 +436,12 @@ async def live_alert_investigation(alert_id: str, url: str, token: str | None,
     if not api_key:
         raise ValueError("TREND_VISION_ONE_API_KEY is required")
 
-    stage = "QRadar MCP connection"
+    run_ledger = Ledger()
+    stage = "Vision One Docker MCP startup"
     try:
-        async with AsyncExitStack() as stack:
-            # Loopback only: never route telemetry/tokens through an environment proxy.
-            http = await stack.enter_async_context(httpx.AsyncClient(headers={"SEC": token} if token else {},
-                                                                     timeout=30.0, trust_env=False))
-            qr_stream = await stack.enter_async_context(streamable_http_client(url, http_client=http))
-            qr = await stack.enter_async_context(ClientSession(qr_stream[0], qr_stream[1]))
-            stage = "QRadar MCP initialization"
-            await qr.initialize()
-            stage = "Vision One Docker MCP startup"
+        async with InvestigationConnections() as stack:
+            # The requested alert is the primary source. An unavailable secondary
+            # QRadar must not prevent collection of independent Trend evidence.
             params = StdioServerParameters(
                 command="docker",
                 args=["run", "-i", "--rm", "-e", "TREND_VISION_ONE_API_KEY",
@@ -415,22 +449,76 @@ async def live_alert_investigation(alert_id: str, url: str, token: str | None,
                       "-readonly=true", f"-toolsets={ALERT_TOOLSETS}"],
                 env={**os.environ, "TREND_VISION_ONE_API_KEY": api_key},
             )
-            v_stream = await stack.enter_async_context(stdio_client(params))
-            vision = await stack.enter_async_context(ClientSession(v_stream[0], v_stream[1]))
+            v_stream = await stack.enter(stdio_client(params), "Vision One", "Docker stdio transport")
+            vision = await stack.enter(ClientSession(v_stream[0], v_stream[1]), "Vision One", "MCP session")
             stage = "Vision One MCP initialization"
             await vision.initialize()
-            stage = "QRadar MCP tool listing"
-            qtools = await tool_names(qr, "QRadar")
             stage = "Vision One MCP tool listing"
             vtools = await tool_names(vision, "Vision One")
-            stage = "Vision One Workbench alert retrieval and QRadar evidence collection"
-            report = await investigate_vision_alert(
-                RestrictedMCP(qr, QRADAR_READ_TOOLS, qtools, {"get_offense"}, "QRadar"),
-                RestrictedMCP(vision, ALERT_VISION_TOOLS, vtools, {"workbench_alert_detail_get"}, "Vision One"),
-                alert_id, event_evidence=event_evidence, ariel_offset_hours=ariel_offset_hours,
-                enable_vision_search=enable_vision_search, timezone_verified=timezone_verified)
+            vclient = RestrictedMCP(vision, ALERT_VISION_TOOLS, vtools, {"workbench_alert_detail_get"},
+                                    "Vision One", ledger=run_ledger, read_state=read_state)
+            qr_ready = False
+            qr_error = None
+            try:
+                async with InvestigationConnections() as qr_stack:
+                    stage = "QRadar MCP connection"
+                    http = await qr_stack.enter(httpx.AsyncClient(headers={"SEC": token} if token else {},
+                        timeout=30.0, trust_env=False), "QRadar", "HTTP client")
+                    stream = await qr_stack.enter(streamable_http_client(url, http_client=http),
+                                                  "QRadar", "Streamable HTTP transport")
+                    qr = await qr_stack.enter(ClientSession(stream[0], stream[1]), "QRadar", "MCP session")
+                    stage = "QRadar MCP initialization"
+                    await qr.initialize()
+                    stage = "QRadar MCP tool listing"
+                    qtools = await tool_names(qr, "QRadar")
+                    qclient = RestrictedMCP(qr, QRADAR_READ_TOOLS, qtools, {"get_offense"},
+                                            "QRadar", ledger=run_ledger, read_state=read_state)
+                    qr_ready = True
+                    stage = "Vision One Workbench alert retrieval and QRadar evidence collection"
+                    report = await investigate_vision_alert(
+                        qclient, vclient, alert_id, event_evidence=event_evidence,
+                        ariel_offset_hours=ariel_offset_hours, enable_vision_search=enable_vision_search,
+                        timezone_verified=timezone_verified, now=read_state.now if read_state else None,
+                        query_state=read_state.queries if read_state else None)
+                    qr_stack.collected(report)
+            except Exception as exc:
+                if qr_ready:
+                    raise  # Primary collection failures are not QRadar startup failures.
+                qr_error = collection_failure(stage, MCPToolFailure("QRadar", stage, failure_reason(exc)))
+            if not qr_ready:
+                if qr_error is None:
+                    # An SDK cancel scope may suppress its internal cancellation
+                    # after a transport failure. Preserve that positive diagnostic.
+                    reason = (qr_stack.errors[-1]["reason"] if qr_stack.errors else
+                              "QRadar initialization did not return a session")
+                    qr_error = collection_failure(stage, MCPToolFailure("QRadar", stage, reason))
+                if qr_stack.errors:
+                    qr_error["connection_shutdown_errors"] = list(qr_stack.errors)
+                # The failed QRadar resources have been closed in their original
+                # task before the primary Trend collection continues.
+                stage = "Vision One evidence collection (QRadar unavailable)"
+                report = await investigate_vision_alert(
+                    None, vclient, alert_id, event_evidence=event_evidence,
+                    ariel_offset_hours=ariel_offset_hours, enable_vision_search=enable_vision_search,
+                    timezone_verified=timezone_verified, now=read_state.now if read_state else None,
+                    query_state=read_state.queries if read_state else None,
+                    qradar_correlation=False, qradar_unavailable=qr_error)
+            from datetime import datetime, timezone
+            from .core import iso
+            resumed_at = iso(datetime.now(timezone.utc))
+            report["generated_at"] = resumed_at
+            if report.get("clocks"):
+                report["clocks"]["collected_at"] = resumed_at
+            report["resumption"] = {"snapshot_started_at": iso(read_state.now) if read_state else resumed_at,
+                                    "resumed_at": resumed_at, "scope": "same alert, credentials and parameters in this running bridge",
+                                    "ttl_seconds": 900, "durable": False,
+                                    "note": "Read snapshot anchored to the first run; restart/expiry/eviction clears it. "
+                                            "Use returned search IDs/cursors to resume after that; do not blindly recreate jobs."}
+            report["call_outcomes"] = run_ledger.describe()
+            report["call_outcomes"]["scope"] = "this alert investigation only"
+            stack.collected(report)
             stage = "MCP connection shutdown"
-        return report
+        return stack.deliver(qr_stack.deliver(report) if qr_ready else report)
     except Exception as exc:
         raise unavailable(stage, exc) from None
 
@@ -483,7 +571,6 @@ async def live_trend_discovery(parameters: dict[str, Any], api_key: str, region:
 async def live_extra_case(kind: str, parameters: dict[str, Any], url: str, token: str | None,
                           api_key: str, region: str) -> str:
     """Connect to the same two upstreams, retaining strict read-only allowlists."""
-    from contextlib import AsyncExitStack
     import os
     from urllib.parse import urlparse
     from mcp import ClientSession, StdioServerParameters
@@ -503,18 +590,18 @@ async def live_extra_case(kind: str, parameters: dict[str, Any], url: str, token
         raise ValueError("Unknown investigation type")
     stage = "QRadar MCP connection"
     try:
-        async with AsyncExitStack() as stack:
-            http = await stack.enter_async_context(httpx.AsyncClient(headers={"SEC": token} if token else {}, timeout=30.0))
-            stream = await stack.enter_async_context(streamable_http_client(url, http_client=http))
-            qr = await stack.enter_async_context(ClientSession(stream[0], stream[1]))
+        async with InvestigationConnections() as stack:
+            http = await stack.enter(httpx.AsyncClient(headers={"SEC": token} if token else {}, timeout=30.0, trust_env=False), "QRadar", "HTTP client")
+            stream = await stack.enter(streamable_http_client(url, http_client=http), "QRadar", "Streamable HTTP transport")
+            qr = await stack.enter(ClientSession(stream[0], stream[1]), "QRadar", "MCP session")
             stage = "QRadar MCP initialization"
             await qr.initialize()
             stage = "Vision One Docker MCP startup"
             params = StdioServerParameters(command="docker", args=["run", "-i", "--rm", "-e", "TREND_VISION_ONE_API_KEY",
                 "ghcr.io/trendmicro/vision-one-mcp-server", "-region", region, "-readonly=true", "-toolsets=search,endpoint"],
                 env={**os.environ, "TREND_VISION_ONE_API_KEY": api_key})
-            v_stream = await stack.enter_async_context(stdio_client(params))
-            vision = await stack.enter_async_context(ClientSession(v_stream[0], v_stream[1]))
+            v_stream = await stack.enter(stdio_client(params), "Vision One", "Docker stdio transport")
+            vision = await stack.enter(ClientSession(v_stream[0], v_stream[1]), "Vision One", "MCP session")
             stage = "Vision One MCP initialization"
             await vision.initialize()
             stage = "read-only tool listing"
@@ -525,7 +612,11 @@ async def live_extra_case(kind: str, parameters: dict[str, Any], url: str, token
             v = RestrictedMCP(vision, VISION_TOOLS, vtools, {"search_detections_list"}, "Vision One")
             stage = "EPM UAC / FortiGate evidence collection"
             if kind == "epm":
-                return await investigate_epm_uac(q, v, **parameters)
-            return await investigate_web_reputation(q, v, **parameters)
+                report = await investigate_epm_uac(q, v, **parameters)
+            else:
+                report = await investigate_web_reputation(q, v, **parameters)
+            stack.collected(report)
+            stage = "MCP connection shutdown"
+        return stack.deliver(report)
     except Exception as exc:
         raise unavailable(stage, exc) from None

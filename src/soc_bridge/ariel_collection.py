@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import re
 import time
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
 
@@ -15,6 +16,7 @@ from .aql_search import check_query, create_search, search_results, search_statu
 OUTCOMES = ("not_started", "pending", "error", "unavailable", "empty",
             "complete_in_window", "limited", "partial", "creation_uncertain")
 TRUNCATED_PATH = re.compile(r"^rows\[(\d+)\]\.?(.*)$")
+ACTIVE_READ_BUDGET = ContextVar("active_read_budget", default=None)
 # Creation failures where QRadar demonstrably did not create a job; any other
 # creation failure leaves the job's existence uncertain.
 NOT_CREATED = {"permission", "tool_unavailable"}
@@ -97,6 +99,10 @@ class Budget:
     polls: int = 0
     validation_retries: int = 0
     calls_made: int = 0
+    reused_reads: int = 0
+    reused_records: int = 0
+    reused_partitions: int = 0
+    last_read_reused: bool = False
     records_seen: int = 0
     partitions_used: int = 0
     phase: str = "primary"
@@ -194,6 +200,8 @@ class Budget:
                       f"time reserved for later phase(s) {self._held_by()}")
             raise BudgetExhausted(stage, started=False, reason=reason)
         begun = self.now()
+        self.last_read_reused = False
+        context = ACTIVE_READ_BUDGET.set((self, stage))
         try:
             return await asyncio.wait_for(operation(), timeout=remaining)
         except asyncio.TimeoutError:
@@ -204,6 +212,23 @@ class Budget:
             if self._held("seconds") <= 0:
                 self.expired = True
             raise BudgetExhausted(stage, started=True) from None
+        finally:
+            ACTIVE_READ_BUDGET.reset(context)
+
+    def reuse_read(self, stage: str) -> None:
+        """Refund the charged read/partition when no upstream call was made."""
+        self.last_read_reused = True
+        self.calls_made = max(0, self.calls_made - 1)
+        self.reused_reads += 1
+        if stage.endswith(" partition"):
+            self.partitions_used = max(0, self.partitions_used - 1)
+            self.reused_partitions += 1
+
+    def observe_rows(self, count: int) -> None:
+        if self.last_read_reused:
+            self.reused_records += count
+        else:
+            self.records_seen += count
 
     def describe(self) -> dict:
         return {"max_seconds": self.max_seconds, "elapsed_seconds": round(self.now() - self.started, 3),
@@ -212,6 +237,8 @@ class Budget:
                 "max_polls": self.max_polls, "polls": self.polls, "page_size": self.page_size,
                 "validation_retries_without_optional_fields": self.validation_retries,
                 "max_calls": self.max_calls, "calls_made": self.calls_made,
+                "reused_reads": self.reused_reads, "reused_records": self.reused_records,
+                "reused_partitions": self.reused_partitions,
                 "max_records": self.max_records, "records_seen": self.records_seen,
                 "max_partitions": self.max_partitions, "partitions_used": self.partitions_used,
                 "phase": self.phase, "pending_reservations": dict(self.reservations), "phase_log": list(self.phase_log)}

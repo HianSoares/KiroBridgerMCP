@@ -156,6 +156,7 @@ async def diagnose(check_trend: bool = False, timeout: float = 20.0) -> dict:
         report["trend"] = {"stages": [{"stage": "not_requested", "state": "skipped"}],
                            "note": "Run with check_trend to start the local Vision One container and list its tools"}
     report["call_outcomes"] = GLOBAL_LEDGER.describe()
+    report["call_outcomes"]["scope"] = "all upstream calls since this bridge process started; not one investigation"
     report["handling"] = ("States and categories only: no token, header, credential URL or upstream message is shown. "
                           "Advertised tools are not proof of permission or license; only call outcomes show access.")
     return report

@@ -24,3 +24,10 @@
 - [x] 6. Synthetic tests
   - `PivotTests`, `CaseFlowTests`, `ResumeTests`, `test_case_review_regressions`
   - _Requirements: 1.1-4.4_
+
+- [x] 7. Preserve reports, partial phases and query checkpoints; scoped bounded temporary alert resumption, per-attempt ledger and uncut plans
+  - `connection_lifecycle`, `alert_resume`, `alert_investigation`, `src/soc_bridge/trend_qradar.py`, `Budget`; `test_investigation_lifecycle`
+  - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7_
+- [x] 8. Operational execution steering, agent/skill routing and report/diagnostic consistency tests
+  - `.kiro/steering/operational-execution.md`, investigator/hunter agents, Trend skill, recovery guide
+  - _Requirements: 7.1, 7.2, 7.3, 7.4_

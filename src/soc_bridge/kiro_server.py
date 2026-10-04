@@ -288,7 +288,14 @@ async def investigate_vision_alert(alert_id: str) -> str:
     enrichments (notes, inventory, DMM, intel lists, cases, sandbox results, tasks);
     runs budgeted Ariel queries with epoch predicates. Returns relations labelled
     linked/candidate/unverified and a recommended classification with a pt-BR note
-    for human review. Nothing is closed, posted, isolated, executed or submitted.
+    for human review. Completed collection survives a shutdown error (reported separately).
+    Secondary failures preserve earlier evidence and known Ariel search IDs/cursors.
+    If QRadar startup fails, Trend investigation continues with correlation explicitly not executed.
+    Same-ID/parameter calls in this running bridge reuse successful reads and resume jobs
+    while the temporary state exists (15 minutes, four alerts; not durable after restart).
+    Inspect resumption, collection errors and the per-attempt call ledger. Investigate
+    multiple alerts sequentially; continue pending work instead of recreating known jobs.
+    Nothing is closed, posted, isolated, executed or submitted.
     """
     report = await live_alert_investigation(
         alert_id,

@@ -25,6 +25,21 @@ def texts():
 
 
 class PackConsistencyTests(unittest.TestCase):
+    def test_operational_execution_and_recovery_rules_are_consistent(self):
+        steering = (ROOT / ".kiro/steering/operational-execution.md").read_text(encoding="utf-8")
+        self.assertIn("inclusion: always", steering)
+        for phrase in ("qradar_list_offenses", "trend_find_alerts", "em sequência", "connection_lifecycle",
+                       "creation_uncertain", "ledger é cumulativo", "sem perguntar se deve montar"):
+            self.assertIn(phrase, steering)
+        for agent in ("case-investigator", "threat-hunter"):
+            self.assertIn("operational-execution.md", (ROOT / f".kiro/agents/{agent}.md").read_text(encoding="utf-8"))
+        old = (ROOT / ".kiro/steering/investigation.md").read_text(encoding="utf-8")
+        self.assertNotIn("state no complete report was collected", old)
+        self.assertNotIn("retry `investigate_case` once for a timeout or closed connection", old)
+        doc = (ROOT / "docs/investigation-recovery.md").read_text(encoding="utf-8")
+        self.assertIn("não repara uma", doc)
+        self.assertIn("não é armazenamento", doc.lower())
+
     @classmethod
     def setUpClass(cls):
         cls.tools = asyncio.run(public_tools())

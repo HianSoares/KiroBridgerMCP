@@ -12,6 +12,7 @@ from typing import Any, Protocol
 
 from .alert_assessment import assess, timeline
 from .ariel_collection import Budget
+from .diagnostics import collection_failure
 from .core import address, instant, iso, records, window
 from .time_anchor import build_clocks, utc_ms
 from .workbench_extract import parse_alert
@@ -93,7 +94,9 @@ async def investigate_vision_alert(qradar: Protocol, vision: Protocol, alert_id:
                                    timezone_verified: bool = False,
                                    budget: Budget | None = None,
                                    now: datetime | None = None,
-                                   qradar_correlation: bool = True) -> dict[str, Any]:
+                                   qradar_correlation: bool = True,
+                                   query_state: dict | None = None,
+                                   qradar_unavailable: dict | None = None) -> dict[str, Any]:
     if not isinstance(alert_id, str) or not ALERT_ID.fullmatch(alert_id) or not 1 <= max_ips <= 30 or not 1 <= max_offenses <= 100:
         raise ValueError("Invalid alert ID or investigation limits")
     if not isinstance(timezone_verified, bool):
@@ -109,6 +112,29 @@ async def investigate_vision_alert(qradar: Protocol, vision: Protocol, alert_id:
         raise ValueError("Vision One returned an unexpected alert ID or response shape")
 
     warnings: list[str] = []
+    collection_errors: list[dict] = []
+    completed_phases: list[str] = ["Workbench alert detail"]
+    if qradar_unavailable is not None:
+        qradar_correlation = False
+        collection_errors.append(qradar_unavailable)
+        warnings.append("QRadar connection unavailable: correlation was not executed; Trend evidence is preserved")
+
+    async def read_phase(stage, operation, fallback):
+        # Optional/secondary collection cannot erase earlier evidence. Cancellation
+        # is deliberately not caught: it is a control signal, not an empty result.
+        try:
+            result = await operation()
+        except Exception as exc:
+            error = collection_failure(stage, exc)
+            collection_errors.append(error)
+            warnings.append(f"{stage}: collection failed ({error['category']}); previous evidence preserved")
+            return fallback
+        if isinstance(result, dict) and result.get("error"):
+            collection_errors.append(result["error"])
+        else:
+            completed_phases.append(stage)
+        return result
+
     parsed = parse_alert(detail)
     api_ips = sorted({o["value"] for o in parsed["observables"].get("ip", [])})
     manual: dict[str, str] = {}
@@ -142,9 +168,15 @@ async def investigate_vision_alert(qradar: Protocol, vision: Protocol, alert_id:
         from .dump_analysis import analyze as analyze_dumps
         from .trend_enrichment import enrich, hypothesis_reads, insight_observables, read_insights
         # Primary: the alert's own identifiers first (insights that reference it, then Search/OAT).
-        insights = await read_insights(vision, budget, alert_id, detail, now)
+        insights = await read_phase("Trend Insights", lambda: read_insights(vision, budget, alert_id, detail, now),
+                                    {"state": "unavailable", "reason": "Insights collection failed; not an empty result"})
         insight_obs = insight_observables(insights)
-        discovery = await discover(vision, budget, parsed, anchor)
+        discovery = await read_phase("Trend Search/OAT", lambda: discover(vision, budget, parsed, anchor),
+                                     {"logic": "alert-entities-v3", "discovery_status": "unavailable", "pivots": [],
+                                      "instance_followups": [], "oat": [], "records_all": [], "warnings": [],
+                                      "records": {"linked": [], "identifier_match": [], "context": []},
+                                      "record_counts": {}, "search_calls": 0, "search_rows": 0,
+                                      "continuation": [{"action": "resolve_collection_failure", "stage": "Trend Search/OAT"}]})
         warnings.extend(discovery["warnings"])
         records_all = discovery["records_all"]
         clocks = build_clocks(detail, parsed,
@@ -154,9 +186,10 @@ async def investigate_vision_alert(qradar: Protocol, vision: Protocol, alert_id:
         if not clocks["anchor"].get("provisional") or not manual:
             anchor = clocks["anchor"]
         budget.enter("hypothesis")
-        dumps = await analyze_dumps(vision, budget, records_all, parsed["endpoints"])
-        hypothesis_checks = await hypothesis_reads(vision, budget, alert_id, parsed, discovery, anchor, dumps,
-                                                   insight_obs.get("hash", []), now)
+        dumps = await read_phase("Trend dump analysis", lambda: analyze_dumps(vision, budget, records_all, parsed["endpoints"]),
+                                 {"applicable": None, "state": "unavailable"})
+        hypothesis_checks = await read_phase("Trend hypothesis checks", lambda: hypothesis_reads(
+            vision, budget, alert_id, parsed, discovery, anchor, dumps, insight_obs.get("hash", []), now), {})
     else:
         budget.release("hypothesis", "Vision One reads beyond the alert detail are disabled")
         budget.release("enrichment", "Vision One reads beyond the alert detail are disabled")
@@ -177,8 +210,11 @@ async def investigate_vision_alert(qradar: Protocol, vision: Protocol, alert_id:
         # Started from an offense: that offense is the QRadar side. No offense lookup runs here,
         # which also prevents an offense -> alert -> offense loop.
         ips = []
-        budget.release("correlation", "QRadar side skipped: alert deepened from an offense investigation")
-        warnings.append("QRadar lookups skipped: this alert was deepened from an offense investigation")
+        reason = ("QRadar connection unavailable" if qradar_unavailable is not None else
+                  "QRadar side skipped: alert deepened from an offense investigation")
+        budget.release("correlation", reason)
+        if qradar_unavailable is None:
+            warnings.append("QRadar lookups skipped: this alert was deepened from an offense investigation")
     elif len(all_ips) > len(ips):
         warnings.append(f"IP cap/IPv6: inspected {len(ips)} of {len(all_ips)} available IPs in QRadar address indexes")
     if qradar_correlation and not ips:
@@ -189,8 +225,11 @@ async def investigate_vision_alert(qradar: Protocol, vision: Protocol, alert_id:
     correlation = None
     if qradar_correlation and ariel_offset_hours is not None and seen:
         from .trend_qradar import correlate
-        correlation = await correlate(qradar, budget, parsed, discovery or {"records_all": []}, anchor, now,
-                                      ariel_offset_hours, timezone_verified, manual.get("endpoint_ip"))
+        correlation = await read_phase("QRadar correlation", lambda: correlate(
+            qradar, budget, parsed, discovery or {"records_all": []}, anchor, now,
+            ariel_offset_hours, timezone_verified, manual.get("endpoint_ip"), query_state=query_state),
+            {"ips": [], "stages": [], "queries": {}, "relations": [], "plan": [],
+             "notes": ["QRadar correlation failed; not an empty result"]})
         warnings.extend(correlation["notes"])
     leads: dict[int, set[str]] = {}
     successful_queries = 0
@@ -252,7 +291,8 @@ async def investigate_vision_alert(qradar: Protocol, vision: Protocol, alert_id:
     if enable_vision_search:
         budget.enter("enrichment")
         hypotheses = {"network_transfer": bool(dumps.get("applicable"))}
-        enrichment = await enrich(vision, budget, alert_id, detail, parsed, discovery, anchor, hypotheses, now)
+        enrichment = await read_phase("Trend enrichment", lambda: enrich(
+            vision, budget, alert_id, detail, parsed, discovery, anchor, hypotheses, now), {})
     report = {"alert_id": alert_id, "generated_at": iso(now),
               "alert": {k: detail[k] for k in SUMMARY_KEYS if k in detail},
               "alert_ips": api_ips, "searched_ips": ips, "manual_event": manual,
@@ -267,6 +307,9 @@ async def investigate_vision_alert(qradar: Protocol, vision: Protocol, alert_id:
               "insights": insights, "insight_observables": {k: v[:20] for k, v in insight_obs.items()},
               "lead_queries": lead_queries, "budget": budget.describe(),
               "warnings": list(dict.fromkeys(warnings)),
+              "collection": {"state": "partial" if collection_errors else "returned",
+                             "completed_phases": completed_phases, "errors": collection_errors,
+                             "note": "Returned is not a claim of complete coverage; inspect each query and continuation."},
               "method": ("Primary: structured Workbench extraction, Insights that reference the alert, hash/path/process-instance "
                          "Search pivots before endpoint-wide context and OAT -> Hypothesis: dump analysis, hash intel/sandbox, "
                          "response tasks, identity and telemetry availability -> Correlation: QRadar address-index leads and "
