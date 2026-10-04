@@ -162,16 +162,45 @@ def _provenance(record: dict) -> dict:
                                      "devicetime_utc", "log_source")}
 
 
+FILE_HASH_ALGORITHMS = {"SHA256": "sha256", "SHA1": "sha1", "MD5": "md5"}  # IMPHASH is not a file-content hash
+
+
+def hash_states(hashes: dict) -> dict:
+    """Per algorithm: complete (full digest, comparable) or incomplete (present but cut/invalid), with source."""
+    out = {}
+    for name, entry in hashes.items():
+        algo = FILE_HASH_ALGORITHMS.get(str(name).upper())
+        if not algo:
+            continue
+        value = entry.get("value") if isinstance(entry, dict) else entry
+        complete = entry.get("comparable", True) if isinstance(entry, dict) else True
+        out[algo] = {"state": "complete" if complete else "incomplete",
+                     "value": str(value).lower() if complete else None,
+                     "observed_length": len(str(value or "")), "source": f"Sysmon Hashes {name}"}
+    return out
+
+
+def instance_key(host_norm: str | None, guid_norm: str | None, pid: str | None, utc_time: str | None,
+                 image: str | None) -> str:
+    """Identity of a process instance across queries and jobs: ProcessGuid on the host, else PID+start+image."""
+    if guid_norm:
+        return f"{host_norm or 'host?'}|guid:{guid_norm}"
+    return f"{host_norm or 'host?'}|pid:{pid}|start:{utc_time}|image:{(image or '').lower()}"
+
+
 def process_instance(item: dict) -> dict:
     """Decision-level descriptor of one process creation: original strings, instance, chain and clocks."""
     command, command_cut = _text(item.get("command_line"))
-    return {"host_norm": item.get("host_norm"), "guid_norm": item.get("guid_norm"), "pid": item.get("pid"),
+    return {"instance_key": instance_key(item.get("host_norm"), item.get("guid_norm"), item.get("pid"),
+                                         value_of_item(item, "UtcTime"), item.get("image")),
+            "host_norm": item.get("host_norm"), "guid_norm": item.get("guid_norm"), "pid": item.get("pid"),
             "parent_pid": item.get("parent_pid"), "parent_guid_norm": item.get("parent_guid_norm"),
             "image": item.get("image"), "command_line": command, "command_line_cut": command_cut,
             "parent_image": value_of_item(item, "ParentImage"),
             "parent_command_line": value_of_item(item, "ParentCommandLine"),
             "user": value_of_item(item, "User"), "utc_time": value_of_item(item, "UtcTime"),
             "hashes": {k: v["value"] for k, v in (item.get("hashes") or {}).items() if v.get("comparable")},
+            "hash_states": hash_states(item.get("hashes") or {}),
             "event_id": item.get("event_id"), "provenance": _provenance(item)}
 
 

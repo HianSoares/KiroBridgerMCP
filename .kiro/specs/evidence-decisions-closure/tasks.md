@@ -17,7 +17,13 @@
   - _Requirements: 1.1, 1.2, 3.2, 3.3_
 - [x] 4. QRadar↔Trend link at the activity level (same execution or demonstrated chain); candidates block benign closure; persisted basis
   - `trend_link.evidence/link`, `bridge_findings`, pivot `verify_alert_link`; `CorrelationTests`, `ActivityLinkTests`
-  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
+  - _Requirements: 4.1, 4.3, 4.6, 4.7, 4.8_
+- [x] 4a. Hash states per algorithm and role; conflicts of hashes and known identifiers block identity and are reported
+  - `compare_hashes`, `same_execution`, `process_chain.hash_states`, `link_conflict`; `HashConflictTests`
+  - _Requirements: 4.2, 4.3, 4.4_
+- [x] 4b. Process chains by instance identity (ParentProcessGuid, actor as parent of a launched object); PID reuse never forms a chain
+  - `link` child/parent branches, `evidence` parent basis; `ProcessChainIdentityTests`
+  - _Requirements: 4.5_
 - [x] 5. Live catalog only; custom reasons need validated local definitions
   - `load_reason_definitions`, `SOC_BRIDGE_CLOSING_REASONS`
   - _Requirements: 1.3, 1.4_
@@ -28,5 +34,5 @@
   - `case_investigation.build_report`, `render_case_markdown`, note with evidence references
   - _Requirements: 6.1, 6.2_
 - [x] 8. Synthetic tests
-  - `ScopedDecisionTests`, `CaseFlowTests`, `test_case_review_regressions`, `test_case_review_round2`
+  - `ScopedDecisionTests`, `CaseFlowTests`, `test_case_review_regressions`, `test_case_review_round2`, `test_case_review_round3`
   - _Requirements: 1.1-6.2_

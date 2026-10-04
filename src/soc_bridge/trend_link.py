@@ -3,22 +3,31 @@
 An offense-first investigation finds Workbench alerts by IP and time. That association
 selects alerts to deepen; it does not show that the alert and the offense describe the same
 activity. The alert's True Positive rests on specific Search records: an executed process
-instance (actor or newly launched object) whose file hash carries a malicious verdict. A link
+instance (actor, or newly launched object) whose file hash carries a malicious verdict. A link
 is demonstrated only when an offense-linked QRadar process record is that same execution, or
-is demonstrably its parent or child, on the same endpoint:
+is demonstrably its parent or child, on the same endpoint.
 
-- same execution: same host, same artifact (full hash or identical image path), and the
-  same instance (equal PID, or byte-identical command line) with compatible execution times;
-- chain: the QRadar process is the parent (or child) of the malicious instance, shown by the
-  PID/parent PID and launch times on the same host, and described as such.
+Identity rules (``LINK_CRITERIA``):
 
-A file hash identifies an artifact, not an execution. Alert observables keep their role
-(process, parent, object, unknown), source and cut flag, but a parent/object observable never
-attributes the malice to a QRadar process, and hashes of one endpoint are never combined
-with the hostname of another. The alert creation time is never used as an execution time.
-Anything weaker stays a candidate: it neither confirms malicious activity in the offense nor
-corroborates the QRadar evidence. Command lines are compared as original strings; a change
-of case or spacing is not "identical".
+- Hashes are compared per algorithm (sha256/sha1/md5) and per role/artifact, with their source.
+  Each comparison is ``equal``, ``conflict`` (complete digests of the same algorithm differ),
+  ``incomplete`` (present but cut or invalid), ``not_comparable`` (different algorithms) or
+  ``absent``. A conflict is recorded and is never outweighed by an equal path, PID or command.
+  It does not show the activity is benign; it shows this association is not demonstrated.
+- Known identifiers that differ (PID, original command line, image path) are conflicts too.
+- Same execution: same endpoint, compatible execution times, no conflict, and either an equal
+  hash plus an equal PID or identical command line, or (hash absent/not comparable) an
+  identical image path plus an equal PID.
+- Parent of the malicious instance: the QRadar process is the Trend parent instance by the same
+  rules (PID and launch time identify the instance; a long-lived parent stays valid). For a
+  newly launched object, the parent is the actor process of that record, not the actor's parent.
+- Child of the malicious instance: the QRadar child's ParentProcessGuid must point to a QRadar
+  process record (INOFFENSE or host context, labelled as such) on the same endpoint that is the
+  malicious instance by the same rules. A parent PID alone never identifies the parent instance
+  (PID reuse). Trend instance IDs and Sysmon GUIDs are different namespaces and never compared.
+
+The alert creation time is never an execution time. Anything weaker stays a candidate: it
+neither confirms malicious activity in the offense nor corroborates the QRadar evidence.
 """
 
 from __future__ import annotations
@@ -27,15 +36,20 @@ from datetime import datetime
 from typing import Any
 
 from .alert_assessment import _executed_roles
-from .process_chain import same_host
+from .process_chain import guid as normalize_guid, instance_key, same_host
 from .structured import find_paths
 from .time_anchor import parse
-from .trend_records import full_hashes
 
+LINK_CRITERIA = "activity-v3"
+BASIS_VERSION = 2
 TOLERANCE_SECONDS = 2.0
+ALGORITHMS = {"sha256": 64, "sha1": 40, "md5": 32}
+TREND_HASH_FIELDS = {"fileHashSha256": "sha256", "fileHashSha1": "sha1", "fileHashMd5": "md5"}
 REQUIRED = ("an offense-linked QRadar process record that is the same execution as the Trend instance carrying the "
-            "malicious verdict (same host and artifact, equal PID or identical command line, compatible execution "
-            "times), or its demonstrated parent/child on the same host")
+            "malicious verdict (same endpoint, no conflicting hash or identifier, equal hash with equal PID or "
+            "identical command line, or identical path with equal PID when no hash is comparable, compatible "
+            "execution times), or its parent/child demonstrated by instance identity (ParentProcessGuid) on the "
+            "same endpoint")
 
 
 def _when(value: Any) -> datetime | None:
@@ -59,13 +73,67 @@ def _pid(value: Any) -> int | None:
         return None
 
 
+def _hex(value: Any, length: int) -> bool:
+    text = str(value or "")
+    return len(text) == length and all(c in "0123456789abcdefABCDEF" for c in text)
+
+
+def trend_hash_states(group: dict, role: str) -> dict:
+    out = {}
+    for field, algo in TREND_HASH_FIELDS.items():
+        value = group.get(field)
+        if value in (None, ""):
+            continue
+        complete = _hex(value, ALGORITHMS[algo])
+        out[algo] = {"state": "complete" if complete else "incomplete",
+                     "value": str(value).lower() if complete else None,
+                     "observed_length": len(str(value)), "source": f"Trend {role}.{field}"}
+    return out
+
+
+def _legacy_states(hashes: Any, source: str) -> dict:
+    """Hash lists/dicts stored by earlier versions: the algorithm is inferred from a full hex length."""
+    values = hashes.values() if isinstance(hashes, dict) else hashes or []
+    out = {}
+    for value in values:
+        value = value.get("value") if isinstance(value, dict) else value
+        algo = next((a for a, n in ALGORITHMS.items() if _hex(value, n)), None)
+        if algo:
+            out[algo] = {"state": "complete", "value": str(value).lower(), "observed_length": len(str(value)),
+                         "source": source}
+    return out
+
+
+def compare_hashes(left: dict, right: dict) -> dict:
+    """Per-algorithm comparison of two artifacts' hash states; never compares across algorithms."""
+    if not left or not right:
+        side = "both" if not left and not right else "QRadar" if not left else "Trend"
+        return {"state": "absent", "by_algorithm": {}, "missing_on": side}
+    by_algorithm = {}
+    for algo in sorted(set(left) | set(right)):
+        a, b = left.get(algo), right.get(algo)
+        if not a or not b:
+            by_algorithm[algo] = {"state": "one_side", "qradar": a, "trend": b}
+        elif a["state"] != "complete" or b["state"] != "complete":
+            by_algorithm[algo] = {"state": "incomplete", "qradar": a, "trend": b}
+        else:
+            by_algorithm[algo] = {"state": "equal" if a["value"] == b["value"] else "conflict", "qradar": a, "trend": b}
+    states = {v["state"] for v in by_algorithm.values()}
+    overall = ("conflict" if "conflict" in states else "equal" if "equal" in states else
+               "incomplete" if "incomplete" in states else "not_comparable")
+    return {"state": overall, "by_algorithm": by_algorithm}
+
+
 def _instance(group: dict, record: dict, role: str) -> dict:
     cut = [p for p in record.get("cut_by_bridge", []) if p.lower().startswith(role)]
+    states = trend_hash_states(group, role)
     return {"role": role, "image": group.get("filePath"), "command_line": group.get("cmd"),
             "command_line_cut": bool(cut), "pid": _pid(group.get("pid")),
-            "instance_id": group.get("hashId") if role == "process" else group.get("processHashId"),
+            "instance_id": group.get("hashId") if role in ("process", "parent") else group.get("processHashId"),
+            "instance_id_namespace": "Trend process hash ID (not a Sysmon ProcessGuid)",
             "launch_time_utc": _iso(parse(group.get("launchTime"))[0]) if group.get("launchTime") else None,
-            "hashes": sorted(full_hashes(group).values())}
+            "hash_states": states,
+            "hashes": sorted(v["value"] for v in states.values() if v["state"] == "complete")}
 
 
 def verdict_hashes(report: dict) -> list[str]:
@@ -93,15 +161,21 @@ def evidence(report: dict) -> dict:
             instance = _instance(group, record, role)
             if not verdicts & set(instance["hashes"]):
                 continue
-            parent = record.get("parent") or {}
+            # The parent of a newly launched object is the actor of the record; the parent of an actor
+            # is the record's parent group.
+            parent_group, parent_role = ((record.get("process"), "process") if role == "object"
+                                         else (record.get("parent"), "parent"))
             malicious.append({
                 "fact_id": f"malicious_instance:{record.get('uuid') or record.get('tool')}:{role}",
+                "basis_version": BASIS_VERSION,
                 "trend_record": {"uuid": record.get("uuid"), "tool": record.get("tool"),
                                  "event_time_utc": record.get("event_time_utc"),
                                  "endpoint_host": record.get("endpoint_host"),
                                  "endpoint_guid": record.get("endpoint_guid")},
                 "instance": instance,
-                "parent": _instance(parent, record, "parent") if parent else None,
+                "parent": _instance(parent_group, record, parent_role) if parent_group else None,
+                "parent_basis": ("actor process of the record (launched the object)" if role == "object"
+                                 else "parent group of the record"),
                 "verdict_hashes": sorted(verdicts & set(instance["hashes"]))})
     observables = []
     for category, items in (((report.get("extraction") or {}).get("observables")) or {}).items():
@@ -115,6 +189,10 @@ def evidence(report: dict) -> dict:
             "note": "alert_created_utc is the alert clock, never an execution time"}
 
 
+def _trend_states(instance: dict) -> dict:
+    return instance.get("hash_states") or _legacy_states(instance.get("hashes"), "Trend (stored by an earlier version)")
+
+
 def _qradar_instances(result: dict) -> list[dict]:
     processes = result.get("processes") or {}
     items = processes.get("process_instances")
@@ -123,107 +201,182 @@ def _qradar_instances(result: dict) -> list[dict]:
     out = []
     for item in items:
         prov = item.get("provenance") or {}
-        if prov.get("scope") != "offense_linked":
-            continue  # host-context records are near the offense, not part of it
-        hashes = item.get("hashes") or {}
-        hashes = {str(v.get("value") if isinstance(v, dict) else v).lower() for v in hashes.values()
-                  if not isinstance(v, dict) or v.get("comparable")}
+        states = item.get("hash_states")
+        if states is None:
+            raw = item.get("hashes") or {}
+            states = ({k.lower(): {"state": "complete" if v.get("comparable") else "incomplete",
+                                   "value": str(v.get("value")).lower() if v.get("comparable") else None,
+                                   "observed_length": len(str(v.get("value") or "")), "source": f"Sysmon Hashes {k}"}
+                       for k, v in raw.items() if isinstance(v, dict) and k.lower() in ALGORITHMS}
+                      or _legacy_states(raw, "Sysmon Hashes (stored by an earlier version)"))
         utc = item.get("utc_time") or ((item.get("fields") or {}).get("UtcTime") or {}).get("value")
         moment = _when(utc) or _when(prov.get("devicetime_utc"))
-        out.append({"host": item.get("host_norm"), "image": item.get("image"), "command_line": item.get("command_line"),
+        parent_guid = item.get("parent_guid_norm") or normalize_guid(
+            ((item.get("fields") or {}).get("ParentProcessGuid") or {}).get("value"))
+        key = item.get("instance_key") or instance_key(item.get("host_norm"), item.get("guid_norm"), item.get("pid"),
+                                                        utc, item.get("image"))
+        out.append({"key": key, "host": item.get("host_norm"), "image": item.get("image"), "command_line": item.get("command_line"),
                     "command_line_cut": bool(item.get("command_line_cut") or item.get("command_line_preview_truncated")),
                     "pid": _pid(item.get("pid")), "parent_pid": _pid(item.get("parent_pid")),
-                    "parent_image": item.get("parent_image") or ((item.get("fields") or {}).get("ParentImage") or {}).get("value"),
-                    "hashes": hashes, "time": moment,
+                    "guid": item.get("guid_norm"), "parent_guid": parent_guid,
+                    "hash_states": states, "time": moment, "scope": prov.get("scope"),
                     "time_basis": "Sysmon UtcTime" if _when(utc) else "QRadar devicetime" if moment else None,
-                    "reference": {k: prov.get(k) for k in ("query", "search_id", "result_row_index")}})
+                    "reference": {k: prov.get(k) for k in ("query", "scope", "search_id", "result_row_index")}})
     return out
-
-
-def _same_artifact(q: dict, t: dict) -> list[str]:
-    shared = []
-    if q["hashes"] & set(t.get("hashes") or []):
-        shared.append("file hash")
-    if q["image"] and t.get("image") and q["image"] == t["image"]:
-        shared.append("identical image path")
-    return shared
 
 
 def _close(a: datetime | None, b: datetime | None) -> bool:
     return bool(a and b and abs((a - b).total_seconds()) <= TOLERANCE_SECONDS)
 
 
-def _same_execution(q: dict, t: dict) -> tuple[list[str], str | None]:
-    """Instance-level identifiers shared by a QRadar process and a Trend instance; or why not."""
-    artifact = _same_artifact(q, t)
-    if not artifact:
-        return [], "different artifact"
+def _same_path(a: str | None, b: str | None) -> bool | None:
+    """True identical, False different (case-insensitively), None when either is unknown."""
+    if not a or not b:
+        return None
+    return True if a == b else None if a.lower() == b.lower() else False
+
+
+def same_execution(q: dict, t: dict) -> dict:
+    """Whether a QRadar process record and a Trend instance are the same execution, with the basis."""
+    artifact = compare_hashes(q["hash_states"], _trend_states(t))
     launched = _when(t.get("launch_time_utc"))
+    path = _same_path(q["image"], t.get("image"))
+    pid = None if q["pid"] is None or t.get("pid") is None else q["pid"] == t["pid"]
+    full = lambda c, cut: bool(c) and not cut  # noqa: E731
+    command = (q["command_line"] == t["command_line"]
+               if full(q["command_line"], q["command_line_cut"]) and full(t.get("command_line"), t.get("command_line_cut"))
+               else None)
+    conflicts = []
+    if artifact["state"] == "conflict":
+        conflicts.append("full " + ", ".join(a for a, v in artifact["by_algorithm"].items() if v["state"] == "conflict")
+                         + " hashes differ")
+    if pid is False:
+        conflicts.append(f"process ID differs ({q['pid']} vs {t.get('pid')})")
+    if command is False:
+        conflicts.append("command lines differ (original strings)")
+    if path is False:
+        conflicts.append("image paths differ")
+    weak = [name for name, value in (("identical image path", path), ("process ID", pid),
+                                     ("identical command line (original string)", command)) if value]
+    time_ok = _close(q["time"], launched)
+    base = {"artifact": artifact, "weak_signals": weak, "conflicts": conflicts, "time_ok": time_ok}
+    hashes = f" (hash comparison: {artifact['state']})"
     if not launched or not q["time"]:
-        return [], "execution time missing on one side (the alert creation time is not an execution time)"
-    if not _close(q["time"], launched):
-        return [], f"execution times differ ({_iso(q['time'])} vs {_iso(launched)})"
-    instance = []
-    if q["pid"] is not None and q["pid"] == t.get("pid"):
-        instance.append("process ID")
-    if (q["command_line"] and t.get("command_line") and not q["command_line_cut"] and not t.get("command_line_cut")
-            and q["command_line"] == t["command_line"]):
-        instance.append("identical command line (original string)")
-    if not instance:
-        return [], "same artifact and time but no instance identifier in common (PID or identical command line)"
-    return artifact + instance + ["compatible execution time"], None
+        return {**base, "same": False,
+                "reason": "execution time missing on one side (the alert creation time is not an execution time)" + hashes}
+    if not time_ok:
+        return {**base, "same": False,
+                "reason": f"execution times differ ({_iso(q['time'])} vs {_iso(launched)})" + hashes}
+    if conflicts:
+        return {**base, "same": False, "reason": "; ".join(conflicts) + hashes}
+    if artifact["state"] == "equal" and (pid or command):
+        return {**base, "same": True, "shared": ["file hash (" + ", ".join(
+            a for a, v in artifact["by_algorithm"].items() if v["state"] == "equal") + ")"] + weak
+                                                + ["compatible execution time"]}
+    if artifact["state"] in ("absent", "not_comparable", "incomplete") and path and pid:
+        return {**base, "same": True, "shared": weak + ["compatible execution time"],
+                "note": f"hash {artifact['state']}: identity rests on the identical path, PID and execution time"}
+    if artifact["state"] == "equal":
+        return {**base, "same": False, "reason": "same artifact and time but no instance identifier in common "
+                                                 "(PID or identical command line)"}
+    return {**base, "same": False,
+            "reason": f"hash {artifact['state']}: needs an identical image path and an equal PID"}
+
+
+def _conflict(q: dict, t: dict, record: dict, check: dict, relation: str) -> dict | None:
+    """A recorded contradiction when weaker signals suggest identity but a known identifier conflicts."""
+    if not check["time_ok"] or not check["conflicts"] or not (check["weak_signals"] or check["artifact"]["state"] == "equal"):
+        return None
+    return {"relation_tested": relation, "trend_record": record.get("uuid"), "trend_role": t.get("role"),
+            "qradar_record": q["reference"], "conflicts": check["conflicts"], "weak_signals": check["weak_signals"],
+            "hashes": check["artifact"]["by_algorithm"],
+            "meaning": "this association is not demonstrated; the conflict does not show the activity is benign"}
 
 
 def link(result: dict, alert_id: str, basis: dict | None, association: dict | None = None) -> dict:
     """"demonstrated" with the matching records and relation, or "candidate" with what is missing."""
     basis = basis or {}
     malicious = basis.get("malicious_instances") or []
-    qradar = _qradar_instances(result)
-    matches, reasons = [], []
+    every = _qradar_instances(result)
+    offense = [q for q in every if q["scope"] == "offense_linked"]  # context records are near, not part of it
+    matches, reasons, conflicts = [], [], []
     for fact in malicious:
-        record, t, parent = fact["trend_record"], fact["instance"], fact.get("parent") or {}
-        for q in qradar:
-            if not q["host"] or not record.get("endpoint_host") or not same_host(q["host"], str(record["endpoint_host"]).lower()):
+        record, t = fact["trend_record"], fact["instance"]
+        parent = fact.get("parent") or {}
+        if not fact.get("basis_version") and t.get("role") == "object":
+            parent = {}  # earlier versions stored the actor's parent here; it is not the object's parent
+            reasons.append("stored basis predates the actor/object parent distinction; parent relation not evaluated")
+        endpoint = str(record.get("endpoint_host") or "").lower()
+        for q in offense:
+            if not q["host"] or not endpoint or not same_host(q["host"], endpoint):
                 reasons.append("different or unknown endpoint")
                 continue
-            base = {"trend_record": record, "trend_instance": t, "qradar_record": q["reference"], "host": q["host"],
+            base = {"trend_record": record, "trend_instance": t, "qradar_record": q["reference"],
+                    "qradar_instance_key": q["key"], "host": q["host"],
                     "qradar_execution_time": _iso(q["time"]), "qradar_time_basis": q["time_basis"],
-                    "fact_id": fact["fact_id"]}
-            shared, why = _same_execution(q, t)
-            if shared:
-                matches.append({**base, "relation": "same_process_instance", "shared_identifiers": shared,
+                    "fact_id": fact["fact_id"], "criteria": LINK_CRITERIA}
+            check = same_execution(q, t)
+            if check["same"]:
+                matches.append({**base, "relation": "same_process_instance", "artifact": check["artifact"],
+                                "shared_identifiers": check["shared"], "note": check.get("note"),
                                 "description": f"the QRadar process {q['image']} (PID {q['pid']}) is the Trend instance "
                                                "that carries the malicious verdict"})
                 continue
+            found = _conflict(q, t, record, check, "same_process_instance")
+            if found:
+                conflicts.append(found)
+            reasons.append(check["reason"])
             if parent:
-                shared_parent, _ = _same_execution(q, parent)
-                if shared_parent and t.get("pid") is not None:
-                    matches.append({**base, "relation": "parent_of_malicious_instance",
-                                    "shared_identifiers": shared_parent + ["parent PID/launch time recorded by Trend"],
+                up = same_execution(q, parent)
+                if up["same"] and t.get("pid") is not None:
+                    matches.append({**base, "relation": "parent_of_malicious_instance", "artifact": up["artifact"],
+                                    "shared_identifiers": up["shared"] + [f"Trend {fact.get('parent_basis') or 'parent'}"],
                                     "description": f"the QRadar process {q['image']} (PID {q['pid']}) is the parent of the "
-                                                   f"malicious Trend instance {t.get('image')} (PID {t.get('pid')}); the "
-                                                   "malice belongs to the child process, launched by this offense activity"})
+                                                   f"malicious Trend instance {t.get('image')} (PID {t.get('pid')}), "
+                                                   f"identified as the {fact.get('parent_basis') or 'parent'}; the malice "
+                                                   "belongs to the child process, launched by this offense activity"})
                     continue
-            launched = _when(t.get("launch_time_utc"))
-            if (q["parent_pid"] is not None and q["parent_pid"] == t.get("pid") and q["parent_image"] and t.get("image")
-                    and q["parent_image"] == t["image"] and launched and q["time"] and q["time"] >= launched):
-                matches.append({**base, "relation": "child_of_malicious_instance",
-                                "shared_identifiers": ["parent PID", "identical parent image path", "launched after the parent"],
-                                "description": f"the QRadar process {q['image']} (PID {q['pid']}) was launched by the "
-                                               f"malicious Trend instance {t.get('image')} (PID {t.get('pid')})"})
+                found = _conflict(q, parent, record, up, "parent_of_malicious_instance")
+                if found:
+                    conflicts.append(found)
+            if q["parent_pid"] is None or q["parent_pid"] != t.get("pid"):
                 continue
-            reasons.append(why or "no shared execution")
+            if not q["parent_guid"]:
+                reasons.append("ParentProcessGuid not available: a parent PID alone does not identify the parent "
+                               "instance (PID reuse)")
+                continue
+            parents = [r for r in every if r["guid"] == q["parent_guid"] and r["host"] and same_host(r["host"], q["host"])]
+            if not parents:
+                reasons.append(f"parent instance {q['parent_guid']} (ParentProcessGuid) not observed in the collected "
+                               "records on this endpoint; a parent PID alone does not identify it")
+                continue
+            r = parents[0]
+            up = same_execution(r, t)
+            if up["same"] and q["time"] and r["time"] and q["time"] >= r["time"]:
+                where = "an INOFFENSE record" if r["scope"] == "offense_linked" else f"a {r['scope']} record (not an INOFFENSE record)"
+                matches.append({**base, "relation": "child_of_malicious_instance", "artifact": up["artifact"],
+                                "shared_identifiers": ["ParentProcessGuid -> parent creation record on the same endpoint"]
+                                + up["shared"],
+                                "chain": {"child_guid": q["guid"], "parent_guid": q["parent_guid"],
+                                          "parent_record": r["reference"], "parent_record_scope": r["scope"]},
+                                "description": f"the QRadar process {q['image']} (PID {q['pid']}) was launched by the "
+                                               f"malicious instance {t.get('image')} (PID {t.get('pid')}); the parent is "
+                                               f"identified by ParentProcessGuid {q['parent_guid']} in {where}"})
+                continue
+            reasons.append(f"ParentProcessGuid {q['parent_guid']} identifies an instance started {_iso(r['time'])} that "
+                           f"is not the malicious instance ({up.get('reason')}): PID reuse or another execution")
     if matches:
-        return {"alert_id": alert_id, "level": "demonstrated", "matches": matches[:10],
-                "basis": "same execution instance or demonstrated process chain on the same endpoint"}
+        return {"alert_id": alert_id, "level": "demonstrated", "matches": matches[:10], "conflicts": conflicts[:10],
+                "criteria": LINK_CRITERIA,
+                "basis": "same execution instance or process chain demonstrated by instance identity on the same endpoint"}
     if not malicious:
         missing = "the Search records that carry the malicious verdict are not available for comparison"
-    elif not qradar:
+    elif not offense:
         missing = "no offense-linked QRadar process creation record to compare"
     else:
-        missing = "; ".join(sorted(set(reasons)))[:500]
-    return {"alert_id": alert_id, "level": "candidate",
+        missing = "; ".join(sorted(set(reasons)))[:800]
+    return {"alert_id": alert_id, "level": "candidate", "conflicts": conflicts[:10], "criteria": LINK_CRITERIA,
             "basis": "related only by the IP/time association used to select the alert"
                      + (f" ({', '.join(association.get('match_fields') or [])})" if association else ""),
             "why_not_demonstrated": missing, "missing": REQUIRED,
-            "trend_instances_compared": len(malicious), "qradar_instances_compared": len(qradar)}
+            "trend_instances_compared": len(malicious), "qradar_instances_compared": len(offense)}

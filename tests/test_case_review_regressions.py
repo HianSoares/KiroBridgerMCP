@@ -252,7 +252,7 @@ class CorrelationTests(unittest.TestCase):
         link = findings["malicious_activity_confirmed"]["link"]
         self.assertEqual(link["level"], "demonstrated")
         self.assertEqual(set(link["matches"][0]["shared_identifiers"]),
-                         {"file hash", "identical image path", "process ID",
+                         {"file hash (sha256)", "identical image path", "process ID",
                           "identical command line (original string)", "compatible execution time"})
 
     def test_uncorroborated_analyst_malice_record_is_not_high_confidence(self):

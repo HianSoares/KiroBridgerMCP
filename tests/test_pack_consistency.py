@@ -12,7 +12,8 @@ TOOL_LIKE = re.compile(r"`((?:investigate|qradar|trend|bridge)_[a-z_]+|list_case
 # Identifiers with a tool-like prefix that are report fields, parameters or pivot actions.
 NOT_TOOLS = {"qradar_correlation", "qradar_utc_offset_hours", "investigate_related_alert", "bridge_findings",
              "trend_link", "trend_state", "trend_finding_refuted",
-             "qradar_link"}  # functions, modules and record types, not tools
+             "qradar_link", "trend_finding_reinstated", "trend_hash_states",
+             "qradar_instance_key"}  # functions, modules and record types
 SPECS = ["capability-discovery-diagnostics", "case-persistence-resume", "investigation-orchestration-pivots",
          "evidence-decisions-closure", "kiro-pack-quality"]
 
@@ -84,7 +85,8 @@ class PackConsistencyTests(unittest.TestCase):
     def test_case_rules_match_the_implemented_behavior(self):
         steering = (ROOT / ".kiro" / "steering" / "case-workflow.md").read_text(encoding="utf-8")
         for phrase in ("verify_alert_link", "processes", "fuso explícito", "pertence a uma offense", "uncovered_instances",
-                       "instances_not_evaluated", "breadth_basis", "trend_finding_refuted", "não apaga fatos anteriores"):
+                       "instances_not_evaluated", "breadth_basis", "trend_finding_refuted", "não apaga fatos anteriores",
+                       "trend_finding_reinstated", "ParentProcessGuid", "link_conflict"):
             self.assertIn(phrase, steering)
         # Superseded promise: a shared hash/command line alone no longer demonstrates the link.
         self.assertNotIn("hash completo ou linha de comando exata compartilhados", steering)

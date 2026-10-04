@@ -38,7 +38,9 @@
 - `trend_state.current(entry)` derives the classification: True Positive while those facts are sustained (with "not observed again" in the basis when the latest attempt differs), the refuting classification, `Refuted` after an analyst refutation, else the latest collected assessment.
 - `trend_state.migrate()` converts states written by the previous format.
 - `bridge_findings()` (used by runs and reassessments) evaluates the link against the sustained instances and keeps demonstrated links as `qradar_link` facts; see the evidence-decisions-closure spec.
-- `reassess_case()` applies `trend_finding_refuted` records (alert and fact IDs validated against the case) before the evaluation.
+- Facts carry a `fingerprint` of the evidence that defines them (for links: Trend fact, relation, QRadar instance key, Trend instance, hash comparison and chain GUIDs; search IDs and row numbers excluded). `refute()` stores the fingerprint it addressed; `_sustain()` keeps a refuted fact refuted when the same fingerprint comes back (`rematched_after_refutation`, reported as `refuted_link_still_matched`) and re-establishes it only for a different fingerprint, with a revision. `reinstate()` applies an explicit `trend_finding_reinstated` record.
+- Links carry `criteria`; `mark_unvalidated_links()` sets `needs_revalidation` on sustained links from earlier criteria that the current computation did not re-demonstrate.
+- `reassess_case()` applies `trend_finding_refuted` and `trend_finding_reinstated` records (alert and fact IDs validated against the case) before the evaluation.
 - `reassess_case()` rebuilds the decision from `last_result`, the stored rows and the stored Trend results. It makes no upstream call.
 - `collection_now` is stored on the first run and reused, so the same windows are planned.
 
@@ -61,6 +63,7 @@
 - `tests/test_case_review_regressions.py`:
   - `ReassessmentKeepsTrendEvidenceTests`: reassessment, run without Trend and run with Trend failing keep the linked True Positive.
 - `tests/test_case_review_round2.py`: `EvidencePreservationTests` — inconclusive re-collection, timeout, Trend failure, refutation by a sustained False Positive and by an analyst record.
+- `tests/test_case_review_round3.py`: `RefutationTests` — link-only refutation across reassessments and a new Ariel job, independent links, reasoned reinstatement, new chain evidence, whole-alert refutation, legacy links marked for revalidation.
   - `OffenseIsolationTests`: case bound to another offense refused before any call; saved job of another offense/query never continued.
   - `CheckpointCancellationTests`: real `task.cancel()` during pagination, during creation and before the first call.
   - `ConcurrencyTests`: two processes (spawn) and two threads writing the same revision.

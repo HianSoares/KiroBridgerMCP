@@ -430,7 +430,10 @@ async def reassess_case(case_id: str, confirmations: list[dict] | None = None) -
     instances are listed. Times without a timezone are rejected. To revise stored Trend facts
     with new evidence, add {"requirement": "trend_finding_refuted", "alert_id": "...",
     "source": "...", "reference": "...", "summary": "<the refuting evidence>", "facts": [ids]
-    (optional)}; the replaced facts are recorded. Records stay labelled as analyst-supplied.
+    (optional; a qradar_link fact alone refutes only the association with the offense)}; to
+    revise a refutation, "trend_finding_reinstated" with the same fields and its reasoning.
+    Re-reading the same evidence never undoes a refutation. Records stay labelled as
+    analyst-supplied.
     Adds a new report revision; earlier revisions are kept.
     """
     from .case_investigation import reassess_case as run

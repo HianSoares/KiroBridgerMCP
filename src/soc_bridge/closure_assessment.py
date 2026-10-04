@@ -40,6 +40,8 @@ ANALYST_REQUIREMENTS = {
 REVISION_RECORDS = {
     "trend_finding_refuted": "new evidence that refutes the stored facts of a Trend alert (alert_id, source, reference "
                              "and the evidence in summary); the bridge records which facts it replaces",
+    "trend_finding_reinstated": "reasoned revision of an earlier refutation (alert_id, source, reference, the basis in "
+                                "summary, optional facts); the bridge records which facts it re-establishes",
 }
 
 
@@ -69,14 +71,14 @@ def validate_confirmations(confirmations: list | None, offense_id: int | None = 
         if rid in REVISION_RECORDS:
             alert, facts = item.get("alert_id"), item.get("facts")
             if not isinstance(alert, str) or not 0 < len(alert.strip()) <= 100:
-                raise ValueError("trend_finding_refuted needs alert_id (the Workbench alert whose facts it refutes)")
+                raise ValueError(f"{rid} needs alert_id (the Workbench alert whose stored facts it revises)")
             if not fields["summary"]:
-                raise ValueError("trend_finding_refuted needs summary: the evidence that refutes the stored facts")
+                raise ValueError(f"{rid} needs summary: the evidence or reasoning behind the revision")
             if facts is not None and (not isinstance(facts, list) or not 1 <= len(facts) <= 50
                                       or not all(isinstance(f, str) and 0 < len(f) <= 200 for f in facts)):
-                raise ValueError("trend_finding_refuted facts must list 1..50 stored fact IDs (omit to refute all)")
+                raise ValueError(f"{rid} facts must list 1..50 stored fact IDs (omit to revise all)")
             if item.get("scope") is not None:
-                raise ValueError("scope does not apply to trend_finding_refuted")
+                raise ValueError(f"scope does not apply to {rid}")
             record.update(alert_id=alert.strip(), **({"facts": facts} if facts else {}))
             out.append(record)
             continue

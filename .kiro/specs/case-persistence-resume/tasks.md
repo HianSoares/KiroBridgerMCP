@@ -20,6 +20,9 @@
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6_
 - [x] 7. Trend attempts, facts, revisions and current assessment per alert; refutation only by pertinent evidence; reassessment without upstream calls
   - `trend_state`, `bridge_findings`, `reassess_case`; `ReassessmentKeepsTrendEvidenceTests`, `EvidencePreservationTests`, `CaseFlowTests`
-  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
+  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.9_
+- [x] 7a. Alert validity separate from association validity; refutations not undone by the same evidence; reasoned reinstatement; legacy links revalidated
+  - `trend_state.fingerprint/_sustain/refute/reinstate/mark_unvalidated_links`, `link_fact_id`, `bridge_findings`; `RefutationTests`
+  - _Requirements: 5.6, 5.7, 5.8_
 - [x] 8. Documentation of storage, locking, checkpoints, retention and deletion (`docs/case-store.md`)
   - _Requirements: 1.5, 3.1-3.8_

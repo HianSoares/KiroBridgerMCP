@@ -28,13 +28,17 @@ def _strip(result: dict) -> dict:
 
 
 def bridge_findings(result: dict, trend: dict | None, run_id: str | None = None) -> tuple[dict, list[dict]]:
-    """Malicious activity is confirmed by a Trend alert only through a demonstrated link.
+    """Malicious activity is confirmed by a Trend alert only through a demonstrated, unrefuted link.
 
     ``trend`` is the case's per-alert state (``trend_state``) or, for a single call, the raw
-    deepening output. The link is computed against the sustained facts of each alert, so a
-    later inconclusive or failed attempt does not drop it; a link demonstrated in an earlier
-    run stays a sustained fact while the instance it links is sustained."""
+    deepening output. The validity of the alert (its True Positive facts) and the validity of its
+    association with the offense (``qradar_link`` facts) are separate: a refuted link stops
+    confirming malicious activity in the offense while the alert stays True Positive. Each link is
+    recomputed with the current criteria; recomputing the evidence a refutation addressed never
+    re-establishes the link (the rematch is reported as a conflict), and links from earlier
+    criteria that are not re-demonstrated are marked for revalidation, never reused."""
     state = trend if trend is None or "alerts" in trend else trend_state.from_raw(trend)
+    run_id = run_id or "this-call"
     findings: dict[str, Any] = {"corroborated": False}
     contradictions = []
     links = {}
@@ -42,17 +46,60 @@ def bridge_findings(result: dict, trend: dict | None, run_id: str | None = None)
         now = trend_state.current(entry)
         instances = [x["data"] for x in entry["facts"].values() if x["kind"] == "malicious_instance"
                      and x["status"] == "sustained"]
-        relation = trend_link.link(result, alert_id, {"malicious_instances": instances}, entry.get("association"))
-        stored = [x["data"] for x in entry["facts"].values() if x["kind"] == "qradar_link" and x["status"] == "sustained"
-                  and (entry["facts"].get(x["data"]["fact_id"]) or {}).get("status") == "sustained"]
-        if relation["level"] == "demonstrated":
-            if run_id:
-                trend_state.record_link(entry, relation, run_id)
-        elif stored:
-            relation = {"alert_id": alert_id, "level": "demonstrated", "matches": stored[:10],
-                        "basis": "link demonstrated in an earlier run and still sustained (QRadar record references kept)"}
+        computed = trend_link.link(result, alert_id, {"malicious_instances": instances}, entry.get("association"))
+        outcomes = trend_state.record_link(entry, computed, run_id)
+        stale = trend_state.mark_unvalidated_links(entry, set(outcomes), run_id)
+        facts = entry["facts"]
+        sustained_instances = {f for f, x in facts.items() if x["kind"] == "malicious_instance" and x["status"] == "sustained"}
+        current_links = [m for m in computed.get("matches", [])
+                         if facts[trend_state.link_fact_id(m)]["status"] == "sustained"]
+        kept = {trend_state.link_fact_id(m) for m in current_links}
+        stored = [x["data"] for f, x in facts.items()
+                  if x["kind"] == "qradar_link" and x["status"] == "sustained" and f not in kept
+                  and x.get("criteria") == trend_link.LINK_CRITERIA and x["data"].get("fact_id") in sustained_instances]
+        refuted = [(f, facts[f]) for f, outcome in outcomes.items() if outcome == "refutation_stands"]
+        effective = current_links + stored
+        if effective:
+            relation = {**computed, "level": "demonstrated", "matches": effective[:10],
+                        "basis": computed.get("basis") if current_links else
+                        "link demonstrated in an earlier run under the current criteria and still sustained "
+                        "(QRadar record references kept)"}
+        else:
+            relation = {k: v for k, v in computed.items() if k != "matches"}
+            relation.update(level="candidate", missing=trend_link.REQUIRED)
+            if refuted:
+                relation["why_not_demonstrated"] = "; ".join(
+                    f"link {f} refuted: {x['refuted_by']['basis']} ({x['refuted_by']['source']})" for f, x in refuted)
+            relation.setdefault("why_not_demonstrated", computed.get("why_not_demonstrated")
+                                or "no demonstrated link remains sustained")
+        if stale:
+            relation["needs_revalidation"] = stale
         entry["link"] = relation
         links[alert_id] = relation
+        for f, x in refuted:
+            contradictions.append({
+                "id": f"refuted_link_still_matched:{alert_id}:{f}",
+                "summary": (f"the bridge comparison still matches the records of link {f}, refuted by "
+                            f"{x['refuted_by']['source']}: {x['refuted_by']['basis']}; the refutation stands until new "
+                            "evidence or a reasoned trend_finding_reinstated record"),
+                "affects": [], "status": "unresolved",
+                "evidence": {"alert_id": alert_id, "fact": f, "refuted_by": x["refuted_by"]}})
+        if computed.get("conflicts"):
+            first = computed["conflicts"][0]
+            contradictions.append({
+                "id": f"link_conflict:{alert_id}",
+                "summary": (f"Trend alert {alert_id} record {first['trend_record']} and QRadar record "
+                            f"{first['qradar_record'].get('query')}#{first['qradar_record'].get('result_row_index')} "
+                            f"share {', '.join(first['weak_signals']) or 'the same file hash'} but "
+                            f"{'; '.join(first['conflicts'])}: this association is not demonstrated (not a benign finding)"),
+                "affects": [], "status": "unresolved",
+                "evidence": {"alert_id": alert_id, "conflicts": computed["conflicts"]}})
+        if stale:
+            contradictions.append({
+                "id": f"link_needs_revalidation:{alert_id}",
+                "summary": f"{len(stale)} stored link(s) of {alert_id} from earlier criteria were not re-demonstrated; "
+                           "kept for history and not used",
+                "affects": [], "status": "unresolved", "evidence": {"alert_id": alert_id, "facts": stale}})
         if now["classification"] != "True Positive":
             continue
         if relation["level"] == "demonstrated":
@@ -66,7 +113,7 @@ def bridge_findings(result: dict, trend: dict | None, run_id: str | None = None)
             contradictions.append({
                 "id": f"related_alert_unlinked:{alert_id}",
                 "summary": (f"Trend alert {alert_id} is assessed True Positive but the offense activity is not shown to be "
-                            "the malicious execution (only IP/time, a shared artifact or missing instance data); it does "
+                            "the malicious execution (" + str(relation.get("why_not_demonstrated"))[:300] + "); it does "
                             "not confirm malicious activity in the offense, and a benign closure must first demonstrate "
                             "or exclude the link"),
                 "affects": ["authorization", "detection_error"], "status": "unresolved",
@@ -296,9 +343,10 @@ def reassess_case(case_id: str, confirmations: list | None = None, store: CaseSt
         if unknown:
             raise ValueError(f"unknown fact IDs for {record['alert_id']}: {unknown}; read them with get_case")
     for record in refutations:
-        trend_state.refute(trend["alerts"][record["alert_id"]], record.get("facts"), "reassessment",
-                           f"analyst-supplied record (not verified by the bridge): {record['source']} {record['reference']}",
-                           record["summary"])
+        apply = trend_state.refute if record["requirement"] == "trend_finding_refuted" else trend_state.reinstate
+        apply(trend["alerts"][record["alert_id"]], record.get("facts"), "reassessment",
+              f"analyst-supplied record (not verified by the bridge): {record['source']} {record['reference']}",
+              record["summary"])
     known = {(c["requirement"], c["reference"], str(c.get("scope"))) for c in case["confirmations"]}
     case["confirmations"] += [c for c in new if (c["requirement"], c["reference"], str(c.get("scope"))) not in known]
     result = {**case["last_result"], "collected_rows": case["rows"]}

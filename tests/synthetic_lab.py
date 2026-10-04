@@ -21,7 +21,7 @@ def offense(oid=12345, **extra):
 
 
 def sysmon(guid, pid, image, command_line, parent_guid=None, parent_pid=None, host=HOST,
-           hashes=None, tail="", utc="2026-10-09 16:00:01.000"):
+           hashes=None, tail="", utc="2026-10-09 16:00:01.000", parent_image="C:\\Windows\\explorer.exe"):
     parts = [f"EventID=1 Computer={host} Process Create: RuleName: - UtcTime: {utc}",
              f"ProcessGuid: {guid}", f"ProcessId: {pid}", f"Image: {image}", f"CommandLine: {command_line}",
              "CurrentDirectory: C:\\Users\\demo.user\\", "User: EXAMPLE\\demo.user", "LogonId: 0x3E7",
@@ -32,7 +32,7 @@ def sysmon(guid, pid, image, command_line, parent_guid=None, parent_pid=None, ho
         parts.append(f"ParentProcessGuid: {parent_guid}")
     if parent_pid:
         parts.append(f"ParentProcessId: {parent_pid}")
-    parts.append("ParentImage: C:\\Windows\\explorer.exe")
+    parts.append(f"ParentImage: {parent_image}")
     return " ".join(parts) + tail
 
 
