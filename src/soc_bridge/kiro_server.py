@@ -219,10 +219,12 @@ async def qradar_assess_closure(offense_id: int, confirmations: list[dict] | Non
     Re-runs the qradar_verify_offense collection and returns a per-reason decision matrix,
     the recommended reason (only when every requirement is met and the reason exists in the
     live catalog) and a Portuguese note draft. confirmations cite records the bridge cannot
-    read: [{"requirement": "authorization"|"active_cre_reviewed"|"detection_error"|
-    "tuning_applied"|"policy_confirmed"|"misconfiguration_confirmed"|"remediation_verified"|
-    "primary_offense"|"administrative_decision", "source": "...", "reference": "...",
-    "summary": "..."}]. They are labelled analyst-supplied, never verified. Collection coverage
+    read: [{"requirement": "authorization"|"malicious_activity_confirmed"|"active_cre_reviewed"|
+    "detection_error"|"tuning_applied"|"policy_confirmed"|"misconfiguration_confirmed"|
+    "remediation_verified"|"primary_offense"|"administrative_decision", "source": "...",
+    "reference": "...", "summary": "...", "scope": {...}}]. authorization,
+    malicious_activity_confirmed and detection_error count only with a scope (see
+    reassess_case). They are labelled analyst-supplied, never verified. Collection coverage
     cannot be confirmed manually. Nothing is closed, posted or assigned.
     """
     return await _qradar_query("assess_closure", offense_id=offense_id, confirmations=confirmations or [],
@@ -385,9 +387,18 @@ async def investigate_offense_case(offense_id: int, case_id: str = "", qradar_ut
     evaluates each disposition/closing reason with contradictions. Returns the decision,
     observed behavior, decisive evidence with references, hypotheses, contradictions,
     coverage, confidence basis, next action and a Portuguese note for human review.
-    Call again with the same case_id to continue a partial collection. rerun_queries lists
-    query names to start again as NEW jobs (for example after an expired or uncertain job).
-    Writes only the local case file; nothing is closed, posted or contained upstream.
+    The case is saved before the first upstream call, before each Ariel job creation, when the
+    search ID arrives and after every page, so an interrupted run keeps search IDs, cursors and
+    rows. Call again with the same case_id to continue; a case_id bound to another offense is
+    refused, and a saved job is resumed only for the same offense, database, scope and AQL.
+    A related Trend True Positive confirms malicious activity only when an offense-linked
+    QRadar process is the Trend instance that carries the malicious verdict (same host and
+    artifact, equal PID or identical command line, compatible execution times) or its
+    demonstrated parent/child; a shared hash, IP or time alone stays a candidate that blocks
+    benign closure. Trend attempts and facts are kept per alert: an inconclusive, failed or
+    skipped re-collection never erases facts established earlier.
+    rerun_queries lists query names to start again as NEW jobs (for example after an expired
+    or uncertain job). Writes only the local case file; nothing is closed, posted or contained.
     """
     from .transports import live_case_investigation
     return await live_case_investigation(offense_id,
@@ -405,9 +416,26 @@ async def reassess_case(case_id: str, confirmations: list[dict] | None = None) -
     "active_cre_reviewed"|"tuning_applied"|"policy_confirmed"|"misconfiguration_confirmed"|
     "remediation_verified"|"primary_offense"|"administrative_decision", "source": "...",
     "reference": "...", "summary": "...", "scope": {"activity": "<observed activity>",
-    "entities": ["host/account/IP"], "window_start": "ISO", "window_end": "ISO"}}]. Scope is
-    required for authorization, malicious_activity_confirmed and detection_error to count;
-    every observed activity must be covered. Records stay labelled as analyst-supplied.
+    "entities": ["host/account/IP"], "window_start": "ISO-8601 with timezone",
+    "window_end": "ISO-8601 with timezone", ...}}]. process_execution: "processes" plus at
+    least one behavior field — "command_lines" (exact original strings), "script_paths",
+    "artifact_hashes" (not for interpreters such as powershell/cmd/python/bash),
+    "process_instances" (ProcessGuid) or "breadth": "any_behavior_of_named_processes" with
+    "breadth_basis" quoting the record; optional "parent_processes". privilege_use: "commands"
+    (exact sudo commands), "identity_switch": true (su) or "breadth":
+    "any_privileged_command_of_named_accounts" with "breadth_basis"; optional "run_as".
+    script_execution: "script_block_ids". Scope is required for authorization,
+    malicious_activity_confirmed and detection_error to count. Each observed instance is
+    evaluated on its own entity, behavior/chain and window; uncovered and not-evaluated
+    instances are listed. Times without a timezone are rejected. To revise stored Trend facts
+    with new evidence, add {"requirement": "trend_finding_refuted", "alert_id": "...",
+    "source": "...", "reference": "...", "summary": "<the refuting evidence>", "facts": [ids]
+    (optional; a qradar_link fact alone refutes only the association with the offense)}; to
+    revise a refutation, "trend_finding_reinstated" with the same fields and its reasoning.
+    No new observation undoes a refutation by itself (same evidence, new job, metadata,
+    incomplete or changed identifiers are recorded for review). Records stay labelled as
+    analyst-supplied. A different Trend event UUID observing the same execution does not
+    create an independent link; existing fact IDs and their refutations remain addressable.
     Adds a new report revision; earlier revisions are kept.
     """
     from .case_investigation import reassess_case as run

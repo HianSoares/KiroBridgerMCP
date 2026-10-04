@@ -20,6 +20,47 @@ TRUNCATED_PATH = re.compile(r"^rows\[(\d+)\]\.?(.*)$")
 NOT_CREATED = {"permission", "tool_unavailable"}
 
 
+class CheckpointFailed(RuntimeError):
+    """Persisting collection progress failed; the collection stops instead of continuing unsaved."""
+
+
+Progress = Callable[[dict, str], None]
+
+
+def snapshot(finding: dict, stage: str, cursor: int | None = None) -> dict:
+    """Resumable copy of an in-flight finding.
+
+    "creating" is written before the creation call: if the run stops during that call QRadar
+    may have created the job without returning its ID, so the saved state is
+    creation_uncertain. Later stages carry the known search ID, the rows already fetched and
+    the cursor of the next page to read."""
+    snap = {k: (list(v) if isinstance(v, list) else dict(v) if isinstance(v, dict) else v)
+            for k, v in finding.items()}
+    snap["result_set_complete"] = False
+    snap["checkpoint"] = stage
+    if stage == "creating":
+        snap.update(outcome="creation_uncertain", state="creation_uncertain")
+        snap["continuation"] = continuation(finding, "verify_creation_before_retry",
+                                            "run stopped while the job was being created")
+    else:
+        rows = len(snap.get("rows", []))
+        snap["outcome"] = "partial" if rows else "pending"
+        snap["next_start"] = cursor if cursor is not None else rows
+        snap["continuation"] = continuation(finding, "fetch_next_page" if rows else "poll_same_search",
+                                            f"checkpoint {stage}", snap["next_start"])
+    snap["returned_rows"] = len(snap.get("rows", []))
+    return snap
+
+
+def _notify(progress: Progress | None, finding: dict, stage: str, cursor: int | None = None) -> None:
+    if progress is None:
+        return
+    try:
+        progress(snapshot(finding, stage, cursor), stage)
+    except Exception as exc:
+        raise CheckpointFailed(f"checkpoint {stage} not saved: {type(exc).__name__}") from exc
+
+
 class BudgetExhausted(TimeoutError):
     """The shared collection deadline ended before or during an upstream call."""
 
@@ -62,6 +103,15 @@ class Budget:
     reservations: dict = field(default_factory=dict)
     phase_log: list = field(default_factory=list)
     started: float = field(init=False)
+    # A call cut by the deadline ends the time of its phase, whatever the budget clock reads:
+    # asyncio may fire a timeout up to one clock resolution early (15.6 ms with GetTickCount64
+    # on Windows before Python 3.13), and recomputing "start + allowed - elapsed" in floating
+    # point can leave a positive residue of ~1e-14 s. Both used to let the next call start.
+    # The cut is therefore recorded as state, not derived from arithmetic: the phase is closed
+    # (later phases keep their reservations) and, without reservations, the whole budget is.
+    deadline_floor: float = field(init=False)
+    cut_phases: set = field(init=False)
+    expired: bool = field(init=False)
 
     def __post_init__(self) -> None:
         for name in ("max_queries", "max_pages", "max_polls", "page_size", "poll_wait_seconds",
@@ -74,9 +124,16 @@ class Budget:
         if isinstance(self.max_seconds, bool) or not isinstance(self.max_seconds, (int, float)) or self.max_seconds <= 0:
             raise ValueError("Budget max_seconds must be positive")
         self.started = self.clock()
+        self.deadline_floor = self.started
+        self.cut_phases = set()
+        self.expired = False
+
+    def now(self) -> float:
+        return max(self.clock(), self.deadline_floor)
 
     def remaining_seconds(self) -> float:
-        return self.max_seconds - (self.clock() - self.started)
+        remaining = self.max_seconds - (self.now() - self.started)
+        return min(remaining, 0.0) if self.expired else remaining
 
     # Reservations keep part of the budget for later phases (for example the Trend<->QRadar
     # correlation) so that broad or optional reads cannot consume it first. A phase gets its
@@ -88,7 +145,7 @@ class Budget:
 
     def enter(self, phase: str) -> None:
         self.reservations.pop(phase, None)
-        self.phase_log.append({"phase": phase, "entered_at_seconds": round(self.clock() - self.started, 3),
+        self.phase_log.append({"phase": phase, "entered_at_seconds": round(self.now() - self.started, 3),
                                "calls_made": self.calls_made, "queries_started": self.queries_started})
         self.phase = phase
 
@@ -104,7 +161,8 @@ class Budget:
 
     def available_seconds(self) -> float:
         """Time this phase may use: the deadline minus what later phases hold."""
-        return self.remaining_seconds() - self._held("seconds")
+        available = self.remaining_seconds() - self._held("seconds")
+        return min(available, 0.0) if self.phase in self.cut_phases else available
 
     def blocked(self, kind: str) -> str | None:
         if self.remaining_seconds() <= 0:
@@ -135,13 +193,20 @@ class Budget:
             reason = ("time budget exhausted" if self.remaining_seconds() <= 0 else
                       f"time reserved for later phase(s) {self._held_by()}")
             raise BudgetExhausted(stage, started=False, reason=reason)
+        begun = self.now()
         try:
             return await asyncio.wait_for(operation(), timeout=remaining)
         except asyncio.TimeoutError:
+            # The timer marks the end of the time this phase may use, whatever the budget clock
+            # reads now: later phases keep their reservations, this phase has none left.
+            self.deadline_floor = max(self.deadline_floor, begun + remaining)
+            self.cut_phases.add(self.phase)
+            if self._held("seconds") <= 0:
+                self.expired = True
             raise BudgetExhausted(stage, started=True) from None
 
     def describe(self) -> dict:
-        return {"max_seconds": self.max_seconds, "elapsed_seconds": round(self.clock() - self.started, 3),
+        return {"max_seconds": self.max_seconds, "elapsed_seconds": round(self.now() - self.started, 3),
                 "max_queries": self.max_queries, "queries_started": self.queries_started,
                 "max_pages": self.max_pages, "pages_fetched": self.pages_fetched,
                 "max_polls": self.max_polls, "polls": self.polls, "page_size": self.page_size,
@@ -178,14 +243,16 @@ def continuation(finding: dict, action: str, reason: str, cursor: int | None = N
 
 async def collect_query(qradar: Any, query: str, database: str, scope: str,
                         budget: Budget | None = None, fallback_query: str | None = None,
-                        plan: Any = None, resume: dict | None = None) -> dict:
+                        plan: Any = None, resume: dict | None = None, progress: Progress | None = None) -> dict:
     """Validate, create once, poll and page; classify the outcome and keep a resume cursor.
 
     With ``resume`` (a saved finding that has a search ID), the same job is continued from its
-    saved cursor: no validation, no creation, rows already collected are kept."""
+    saved cursor: no validation, no creation, rows already collected are kept. ``progress``
+    receives a resumable snapshot before creation, when the search ID arrives and after
+    every page, so a cancelled run keeps the job ID, cursor and rows."""
     budget = budget or Budget()
     if resume is not None:
-        return await _resume(qradar, resume, budget)
+        return await _resume(qradar, resume, budget, progress)
     finding: dict = {"aql": query, "database": database, "scope": scope, "query_limit": None,
                      "state": "not started", "outcome": "not_started", "rows": [], "warnings": [],
                      "truncated_fields": [], "truncated_rows": {}, "result_set_complete": False,
@@ -224,15 +291,20 @@ async def collect_query(qradar: Any, query: str, database: str, scope: str,
         stage = "creation"
         aql = finding["aql"]
         budget.queries_started += 1
+        _notify(progress, finding, "creating")
         created = await budget.run(lambda: create_search(qradar, aql), "creation")
         sid = created["search_id"]
         finding.update(search_id=sid, state=str(created.get("status") or "WAIT").upper())
-        return await _drive(qradar, finding, budget, database, 0)
+        _notify(progress, finding, "created", 0)
+        return await _drive(qradar, finding, budget, database, 0, progress)
+    except CheckpointFailed:
+        raise
     except Exception as exc:
         return _failed(finding, exc, stage, start)
 
 
-async def _drive(qradar: Any, finding: dict, budget: Budget, database: str, start: int) -> dict:
+async def _drive(qradar: Any, finding: dict, budget: Budget, database: str, start: int,
+                 progress: Progress | None = None) -> dict:
     """Poll the known job and page from ``start``; never creates or recreates a search."""
     sid = finding["search_id"]
     stage = "polling"
@@ -290,6 +362,9 @@ async def _drive(qradar: Any, finding: dict, budget: Budget, database: str, star
                 finding["continuation"] = continuation(finding, "fetch_next_page", "non-advancing cursor", start)
                 break
             start = next_start
+            _notify(progress, finding, "page", start)
+    except CheckpointFailed:
+        raise
     except Exception as exc:
         return _failed(finding, exc, stage, start)
     return _finish(finding)
@@ -298,7 +373,7 @@ async def _drive(qradar: Any, finding: dict, budget: Budget, database: str, star
 FINAL = ("complete_in_window", "empty")
 
 
-async def _resume(qradar: Any, saved: dict, budget: Budget) -> dict:
+async def _resume(qradar: Any, saved: dict, budget: Budget, progress: Progress | None = None) -> dict:
     """Continue a saved finding. Complete results are reused; an uncertain creation is never
     recreated; a known job is polled/paged from its saved cursor and rows are appended."""
     finding = {k: (list(v) if isinstance(v, list) else dict(v) if isinstance(v, dict) else v)
@@ -323,11 +398,12 @@ async def _resume(qradar: Any, saved: dict, budget: Budget) -> dict:
     finding.update(outcome="not_started", warnings=[], result_set_complete=False)
     finding.pop("continuation", None)
     finding.pop("error", None)
+    finding.pop("checkpoint", None)
     finding["resume"] = {"action": "continued_same_search", "search_id": saved["search_id"], "cursor": cursor,
                          "previous_outcome": previous, "rows_kept": len(finding["rows"])}
     if str(finding.get("state", "")).upper() != "COMPLETED":
         finding["state"] = str(finding.get("state") or "WAIT").upper()
-    return await _drive(qradar, finding, budget, finding["database"], cursor)
+    return await _drive(qradar, finding, budget, finding["database"], cursor, progress)
 
 
 def _not_started(finding: dict, reason: str) -> dict:

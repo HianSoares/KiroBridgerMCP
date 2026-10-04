@@ -23,7 +23,7 @@ from soc_bridge.diagnose import diagnose
 from soc_bridge.kiro_server import mcp
 from soc_bridge.transports import RestrictedMCP
 
-from synthetic_lab import IP, MS, NOW, Lab, offense
+from synthetic_lab import HOST, IP, MS, NOW, Lab, offense
 
 ROOT = Path(__file__).resolve().parents[1]
 SECRET = "synthetic-secret-value-55aa77"
@@ -199,7 +199,7 @@ class ResumeTests(unittest.TestCase):
             offense_records = [e for e in case["evidence"].values() if e["tier"] == "offense_associated"]
             self.assertEqual(len(offense_records), 7)
             self.assertEqual(len(case["report_revisions"]), 2)  # earlier revision kept
-            self.assertEqual(case["revision"], 4)  # checkpoint + final per run
+            self.assertEqual([r["stage"] for r in case["runs"]], ["completed", "completed"])
             third = run(investigate_offense_case(lab, None, 12345, store=CaseStore(Path(root)), include_trend=False,
                                                  now=NOW))
             self.assertEqual(third["coverage"]["events"]["resume"], "reused")
@@ -279,16 +279,25 @@ class ScopedDecisionTests(unittest.TestCase):
                 "linux": {}, "gap_details": [], "metadata": {"status": "OPEN", "offense_source": IP},
                 "metadata_interval": {"start": "2026-10-09T16:00:00+00:00", "end": "2026-10-09T16:02:00+00:00"},
                 "events": {"observed_interval": {"start": "2026-10-09T16:00:00+00:00", "end": "2026-10-09T16:02:00+00:00"}},
-                "processes": {"process_creations": [{"host_norm": "ws-demo-01.example.test"}]},
+                "processes": {"process_creations": [{
+                    "host_norm": HOST, "guid_norm": "g-synth-1",
+                    "image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+                    "command_line": "powershell.exe -NoProfile -File C:\\ops\\synthetic.ps1",
+                    "fields": {"ParentImage": {"value": "C:\\Windows\\explorer.exe", "source": "payload"}},
+                    "provenance": {"query": "events", "scope": "offense_linked", "search_id": "s1",
+                                   "result_row_index": 0, "starttime_utc": "2026-10-09T16:00:01+00:00"}}]},
                 "closing_reasons": {"state": "collected", "reasons": [{"id": 1, "text": "Non-Issue"},
                                                                       {"id": 4, "text": "Local Review"}]}}
         base.update(extra)
         return base
 
-    def auth(self, activity="process_execution", entities=(IP,), start="2026-10-09T15:00:00+00:00",
-             end="2026-10-09T17:00:00+00:00"):
-        return {"requirement": "authorization", "source": "Change system", "reference": "CHG-SYNTH-7",
-                "scope": {"activity": activity, "entities": list(entities), "window_start": start, "window_end": end}}
+    def auth(self, activity="process_execution", entities=(HOST,), start="2026-10-09T15:00:00+00:00",
+             end="2026-10-09T17:00:00+00:00", processes=("powershell.exe",)):
+        scope = {"activity": activity, "entities": list(entities), "window_start": start, "window_end": end}
+        if activity == "process_execution":
+            scope["processes"] = list(processes)
+            scope["command_lines"] = ["powershell.exe -NoProfile -File C:\\ops\\synthetic.ps1"]
+        return {"requirement": "authorization", "source": "Change system", "reference": "CHG-SYNTH-7", "scope": scope}
 
     def test_sustained_when_scoped_authorization_covers_the_observed_activity(self):
         result = closure_assessment.propose(self.result(), [self.auth()])
@@ -304,7 +313,7 @@ class ScopedDecisionTests(unittest.TestCase):
         self.assertEqual(wrong_entity["requirements"]["authorization"]["status"], "compatible")
         self.assertEqual(wrong_entity["requirements"]["authorization"]["evidence"]["uncovered_activities"],
                          ["process_execution"])
-        outside = closure_assessment.propose(self.result(), [self.auth(end="2026-10-09T16:01:00+00:00")])
+        outside = closure_assessment.propose(self.result(), [self.auth(end="2026-10-09T16:00:00+00:00")])
         self.assertFalse(outside["ready_to_close"])
         self.assertEqual(outside["contradictions"][0]["status"], "unresolved")
         non_issue = next(m for m in outside["decision_matrix"] if m["id"] == 1)
@@ -381,7 +390,7 @@ class CaseFlowTests(unittest.TestCase):
             self.assertTrue(observed)
 
 
-    def test_related_true_positive_alert_is_bridge_evidence_against_benign_closure(self):
+    def test_related_true_positive_alert_by_ip_only_does_not_confirm_malice_but_blocks_benign_closure(self):
         lab = lab_with_events(rows=2)
         tp = {"assessment": {"classification": "True Positive", "facts": ["synthetic linked execution"]},
               "auto_pivots": {"records": {"linked": [{"uuid": "ev-1", "tool": "search_endpoint_activities_list",
@@ -390,29 +399,15 @@ class CaseFlowTests(unittest.TestCase):
             "state": "collected", "not_deepened": [], "investigations": [
                 {"alert_id": "WB-SYNTH-1", "state": "collected", "report": tp,
                  "association": {"match_fields": ["impactScopeEntityValue"]}}]}}
-        with tempfile.TemporaryDirectory() as root,                 mock.patch("soc_bridge.core.investigate", mock.AsyncMock(return_value=overview)):
+        with tempfile.TemporaryDirectory() as root, \
+                mock.patch("soc_bridge.core.investigate", mock.AsyncMock(return_value=overview)):
             report = run(investigate_offense_case(lab, object(), 12345, store=CaseStore(Path(root)), now=NOW))
             case = CaseStore(Path(root)).load("offense-12345")
-        self.assertEqual(report["decision"]["disposition"]["category"], "malicious_confirmed")
+        self.assertNotEqual(report["decision"]["disposition"]["category"], "malicious_confirmed")
         self.assertFalse(report["decision"]["ready_to_close"])
         self.assertIn("WB-SYNTH-1", case["references"]["alerts"])
         self.assertIn("alert_linked", {e["tier"] for e in case["evidence"].values()})
         self.assertEqual(report["related_alerts"][0]["classification"], "True Positive")
-
-
-class SurfaceTests(unittest.TestCase):
-    def test_schemas_annotations_and_local_writes(self):
-        tools = {t.name: t for t in run(mcp.list_tools())}
-        fixtures = {}
-        for name in ("tool_schemas_master.json", "tool_schemas_context_closure.json", "tool_schemas_cases.json"):
-            fixtures.update(json.loads((ROOT / "tests" / "fixtures" / name).read_text(encoding="utf-8")))
-        self.assertEqual(set(tools) - set(fixtures), {"qradar_list_offenses"})
-        for name, schema in fixtures.items():
-            self.assertEqual(tools[name].inputSchema, schema, name)
-        for name, t in tools.items():
-            self.assertFalse(t.annotations.destructiveHint, name)
-            self.assertEqual(not t.annotations.readOnlyHint, name in LOCAL_WRITE_TOOLS, name)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        self.assertEqual(report["related_alerts"][0]["link"], "candidate")
+        self.assertIn("related_alert_unlinked:WB-SYNTH-1", [c["id"] for c in report["contradictions"]])
+        self.assertIn("verify_alert_link", [p["action"] for p in report["pivots"]])

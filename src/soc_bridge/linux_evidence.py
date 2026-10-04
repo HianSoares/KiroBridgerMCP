@@ -67,10 +67,14 @@ def parse(payload: str | None) -> dict | None:
     return data
 
 
+ANALYSIS_CAP = 5000  # privilege instances evaluated by decisions (presentation keeps 100 groups)
+
+
 def analyze(finding: dict | None, query_name: str, bounds: tuple[int, int] | None = None) -> dict:
     finding = finding or {}
     rows = finding.get("rows", [])
     counts, commands, targets, actors = Counter(), Counter(), Counter(), Counter()
+    privilege: dict[tuple, dict] = {}
     parsed, daemon_rows, unparsed, cut, records = 0, 0, 0, 0, []
     outside, missing_time, unrecognized = 0, 0, 0
     root_accepted, accepted = [], []
@@ -104,6 +108,24 @@ def analyze(finding: dict | None, query_name: str, bounds: tuple[int, int] | Non
             commands[key] += 1
             actors[item["actor"]] += 1
             targets[item["target"]] += 1
+        if item["kind"] in ("sudo_command_record", "su_identity_record"):
+            # One instance per host/actor/run-as/command (sudo) or identity switch (su), with its times.
+            pkey = (item["kind"], item.get("host"), item.get("actor"), item.get("target"), item.get("command"))
+            entry = privilege.setdefault(pkey, {
+                "kind": item["kind"], "host": item.get("host"), "actor": item.get("actor"), "run_as": item.get("target"),
+                "command": item.get("command"), "command_cut_by_bridge": False, "rows": 0, "first_starttime": None,
+                "last_starttime": None, "references": []})
+            entry["rows"] += 1
+            entry["command_cut_by_bridge"] = entry["command_cut_by_bridge"] or truncated
+            moment = row.get("starttime")
+            if isinstance(moment, (int, float)) and not isinstance(moment, bool):
+                entry["first_starttime"] = moment if entry["first_starttime"] is None else min(entry["first_starttime"], moment)
+                entry["last_starttime"] = moment if entry["last_starttime"] is None else max(entry["last_starttime"], moment)
+            else:
+                entry["time_missing"] = True
+            if len(entry["references"]) < 5:
+                entry["references"].append({"query": query_name, "search_id": finding.get("search_id"),
+                                            "result_row_index": index})
         if item["kind"] == "ssh_authentication_accepted":
             accepted.append({**item, "provenance": provenance})
             if item["target"] == "root":
@@ -132,6 +154,8 @@ def analyze(finding: dict | None, query_name: str, bounds: tuple[int, int] | Non
                                "payload_truncated_by_bridge": truncated, "rows": count}
                               for (h, a, t, cmd, truncated), count in ordered],
             "sudo_command_groups": len(commands), "sudo_command_groups_omitted": max(0, len(commands) - 100),
+            "privilege_instances": list(privilege.values())[:ANALYSIS_CAP],
+            "privilege_instances_not_analyzed": max(0, len(privilege) - ANALYSIS_CAP),
             "accepted_ssh_count": len(accepted), "accepted_root_ssh_count": len(root_accepted),
             "accepted_root_ssh_records": root_accepted[:20],
             "accepted_root_ssh_records_omitted": max(0, len(root_accepted) - 20), "records": records,

@@ -108,6 +108,26 @@ def plan(result: dict, trend: dict | None = None, previous: list[dict] | None = 
                          {"calls": 40}, "linked Search records on the offense entities",
                          "the alert concerns another host/time", "stop after one alert-first investigation",
                          status="proposed", reason=item.get("reason", ""), tool="investigate_vision_alert"))
+    for item in (trend or {}).get("investigations", []):
+        if item.get("state") != "collected" or (item.get("link") or {}).get("level") != "candidate":
+            continue
+        instances = (((item.get("report") or {}).get("link_evidence") or {}).get("malicious_instances") or [])
+        out.append(pivot("verify_alert_link", "the Trend alert and the offense describe the same activity",
+                         f"alert {item['alert_id']}: {(item.get('link') or {}).get('why_not_demonstrated') or 'IP/time only'}",
+                         "QRadar Ariel (INOFFENSE, Sysmon 1/4688 on the endpoint) + Vision One Search",
+                         {"alert_id": item["alert_id"],
+                          "trend_instances": [{"uuid": i["trend_record"].get("uuid"),
+                                               "host": i["trend_record"].get("endpoint_host"),
+                                               "pid": i["instance"].get("pid"), "image": i["instance"].get("image"),
+                                               "launch_time_utc": i["instance"].get("launch_time_utc"),
+                                               "hashes": i["instance"].get("hashes", [])[:2]} for i in instances[:5]]},
+                         "strong_identifier", {"queries": 1, "calls": 4},
+                         "an offense-linked process record is the malicious Trend instance (host, artifact, PID or "
+                         "identical command line, execution time) or its demonstrated parent/child",
+                         "the offense-linked records show other processes, instances or hosts than the alert",
+                         "stop when the link is demonstrated or the offense records are complete without it",
+                         status="proposed", reason="IP/time association does not demonstrate the same activity",
+                         tool="qradar_run_aql"))
     executed = {p["id"]: p for p in previous or [] if p.get("status") in ("executed", "completed")}
     for item in out:
         prior = executed.get(item["id"])

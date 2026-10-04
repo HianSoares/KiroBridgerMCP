@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from .ariel_collection import BudgetExhausted
 from .closure_scope import (CATEGORIES, CATEGORY_REASONS, SCOPED_REQUIREMENTS, confidence as rate_confidence,
-                            coverage, load_reason_definitions, observed_profile, validate_scope)
+                            coverage, load_reason_definitions, observed_profile, summarize_profile, validate_scope)
 from .decision import STATUSES, evaluate, requirement
 
 # Requirements per standard reason text (normalized). Custom reasons are never auto-eligible.
@@ -36,6 +36,13 @@ ANALYST_REQUIREMENTS = {
     "administrative_decision": "explicit analyst decision to close administratively with remaining risk recorded",
     "malicious_activity_confirmed": "malicious use of the observed activity confirmed by a cited investigation record",
 }
+# Records that revise stored evidence instead of meeting a closure requirement.
+REVISION_RECORDS = {
+    "trend_finding_refuted": "new evidence that refutes the stored facts of a Trend alert (alert_id, source, reference "
+                             "and the evidence in summary); the bridge records which facts it replaces",
+    "trend_finding_reinstated": "reasoned revision of an earlier refutation (alert_id, source, reference, the basis in "
+                                "summary, optional facts); the bridge records which facts it re-establishes",
+}
 
 
 def validate_confirmations(confirmations: list | None, offense_id: int | None = None) -> list[dict]:
@@ -47,9 +54,9 @@ def validate_confirmations(confirmations: list | None, offense_id: int | None = 
         if not isinstance(item, dict):
             raise ValueError("each confirmation must be an object")
         rid = item.get("requirement")
-        if rid not in ANALYST_REQUIREMENTS:
-            raise ValueError(f"requirement must be one of {sorted(ANALYST_REQUIREMENTS)}; collection coverage "
-                             "is measured by the bridge and cannot be confirmed manually")
+        if rid not in ANALYST_REQUIREMENTS and rid not in REVISION_RECORDS:
+            raise ValueError(f"requirement must be one of {sorted(ANALYST_REQUIREMENTS | REVISION_RECORDS)}; "
+                             "collection coverage is measured by the bridge and cannot be confirmed manually")
         fields = {}
         for key in ("source", "reference", "summary"):
             value = item.get(key, "")
@@ -61,6 +68,20 @@ def validate_confirmations(confirmations: list | None, offense_id: int | None = 
                     or int(fields["reference"]) == offense_id):
                 raise ValueError("primary_offense reference must be another offense ID")
         record = {"requirement": rid, **fields, "origin": "analyst-supplied; not verified by the bridge"}
+        if rid in REVISION_RECORDS:
+            alert, facts = item.get("alert_id"), item.get("facts")
+            if not isinstance(alert, str) or not 0 < len(alert.strip()) <= 100:
+                raise ValueError(f"{rid} needs alert_id (the Workbench alert whose stored facts it revises)")
+            if not fields["summary"]:
+                raise ValueError(f"{rid} needs summary: the evidence or reasoning behind the revision")
+            if facts is not None and (not isinstance(facts, list) or not 1 <= len(facts) <= 50
+                                      or not all(isinstance(f, str) and 0 < len(f) <= 200 for f in facts)):
+                raise ValueError(f"{rid} facts must list 1..50 stored fact IDs (omit to revise all)")
+            if item.get("scope") is not None:
+                raise ValueError(f"scope does not apply to {rid}")
+            record.update(alert_id=alert.strip(), **({"facts": facts} if facts else {}))
+            out.append(record)
+            continue
         if item.get("scope") is not None:
             if rid not in SCOPED_REQUIREMENTS:
                 raise ValueError(f"scope applies only to {sorted(SCOPED_REQUIREMENTS)}")
@@ -169,11 +190,19 @@ def propose(result: dict, confirmations: list | None = None, contradictions: lis
                 if rid == "malicious_activity_confirmed" else cov["status"]
             req[rid] = requirement(
                 rid, text, status,
-                {"records": cited, "covered_activities": cov["covered"], "uncovered_activities": cov["uncovered"],
+                {"records": cited, "covered_activities": cov["covered_activities"],
+                 "covered_instances": cov["covered"], "uncovered_activities": cov["uncovered_activities"],
+                 "uncovered_instances": cov["uncovered"], "uncovered_count": cov["uncovered_count"],
+                 "instances_not_evaluated": cov["instances_not_evaluated"],
+                 "broad_authorizations": cov["broad_authorizations"],
                  "records_without_scope": cov["unscoped_records"],
                  **({"bridge_gaps_it_must_address": outside} if rid == "authorization" else {})},
-                ("Cite a scoped record (activity, entities, window, source, reference) for: "
-                 + ", ".join(cov["uncovered"])) if cov["uncovered"] else "",
+                ("Cite a scoped record (activity, entities, processes for process_execution, window with timezone, "
+                 "source, reference) for: " + ", ".join(cov["uncovered_activities"])
+                 + f" ({cov['uncovered_count']} uncovered instance(s)"
+                + (", " + ", ".join(f"{a}: {g['count']} not evaluated — {g['next_action']}"
+                                    for a, g in cov["instances_not_evaluated"].items())
+                   if cov["instances_not_evaluated"] else "") + ")") if cov["uncovered_activities"] else "",
                 source="analyst-supplied record (not verified by the bridge)" if cited else "bridge")
         else:
             req[rid] = (requirement(rid, text, "confirmed", cited, source="analyst-supplied record (not verified by the bridge)")
@@ -325,6 +354,9 @@ def propose(result: dict, confirmations: list | None = None, contradictions: lis
             ("Fechamento já registrado nos metadados; a justificativa ainda requer validação. " if already_closed else
              (f"Decisão sugerida: fechar com o motivo '{recommended['text']}' (ID {recommended['id']}), sujeita a revisão humana. "
               if recommended else "Decisão sugerida: manter pendente. ")) + "; ".join(blockers_pt) + ".",
+            *(["Atenção: autorização abrangente declarada pelo registro externo (não inferida pelo executável): " +
+               "; ".join(b["declared"][0] for b in req["authorization"]["evidence"]["broad_authorizations"]) + "."]
+              if (req["authorization"].get("evidence") or {}).get("broad_authorizations") else []),
             *([f"Registros citados pelo analista (não verificados pela ponte): " +
                "; ".join(f"{c['requirement']} — {c['source']} [{c['reference']}]" for c in confirmed) + "."] if confirmed else []),
             *(["Limitações registradas que não bloqueiam o motivo avaliado: " +
@@ -337,7 +369,7 @@ def propose(result: dict, confirmations: list | None = None, contradictions: lis
             "recommended_reason": {"id": recommended["id"], "text": recommended["text"]} if recommended else None,
             "reason_catalog_state": result.get("closing_reasons", {}).get("state"),
             "decision_matrix": matrix, "requirements": req, "analyst_confirmations": confirmed,
-            "observed_activity": profile, "contradictions": all_contradictions,
+            "observed_activity": summarize_profile(profile), "contradictions": all_contradictions,
             "disposition": {"category": disposition, "label": {**labels, "inconclusive": "investigação inconclusiva"}[disposition],
                             "relation_to_catalog": CATEGORY_REASONS[disposition],
                             "administrative_decision": req["administrative_decision"]["status"]},

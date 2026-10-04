@@ -3,21 +3,36 @@
 - [x] 1. Contradiction-aware evaluation in the decision engine
   - `decision.evaluate(..., contradictions)`
   - _Requirements: 3.1_
-- [x] 2. Scoped confirmations, observed activity profile, coverage and window contradictions
-  - `closure_scope.validate_scope`, `observed_profile`, `coverage`; `closure_assessment.validate_confirmations` stores `scope` and origin
-  - _Requirements: 2.1, 2.2, 2.3, 2.4_
-- [x] 3. Dispositions separate from catalog reasons; malicious evidence contradicts benign categories
-  - `CATEGORIES`, `CATEGORY_REASONS`, `disposition`, `disposition_matrix`, bridge findings from deepened Trend alerts
+- [x] 2. Precisely scoped confirmations: per-instance coverage by entity, process/chain and window; explicit timezone
+  - `closure_scope.validate_scope`, `strict_instant`, `observed_profile`, `coverage`; `closure_assessment.validate_confirmations` stores `scope` and origin; `ScopeTests`, `TimezoneTests`
+  - _Requirements: 2.1, 2.4, 2.5, 2.8, 2.9, 2.10_
+- [x] 2a. Behavior-level authorization: discriminators per activity, interpreters, sudo commands, declared breadth
+  - `_process_scope`, `_privilege_scope`, `script_invocation`, `_behavior_covered`, `broad_authorizations`; `BehaviorAuthorizationTests`
+  - _Requirements: 2.2, 2.3, 2.5, 2.6_
+- [x] 2b. Analysis lists independent of presentation caps; not-evaluated instances counted with reason and action
+  - `process_chain.process_instances`, `linux_evidence.privilege_instances`, `offense_evidence` analysis rows, `instances_not_evaluated`; `OmittedRecordsTests`
+  - _Requirements: 2.7_
+- [x] 3. Dispositions separate from catalog reasons; demonstrated malicious evidence contradicts benign categories
+  - `CATEGORIES`, `CATEGORY_REASONS`, `disposition`, `disposition_matrix`, `bridge_findings`
   - _Requirements: 1.1, 1.2, 3.2, 3.3_
-- [x] 4. Live catalog only; custom reasons need validated local definitions
+- [x] 4. QRadar↔Trend link at the activity level (same execution or demonstrated chain); candidates block benign closure; persisted basis
+  - `trend_link.evidence/link`, `bridge_findings`, pivot `verify_alert_link`; `CorrelationTests`, `ActivityLinkTests`
+  - _Requirements: 4.1, 4.3, 4.6, 4.7, 4.8_
+- [x] 4a. Hash states per algorithm and role; conflicts of hashes and known identifiers block identity and are reported
+  - `compare_hashes`, `same_execution`, `process_chain.hash_states`, `link_conflict`; `HashConflictTests`
+  - _Requirements: 4.2, 4.3, 4.4_
+- [x] 4b. Process chains by instance identity (ParentProcessGuid, actor as parent of a launched object); PID reuse never forms a chain
+  - `link` child/parent branches, `evidence` parent basis; `ProcessChainIdentityTests`
+  - _Requirements: 4.5_
+- [x] 5. Live catalog only; custom reasons need validated local definitions
   - `load_reason_definitions`, `SOC_BRIDGE_CLOSING_REASONS`
   - _Requirements: 1.3, 1.4_
-- [x] 5. Sustained recommendation, precise pending items, rule-based confidence
+- [x] 6. Sustained recommendation, precise pending items, rule-based confidence with demonstrated corroboration
   - `ready_to_close`, `blocking_requirements`, `confidence_detail`
-  - _Requirements: 4.1, 4.2, 4.3_
-- [x] 6. Standard report and note reflecting the current decision
+  - _Requirements: 5.1, 5.2, 5.3_
+- [x] 7. Standard report and note reflecting the current decision
   - `case_investigation.build_report`, `render_case_markdown`, note with evidence references
-  - _Requirements: 5.1, 5.2_
-- [x] 7. Synthetic tests
-  - `ScopedDecisionTests`, `CaseFlowTests`
-  - _Requirements: 1.1-5.2_
+  - _Requirements: 6.1, 6.2_
+- [x] 8. Synthetic tests
+  - `ScopedDecisionTests`, `CaseFlowTests`, `test_case_review_regressions`, `test_case_review_round2`, `test_case_review_round3`
+  - _Requirements: 1.1-6.2_

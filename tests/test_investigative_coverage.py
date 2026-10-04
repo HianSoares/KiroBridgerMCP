@@ -327,6 +327,10 @@ class DecisionTests(unittest.TestCase):
                                               "relevance": {"blocks": ["benign_verdict"]}, "summary": "x"}],
                 "metadata": {"status": "OPEN", "offense_source": "192.0.2.10"},
                 "metadata_interval": {"start": "2026-09-30T14:00:00Z", "end": "2026-09-30T15:00:00Z"},
+                # The three returned rows themselves: decisions evaluate rows, not only their count.
+                "collected_rows": {"events": [{"starttime": 1790776800000 + i * 60000, "sourceip": "192.0.2.10",
+                                               "log_source": "Synthetic", "raw_payload": f"synthetic {i}"}
+                                              for i in range(3)], "flows": []},
                 "closing_reasons": {"state": "collected", "reasons": reasons if reasons is not None else
                                     [{"id": 1, "text": "Non-Issue"}, {"id": 3, "text": "Duplicate"},
                                      {"id": 9, "text": "Custom Local"}]}}

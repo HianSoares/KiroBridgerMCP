@@ -10,6 +10,7 @@ The default directory is ``reports/cases`` (ignored by Git); see docs/case-store
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -17,7 +18,13 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import re
 import tempfile
-from typing import Any
+import time
+from typing import Any, Iterator
+
+if os.name == "nt":
+    import msvcrt
+else:
+    import fcntl
 
 SCHEMA_VERSION = 1
 CASE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$")
@@ -26,6 +33,8 @@ MAX_REVISIONS = 50
 SECRET_ENV = ("QRADAR_MCP_TOKEN", "TREND_VISION_ONE_API_KEY")
 SECRET_KEYS = re.compile(r"^(sec|token|api_?key|authorization|cookie|password|secret|headers?)$", re.I)
 DEFAULT_RETENTION_DAYS = 30
+LOCK_TIMEOUT_SECONDS = 15.0
+MAX_PROPERTY_CHARS = 500
 
 # Query scope -> relation tier of the records it returned (see docs/case-store.md).
 TIER_BY_SCOPE = {
@@ -48,6 +57,10 @@ class CaseConflict(RuntimeError):
 
 class SecretInCase(ValueError):
     """A configured credential value appeared in data to be persisted; nothing was written."""
+
+
+class CaseLocked(TimeoutError):
+    """Another process held the case lock for longer than the lock timeout; nothing was written."""
 
 
 def now_iso() -> str:
@@ -79,16 +92,45 @@ def scrub(value: Any, secrets: list[str] | None = None, path: str = "$") -> Any:
     return value
 
 
-def evidence_key(database: str, row: dict) -> str:
-    """Identity strong enough to merge the same record returned by different queries."""
+def _row_hash(row: dict) -> str:
+    return hashlib.sha256(json.dumps(row, sort_keys=True, default=str).encode("utf-8")).hexdigest()
+
+
+def evidence_identity(database: str, row: dict, query: str, search_id: Any, index: int) -> tuple[str, str]:
+    """Conservative identity of one returned record.
+
+    Records are merged across queries only when they carry the same origin (log source),
+    stored time, device time, QID and identical payload. Without a payload, log source or
+    stored time there is not enough identity: the record stays tied to the query, job and
+    row that returned it and is never merged with another one."""
     payload = row.get("raw_payload")
-    parts = [database, row.get("starttime"), row.get("devicetime"), row.get("qid"), row.get("event_name"),
-             row.get("sourceip"), row.get("destinationip"), row.get("log_source"), row.get("username"),
-             hashlib.sha256(str(payload).encode("utf-8")).hexdigest() if payload is not None else None,
-             row.get("firstpackettime"), row.get("sourceport"), row.get("destinationport")]
-    if all(p is None for p in parts[1:]):
-        parts.append(json.dumps(row, sort_keys=True, default=str))
-    return hashlib.sha256(json.dumps(parts, default=str).encode("utf-8")).hexdigest()[:32]
+    if (isinstance(payload, str) and payload and row.get("log_source") not in (None, "")
+            and row.get("starttime") is not None):
+        parts = [database, row.get("log_source"), row.get("starttime"), row.get("devicetime"), row.get("qid"),
+                 hashlib.sha256(payload.encode("utf-8", "replace")).hexdigest()]
+        return ("rec:" + hashlib.sha256(json.dumps(parts, default=str).encode("utf-8")).hexdigest()[:32],
+                "log source, stored/device time, QID and payload")
+    parts = [database, query, search_id, index, _row_hash(row)]
+    return ("row:" + hashlib.sha256(json.dumps(parts, default=str).encode("utf-8")).hexdigest()[:32],
+            "insufficient identity (no payload, log source or stored time): kept separate per query/job/row")
+
+
+def evidence_key(database: str, row: dict, query: str = "", search_id: Any = None, index: int = 0) -> str:
+    return evidence_identity(database, row, query, search_id, index)[0]
+
+
+def properties(row: dict) -> dict:
+    """Non-payload properties used to detect records that share a payload key but differ."""
+    out = {}
+    for key, value in row.items():
+        if key == "raw_payload" or value is None:
+            continue
+        out[str(key)] = value[:MAX_PROPERTY_CHARS] if isinstance(value, str) else value
+    return out
+
+
+def _conflicting(stored: dict, new: dict) -> list[str]:
+    return sorted(k for k in set(stored) & set(new) if stored[k] != new[k])
 
 
 def epoch_utc(value: Any) -> str | None:
@@ -123,7 +165,41 @@ class CaseStore:
                 "confirmations": [], "decisions": [], "report_revisions": [], "runs": [],
                 "storage_note": "Local case file; contains collected telemetry. Keep out of Git and public locations."}
 
-    def load(self, case_id: str) -> dict | None:
+    @contextmanager
+    def lock(self, case_id: str, timeout: float = LOCK_TIMEOUT_SECONDS) -> Iterator[None]:
+        """Exclusive inter-process lock for one case (msvcrt on Windows, flock on Linux/WSL).
+
+        Reading the revision, comparing it and replacing the file happen under this lock, so
+        two writers of the same revision cannot both succeed."""
+        self.path(case_id)  # validates the identifier before touching the filesystem
+        self.root.mkdir(parents=True, exist_ok=True)
+        fd = os.open(self.root / f".{case_id}.lock", os.O_RDWR | os.O_CREAT, 0o600)
+        deadline = time.monotonic() + timeout
+        try:
+            while True:
+                try:
+                    if os.name == "nt":
+                        os.lseek(fd, 0, os.SEEK_SET)
+                        msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+                    else:
+                        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except OSError:
+                    if time.monotonic() >= deadline:
+                        raise CaseLocked(f"case {case_id} is locked by another process; nothing was written") from None
+                    time.sleep(0.02)
+            try:
+                yield
+            finally:
+                if os.name == "nt":
+                    os.lseek(fd, 0, os.SEEK_SET)
+                    msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+                else:
+                    fcntl.flock(fd, fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
+
+    def _read(self, case_id: str) -> dict | None:
         path = self.path(case_id)
         if not path.is_file():
             return None
@@ -135,29 +211,46 @@ class CaseStore:
             raise ValueError(f"unsupported case schema_version {version}; expected {SCHEMA_VERSION}")
         return data
 
+    def load(self, case_id: str) -> dict | None:
+        with self.lock(case_id):
+            return self._read(case_id)
+
+    def _before_write(self) -> None:
+        """Hook between the revision check and the replace (used by concurrency tests)."""
+
     def save(self, case: dict, expected_revision: int) -> dict:
-        """Atomic replace with optimistic concurrency: the on-disk revision must still be the one loaded."""
+        """Atomic replace with optimistic concurrency under an inter-process lock: the on-disk
+        revision is read, compared and replaced while holding the lock."""
         path = self.path(case["case_id"])
-        current = self.load(case["case_id"])
-        on_disk = current["revision"] if current else 0
-        if on_disk != expected_revision:
-            raise CaseConflict(f"case {case['case_id']} is at revision {on_disk}, expected {expected_revision}")
         case = scrub(case)
-        case["revision"] = expected_revision + 1
-        case["updated_at"] = now_iso()
-        case["report_revisions"] = case.get("report_revisions", [])[-MAX_REVISIONS:]
-        path.parent.mkdir(parents=True, exist_ok=True)
-        fd, temporary = tempfile.mkstemp(prefix=".case-", suffix=".json", dir=path.parent)
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
-                json.dump(case, stream, ensure_ascii=False, indent=1, default=str)
-                stream.write("\n")
-            if os.name != "nt":
-                os.chmod(temporary, 0o600)
-            os.replace(temporary, path)
-        finally:
-            if os.path.exists(temporary):
-                os.unlink(temporary)
+        with self.lock(case["case_id"]):
+            current = self._read(case["case_id"])
+            on_disk = current["revision"] if current else 0
+            if on_disk != expected_revision:
+                raise CaseConflict(f"case {case['case_id']} is at revision {on_disk}, expected {expected_revision}")
+            self._before_write()
+            case["revision"] = expected_revision + 1
+            case["updated_at"] = now_iso()
+            case["report_revisions"] = case.get("report_revisions", [])[-MAX_REVISIONS:]
+            fd, temporary = tempfile.mkstemp(prefix=".case-", suffix=".json", dir=path.parent)
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
+                    json.dump(case, stream, ensure_ascii=False, indent=1, default=str)
+                    stream.write("\n")
+                if os.name != "nt":
+                    os.chmod(temporary, 0o600)
+                for attempt in range(50):
+                    try:
+                        os.replace(temporary, path)
+                        break
+                    except PermissionError:
+                        # Windows refuses to replace a file that an unlocked reader (list) has open.
+                        if attempt == 49:
+                            raise
+                        time.sleep(0.02)
+            finally:
+                if os.path.exists(temporary):
+                    os.unlink(temporary)
         return case
 
     def list(self) -> list[dict]:
@@ -177,9 +270,12 @@ class CaseStore:
 
     def delete(self, case_id: str) -> bool:
         path = self.path(case_id)
-        if path.is_file():
-            path.unlink()
-            return True
+        if not path.is_file():
+            return False
+        with self.lock(case_id):
+            if path.is_file():
+                path.unlink()
+                return True
         return False
 
     def purge(self, now: datetime | None = None) -> list[str]:
@@ -197,15 +293,24 @@ class CaseStore:
         return removed
 
 
-def merge_query(case: dict, name: str, finding: dict, rows: list[dict], run_id: str) -> dict:
-    """Store query state and rows; consolidate records by identity keeping every reference."""
+def merge_query(case: dict, name: str, finding: dict, rows: list[dict], run_id: str,
+                offense_id: int | None = None) -> dict:
+    """Store query state and rows; consolidate records conservatively keeping every reference.
+
+    The query state records the offense, database, scope and AQL it belongs to, so a later
+    run resumes it only for the same offense and the same query."""
     meta = {k: v for k, v in finding.items() if k not in ("rows", "samples")}
     previous = case["queries"].get(name)
-    history = (previous or {}).get("history", [])
-    if previous and previous.get("search_id") and previous.get("search_id") != meta.get("search_id"):
-        history = history + [{"search_id": previous.get("search_id"), "outcome": previous.get("outcome"),
-                              "replaced_at": now_iso()}]
+    history = list((previous or {}).get("history", []))
+    if previous and previous.get("search_id") != meta.get("search_id") and (
+            previous.get("search_id") or previous.get("outcome") == "creation_uncertain"):
+        history.append({"search_id": previous.get("search_id"), "outcome": previous.get("outcome"),
+                        "aql": previous.get("aql"), "offense_id": previous.get("offense_id"),
+                        "next_start": previous.get("next_start"), "rows_stored": previous.get("rows_stored"),
+                        "replaced_at": now_iso()})
     meta["history"] = history
+    if offense_id is not None:
+        meta["offense_id"] = offense_id
     stored = rows[:MAX_ROWS_PER_QUERY]
     meta["rows_stored"] = len(stored)
     meta["rows_not_stored"] = max(0, len(rows) - MAX_ROWS_PER_QUERY)
@@ -213,32 +318,48 @@ def merge_query(case: dict, name: str, finding: dict, rows: list[dict], run_id: 
     case["queries"][name] = meta
     case["rows"][name] = stored
     tier = TIER_BY_SCOPE.get(str(finding.get("scope")), "candidate")
-    added = 0
+    database = str(finding.get("database"))
+    search_id = finding.get("search_id")
+    added = kept_apart = 0
     for index, row in enumerate(stored):
         if not isinstance(row, dict):
             continue
-        key = evidence_key(str(finding.get("database")), row)
-        ref = {"query": name, "search_id": finding.get("search_id"), "row_index": index, "run": run_id}
+        key, basis = evidence_identity(database, row, name, search_id, index)
+        ref = {"query": name, "search_id": search_id, "row_index": index, "run": run_id}
+        props = properties(row)
         item = case["evidence"].get(key)
+        if item is not None and not _seen(item, ref):
+            differing = _conflicting(item.get("properties", {}), props)
+            if differing:
+                # Same payload key but different properties (for example ProcessGuid): not the same record.
+                key = f"{key}:{_row_hash(row)[:16]}"
+                basis = "payload key shared but properties differ (" + ", ".join(differing[:5]) + "): kept separate"
+                kept_apart += 1
+                item = case["evidence"].get(key)
         if item is None:
             case["evidence"][key] = {"source": "QRadar Ariel", "database": finding.get("database"), "tier": tier,
+                                     "identity": basis,
                                      "clocks": {"received_utc": epoch_utc(row.get("starttime")),
                                                 "device_time_utc": epoch_utc(row.get("devicetime")),
                                                 "collected_in_run": run_id},
                                      "summary": {k: row.get(k) for k in ("event_name", "log_source", "sourceip",
                                                                        "destinationip", "username", "qid")
                                                  if row.get(k) is not None},
-                                     "seen_in": [ref]}
+                                     "properties": props, "seen_in": [ref]}
             added += 1
         else:
-            if not any(r["query"] == name and r["search_id"] == ref["search_id"] and r["row_index"] == index
-                       for r in item["seen_in"]):
+            if not _seen(item, ref):
                 item["seen_in"].append(ref)
             # A stronger relation from another query upgrades the tier; never downgrades it.
             order = list(TIERS)
             if order.index(tier) < order.index(item["tier"]):
                 item["tier"] = tier
-    return {"query": name, "rows": len(stored), "new_records": added}
+    return {"query": name, "rows": len(stored), "new_records": added, "kept_apart_by_properties": kept_apart}
+
+
+def _seen(item: dict, ref: dict) -> bool:
+    return any(r.get("query") == ref["query"] and r.get("search_id") == ref["search_id"]
+               and r.get("row_index") == ref["row_index"] for r in item["seen_in"])
 
 
 def merge_trend(case: dict, alert_id: str, records: dict, run_id: str) -> int:

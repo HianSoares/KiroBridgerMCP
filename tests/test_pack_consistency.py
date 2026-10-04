@@ -10,7 +10,10 @@ from soc_bridge.capabilities import LOCAL_WRITE_TOOLS, public_tools
 ROOT = Path(__file__).resolve().parents[1]
 TOOL_LIKE = re.compile(r"`((?:investigate|qradar|trend|bridge)_[a-z_]+|list_cases|get_case|reassess_case)\b")
 # Identifiers with a tool-like prefix that are report fields, parameters or pivot actions.
-NOT_TOOLS = {"qradar_correlation", "qradar_utc_offset_hours", "investigate_related_alert"}
+NOT_TOOLS = {"qradar_correlation", "qradar_utc_offset_hours", "investigate_related_alert", "bridge_findings",
+             "trend_link", "trend_state", "trend_finding_refuted",
+             "qradar_link", "trend_finding_reinstated", "trend_hash_states",
+             "qradar_instance_key"}  # functions, modules and record types
 SPECS = ["capability-discovery-diagnostics", "case-persistence-resume", "investigation-orchestration-pivots",
          "evidence-decisions-closure", "kiro-pack-quality"]
 
@@ -78,6 +81,25 @@ class PackConsistencyTests(unittest.TestCase):
         self.assertIn("case-workflow.md", (ROOT / ".kiro" / "agents" / "case-investigator.md").read_text(encoding="utf-8"))
         product = (ROOT / ".kiro" / "steering" / "product.md").read_text(encoding="utf-8")
         self.assertNotIn("never assigns a final", product)
+
+    def test_case_rules_match_the_implemented_behavior(self):
+        steering = (ROOT / ".kiro" / "steering" / "case-workflow.md").read_text(encoding="utf-8")
+        for phrase in ("verify_alert_link", "processes", "fuso explícito", "pertence a uma offense", "uncovered_instances",
+                       "instances_not_evaluated", "breadth_basis", "trend_finding_refuted", "não apaga fatos anteriores",
+                       "trend_finding_reinstated", "ParentProcessGuid", "link_conflict", "link_contradicted",
+                       "observations_after_refutation"):
+            self.assertIn(phrase, steering)
+        self.assertIn("UUID de evento Trend é proveniência", steering)
+        self.assertIn("vínculos atuais e históricos", steering)
+        self.assertIn("fora da tolerância temporal", steering)
+        # Superseded promise: a shared hash/command line alone no longer demonstrates the link.
+        self.assertNotIn("hash completo ou linha de comando exata compartilhados", steering)
+        store = (ROOT / "docs" / "case-store.md").read_text(encoding="utf-8")
+        for phrase in ("bloqueio exclusivo entre processos", "Checkpoints", "Isolamento por offense",
+                       "não têm identidade suficiente"):
+            self.assertIn(phrase, store)
+        self.assertNotIn("o progresso do QRadar é salvo antes da etapa Trend", store)  # superseded promise
+        self.assertNotIn("cada registro aparece uma vez", store)
 
 
 if __name__ == "__main__":
