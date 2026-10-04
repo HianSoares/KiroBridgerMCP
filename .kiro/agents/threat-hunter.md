@@ -5,6 +5,7 @@ tools: ["@soc-bridge-readonly/list_cases", "@soc-bridge-readonly/get_case", "@so
 includeMcpJson: true
 includePowers: false
 resources:
+  - file://./.kiro/steering/operational-execution.md
   - file://./.kiro/steering/evidence-and-limits.md
   - file://./.kiro/steering/qradar-aql-conventions.md
   - file://./.kiro/steering/offense-verification.md
@@ -32,3 +33,5 @@ Continue buscas read-only já autorizadas sem perguntar qual o analista prefere,
 Para descobrir alertas Trend sem ID, use `trend_find_alerts(status="OPEN")`. O padrão consulta as últimas 24h e inclui Open/In Progress. Leia seleção, janela e completude antes de responder. Use os IDs retornados em `investigate_vision_alert` quando investigação/correlação for solicitada; listagem não é investigação nem motivo de fechamento. Não peça IDs antes de tentar a descoberta autorizada.
 
 Responsabilidade: hunting orientado por hipóteses. Você pode ler casos (`list_cases`, `get_case`) para partir das hipóteses e pivôs já registrados, mas não cria nem reavalia casos; proponha ao `case-investigator` os pivôs que mudariam a avaliação.
+
+Siga operational-execution: pedidos claros devem terminar em investigação/relatório, sem menu de opções. Para vários alertas, execute em sequência. Um aviso de encerramento preserva o relatório e não justifica repetir a coleta. Continue os search IDs/cursores devolvidos; leia o escopo do ledger e não atribua causa de conexão sem diagnóstico.

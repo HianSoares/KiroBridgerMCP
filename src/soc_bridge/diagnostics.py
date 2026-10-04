@@ -58,3 +58,25 @@ def unavailable(stage: str, error: BaseException) -> InvestigationUnavailable:
         "No complete investigation report was produced; do not infer absent alerts or offenses. "
         "Check the named local connection/permissions, then rerun investigate_case with the same ID."
     )
+
+
+def collection_failure(stage: str, error: BaseException) -> dict:
+    """Structured phase failure; the source is named only when supplied by the client."""
+    from .aql_errors import ResponseFormatError, classify_failure
+    leaves = _leaves(error)
+    known = next((e for e in leaves if isinstance(e, MCPToolFailure)), None)
+    reason = failure_reason(error)
+    categorized = known or error
+    if known is None and any(hint in reason for hint in ("HTTP ", "connection closed", "cannot connect", "timed out")):
+        categorized = MCPToolFailure("not identified", stage, reason)
+    elif known is None and isinstance(error, ValueError):
+        # This is a failure inside an active phase, not evidence of pre-call validation.
+        categorized = ResponseFormatError()
+    classified = classify_failure(categorized)
+    return {"stage": stage, "source": known.source if known else "not identified",
+            "category": classified["category"], "retryable": classified["retryable"],
+            "requires_resolution": classified["requires_resolution"],
+            "reason": reason,
+            "next_action": ("Resume only the failed/pending read with its saved search ID/cursor; "
+                            "do not repeat completed collection. Check permissions/parameters or local MCP logs "
+                            "for non-retryable failures.")}

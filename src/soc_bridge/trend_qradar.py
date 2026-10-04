@@ -17,6 +17,8 @@ from .aql_fields import EVENT_COLUMNS, FLOW_COLUMNS, LOGICAL_FIELDS, FieldCatalo
 from .ariel_collection import Budget, BudgetExhausted, collect_query
 from .offense_evidence import query_tail
 from .process_chain import HOST, same_host
+from .diagnostics import collection_failure
+from .trend_link import _pid, _when, same_execution, trend_hash_states
 from .time_anchor import parse, utc_ms
 from .windows_events import extract, parse_hashes, value_of
 
@@ -66,6 +68,10 @@ def _qradar_records(finding: dict, plan: Any) -> list[dict]:
                     "image": value_of(record, "Image"), "command": value_of(record, "CommandLine"),
                     "pid": value_of(record, "ProcessId"), "utc_time": value_of(record, "UtcTime"),
                     "sha256": (hashes.get("SHA256") or {}).get("value") if (hashes.get("SHA256") or {}).get("comparable") else None,
+                    "hash_states": {a.lower(): {"state": "complete" if h["comparable"] else "incomplete",
+                                                "value": h["value"].lower() if h["comparable"] else None,
+                                                "source": "QRadar process Hashes"}
+                                    for a, h in hashes.items()},
                     "process_guid_sysmon": value_of(record, "ProcessGuid"),
                     "provenance": {"query": finding["scope"], "search_id": finding.get("search_id"),
                                    "result_row_index": index, "starttime_utc": utc_ms(row.get("starttime"))},
@@ -76,9 +82,9 @@ def _qradar_records(finding: dict, plan: Any) -> list[dict]:
 def relate(trend: dict, qr: dict) -> dict:
     """File equality is a lead; confirmation needs a compatible process creation."""
     host = same_host((trend.get("endpoint_host") or "").lower() or None, (qr.get("computer") or "").lower() or None)
-    matched, roles, execution = [], [], {}
+    matched, roles, execution, conflicts = [], [], {}, []
     trend_time = parse(trend.get("event_time_raw"))[0]
-    qr_time = parse(qr.get("utc_time"))[0]
+    qr_time = _when(qr.get("utc_time"))
     for role in ("process", "object"):
         group = trend.get(role, {})
         hits = []
@@ -86,8 +92,9 @@ def relate(trend: dict, qr: dict) -> dict:
             hits.append("image path equal")
         if group.get("cmd") and qr.get("command") and group["cmd"] == qr["command"]:
             hits.append("command line equal")
-        pid_equal = group.get("pid") is not None and qr.get("pid") is not None and str(group["pid"]) == str(qr["pid"])
-        launch_time = parse(group.get("launchTime"))[0]
+        trend_pid, qr_pid = _pid(group.get("pid")), _pid(qr.get("pid"))
+        pid_equal = trend_pid is not None and qr_pid is not None and trend_pid == qr_pid
+        launch_time = _when(group.get("launchTime"))
         comparable = (qr.get("event_id") == 1 and pid_equal and launch_time and qr_time and trend_time
                       and launch_time <= trend_time and abs((launch_time - qr_time).total_seconds()) <= TIME_TOLERANCE
                       and not trend.get("cut_by_bridge") and not qr.get("payload_truncated_by_bridge"))
@@ -95,17 +102,30 @@ def relate(trend: dict, qr: dict) -> dict:
                           "qradar_utc_time": utc_ms(qr_time), "compatible_creation": bool(comparable)}
         if comparable:
             hits.append(f"PID and launch time equal within {TIME_TOLERANCE:.0f}s of Sysmon process creation")
-        sha = str(group.get("fileHashSha256") or "").lower()
-        if qr.get("sha256") and len(sha) == 64 and sha == qr["sha256"].lower():
-            hits.append("full SHA-256 equal")
-        has_content = any(hit in hits for hit in ("image path equal", "command line equal", "full SHA-256 equal"))
-        selected_content = any(hit in matched for hit in ("image path equal", "command line equal", "full SHA-256 equal"))
-        score = (role_execution["compatible_creation"] and has_content, len(hits))
-        selected_score = (execution.get("compatible_creation", False) and selected_content, len(matched))
+        qhashes = qr.get("hash_states")
+        if qhashes is None:
+            legacy = parse_hashes("SHA256=" + str(qr.get("sha256") or ""))
+            qhashes = {a.lower(): {"state": "complete" if h["comparable"] else "incomplete",
+                                  "value": h["value"].lower() if h["comparable"] else None,
+                                  "source": "QRadar process SHA256"}
+                       for a, h in legacy.items() if h["value"]}
+        check = same_execution(
+            {"hash_states": qhashes, "image": qr.get("image"), "pid": qr_pid, "time": qr_time,
+             "command_line": qr.get("command"), "command_line_cut": bool(qr.get("payload_truncated_by_bridge"))},
+            {"hash_states": trend_hash_states(group, role), "image": group.get("filePath"), "pid": trend_pid,
+             "launch_time_utc": launch_time, "command_line": group.get("cmd"),
+             "command_line_cut": bool(trend.get("cut_by_bridge"))})
+        for algo, comparison in check["artifact"]["by_algorithm"].items():
+            if comparison["state"] == "equal":
+                hits.append("full " + {"sha256": "SHA-256", "sha1": "SHA-1", "md5": "MD5"}.get(algo, algo) + " equal")
+        role_execution["identity_demonstrated"] = check["same"]
+        role_execution["hash_comparison"] = check["artifact"]
+        role_execution["conflicts"] = check["conflicts"]
+        score = (role_execution["compatible_creation"] and check["same"], len(hits))
+        selected_score = (execution.get("compatible_creation", False) and execution.get("identity_demonstrated", False), len(matched))
         if score > selected_score:
-            matched, roles, execution = hits, [role], role_execution
-    content_match = any(hit in matched for hit in ("image path equal", "command line equal", "full SHA-256 equal"))
-    if host and execution.get("compatible_creation") and content_match:
+            matched, roles, execution, conflicts = hits, [role], role_execution, check["conflicts"]
+    if host and execution.get("compatible_creation") and execution.get("identity_demonstrated") and not conflicts:
         label = "confirmed"
     elif host and matched:
         label = "candidate"
@@ -113,17 +133,60 @@ def relate(trend: dict, qr: dict) -> dict:
         label = "unverified"
     return {"label": label, "trend_uuid": trend.get("uuid"), "trend_role": roles[0] if roles else None,
             "qradar": qr["provenance"], "qradar_event_id": qr["event_id"], "same_host": host, "identifiers_equal": matched,
-            "execution_match": execution,
+            "execution_match": execution, "conflicts": conflicts,
             "criteria": ("confirmed = same host, equal PID, Trend role launchTime matching Sysmon EventID 1 UtcTime "
-                         "within 2s, and a path/command/full hash match in that same role. File identity alone, missing "
+                         "within 2s, and an artifact identity supported by the shared same_execution criteria in that same role, with no conflicting full hash/PID/path/command. File identity alone, missing "
                          "launch time or other event types remain candidates. Trend endpoint GUID and Sysmon ProcessGuid are "
                          "different identifiers and are not compared.")}
 
 
 async def correlate(qradar: Any, budget: Budget, parsed: dict, discovery: dict, anchor: dict, now: datetime,
-                    offset_hours: int = -3, timezone_verified: bool = False, manual_ip: str | None = None) -> dict:
-    out: dict[str, Any] = {"ips": candidate_ips(parsed, discovery, manual_ip), "stages": [], "queries": {},
-                           "qradar_records": [], "relations": [], "plan": [], "notes": []}
+                    offset_hours: int = -3, timezone_verified: bool = False, manual_ip: str | None = None,
+                    query_state: dict | None = None) -> dict:
+    out = {"ips": candidate_ips(parsed, discovery, manual_ip), "stages": [], "queries": {},
+           "qradar_records": [], "relations": [], "plan": [], "notes": []}
+    try:
+        await _correlate(qradar, budget, parsed, discovery, anchor, now, offset_hours,
+                         timezone_verified, out, query_state)
+    except Exception as exc:
+        out["error"] = collection_failure("QRadar correlation", exc)
+        out["notes"].append("QRadar correlation interrupted; collected query checkpoints are preserved, not empty results")
+    for key, finding in out["queries"].items():
+        if finding.get("continuation"):
+            out["plan"].append({"query": key, **finding["continuation"]})
+        finding.pop("rows", None)
+    out["qradar_records"] = out["qradar_records"][:60]
+    out["relations"] = out["relations"][:50]
+    return out
+
+
+async def _correlate(qradar, budget, parsed, discovery, anchor, now, offset_hours, timezone_verified, out, query_state):
+    from copy import deepcopy
+
+    async def collect(query, database, key, fallback=None, plan=None):
+        def checkpoint(finding, stage):
+            out["queries"][key] = finding
+            if query_state is not None:
+                query_state[key] = deepcopy(finding)
+
+        saved = query_state.get(key) if query_state is not None else None
+        # A saved job belongs to its exact query, database and scope, never merely an IP.
+        if saved and (saved.get("aql") not in (query, fallback) or saved.get("database") != database
+                      or saved.get("scope") != key):
+            preserved = deepcopy(saved)
+            preserved["resume"] = {"action": "requires_resolution", "reason": "saved query differs from current plan"}
+            out["notes"].append("Saved query differs from current plan; preserved its job and did not create a replacement")
+            out["queries"][key] = preserved
+            raise ValueError("saved Ariel query differs from plan")
+        if saved and not saved.get("search_id") and saved.get("outcome") != "creation_uncertain":
+            saved = None
+        finding = await collect_query(qradar, query, database, key, budget, fallback, plan,
+                                      resume=saved, progress=checkpoint)
+        out["queries"][key] = finding
+        if query_state is not None:
+            query_state[key] = deepcopy(finding)
+        return finding
+
     when = parse(anchor.get("time_utc"))[0]
     if not when:
         out["notes"].append("No time anchor: QRadar correlation not run")
@@ -160,8 +223,8 @@ async def correlate(qradar: Any, budget: Budget, parsed: dict, discovery: dict, 
             where = f"(sourceip = '{ip}' OR destinationip = '{ip}') AND {epochs}"
             sql = f"FROM events WHERE {where} ORDER BY starttime ASC LIMIT 1000 {tail}"
             key = f"{name}:events:{ip}"
-            finding = await collect_query(qradar, f"{plan.select()} {sql}", "events", key, budget,
-                                          f"{plan.select(False)} {sql}" if plan.optional else None, plan)
+            finding = await collect(f"{plan.select()} {sql}", "events", key,
+                                    f"{plan.select(False)} {sql}" if plan.optional else None, plan)
             out["queries"][key] = finding
             out["qradar_records"].extend(_qradar_records(finding, plan))
             if name == "stage1":
@@ -169,15 +232,14 @@ async def correlate(qradar: Any, budget: Budget, parsed: dict, discovery: dict, 
                                                               int(end.timestamp() * 1000))
                 flow_sql = (f"{flow_plan.select()} FROM flows WHERE (sourceip = '{ip}' OR destinationip = '{ip}') AND "
                             f"{flow_epochs} LIMIT 1000 {tail}")
-                out["queries"][f"{name}:flows:{ip}"] = await collect_query(qradar, flow_sql, "flows",
-                                                                           f"{name}:flows:{ip}", budget)
+                out["queries"][f"{name}:flows:{ip}"] = await collect(flow_sql, "flows", f"{name}:flows:{ip}")
         if name == "stage1":
             for host in hosts:
                 sql = (f"FROM events WHERE UTF8(payload) ILIKE '%{host}%' AND {epochs} ORDER BY starttime ASC "
                        f"LIMIT 200 {tail}")
                 key = f"{name}:host_text:{host}"
-                finding = await collect_query(qradar, f"{plan.select()} {sql}", "events", key, budget,
-                                              f"{plan.select(False)} {sql}" if plan.optional else None, plan)
+                finding = await collect(f"{plan.select()} {sql}", "events", key,
+                                        f"{plan.select(False)} {sql}" if plan.optional else None, plan)
                 out["queries"][key] = finding
                 out["qradar_records"].extend(_qradar_records(finding, plan))
             found_any = any(q.get("returned_rows") for k, q in out["queries"].items() if ":events:" in k)
@@ -197,10 +259,4 @@ async def correlate(qradar: Any, budget: Budget, parsed: dict, discovery: dict, 
     if not out["relations"] and out["qradar_records"]:
         out["notes"].append("QRadar Windows records were found by IP/time or host text only: unverified relation to "
                             "the Trend process (IP/time or text overlap is not a process link)")
-    for key, finding in out["queries"].items():
-        if finding.get("continuation"):
-            out["plan"].append({"query": key, **finding["continuation"]})
-        finding.pop("rows", None)
-    out["qradar_records"] = out["qradar_records"][:60]
-    out["relations"] = out["relations"][:50]
     return out

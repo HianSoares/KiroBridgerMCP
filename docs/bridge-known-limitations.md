@@ -66,3 +66,7 @@ Descoberta por descrição e investigação em lotes: [guia](offense-batch-inves
 ## Cobertura dos catálogos upstream
 
 A [matriz de cobertura](coverage-matrix.md) lista todas as tools dos MCPs oficiais com suporte, gatilho, limites, paginação e justificativa de exclusão. Presença no catálogo não garante disponibilidade na instalação. Filtros server-side não confirmados em ambiente real (assets por IP, `createdDateTime` de insights, `userDisplayName` de identidade) têm o resultado conferido localmente e, se rejeitados, aparecem como `request_rejected`. Detalhes em [cobertura investigativa](investigative-coverage.md).
+
+## Execução e recuperação
+
+Falha de encerramento preserva o relatório; falhas secundárias preservam evidências anteriores. A retomada de alertas na mesma ponte usa estado temporário, separado por credenciais/parâmetros (até 15 minutos, quatro alertas); reinício/expiração/remoção elimina esse estado. Search IDs e cursores devolvidos permitem retomar buscas pelo QRadar, sem recriá-las. Leia [o fluxo e os limites de recuperação](investigation-recovery.md).

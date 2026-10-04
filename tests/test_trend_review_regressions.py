@@ -114,6 +114,36 @@ class OATRegressionTests(unittest.TestCase):
 
 
 class CorrelationRegressionTests(unittest.TestCase):
+    def test_equal_path_pid_and_time_do_not_override_conflicting_sha256(self):
+        result = relate(self.trend(), self.qr(sha256='ab' * 32))
+        self.assertEqual(result['label'], 'candidate')
+        self.assertTrue(result['conflicts'])
+        self.assertEqual(result['execution_match']['hash_comparison']['state'], 'conflict')
+
+    def test_same_hash_and_pid_do_not_override_known_command_conflict(self):
+        result = relate(self.trend(), self.qr(command='synthetic-other-command'))
+        self.assertNotEqual(result['label'], 'confirmed')
+        self.assertIn('command lines differ (original strings)', result['conflicts'])
+
+    def test_same_command_hash_and_pid_do_not_override_known_path_conflict(self):
+        result = relate(self.trend(), self.qr(image=r'C:\Synthetic\Other.exe'))
+        self.assertNotEqual(result['label'], 'confirmed')
+        self.assertIn('image paths differ', result['conflicts'])
+
+    def test_matching_sha256_does_not_override_another_full_hash_conflict(self):
+        trend = self.trend()
+        trend['object']['fileHashMd5'] = 'ab' * 16
+        qr = self.qr(hash_states={
+            'sha256': {'state': 'complete', 'value': 'cd' * 32},
+            'md5': {'state': 'complete', 'value': 'ef' * 16}})
+        result = relate(trend, qr)
+        self.assertNotEqual(result['label'], 'confirmed')
+        self.assertEqual(result['execution_match']['hash_comparison']['state'], 'conflict')
+
+    def test_hex_pid_and_decimal_pid_identify_the_same_instance(self):
+        result = relate(self.trend(), self.qr(pid=hex(6000)))
+        self.assertEqual(result['label'], 'confirmed')
+
     def trend(self, **extra):
         return normalize({**PD_LAUNCH, "objectLaunchTime": z(T0 + timedelta(seconds=1)), **extra},
                          'search_endpoint_activities_list', 'q')

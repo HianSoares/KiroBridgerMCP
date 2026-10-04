@@ -57,3 +57,27 @@
 1. WHEN a call is cut at the deadline THE SYSTEM SHALL treat the time of that phase as used, even if the budget clock still shows time left (asyncio timers may fire up to one clock resolution early).
 2. AFTER the global budget is exhausted THE SYSTEM SHALL start no new upstream call (validation, creation, polling, paging, rule or context read).
 3. THE SYSTEM SHALL keep the time reserved for later phases available to them.
+
+### Requirement 6 — Report delivery and alert resumption
+
+**User Story:** As an analyst, I want completed and partial evidence delivered even when connection cleanup fails, so that I can continue the pending work without duplicating searches.
+
+#### Acceptance Criteria
+
+1. WHEN collection returns and a resource shutdown fails THE SYSTEM SHALL preserve the report, identify the resource, and report cleanup separately from collection coverage.
+2. WHEN a secondary alert phase fails THE SYSTEM SHALL preserve earlier evidence and known Ariel search IDs/cursors; it SHALL NOT interpret the failure as empty results.
+3. WHEN the same alert/credential/parameter scope is resumed within the running bridge cache THE SYSTEM SHALL reuse successful reads and resume matching Ariel jobs; polling and creation SHALL NOT be memoized.
+4. THE SYSTEM SHALL isolate alert cache state, serialize same-alert runs, bound the cache, and state that restart/expiry/eviction removes this temporary memory.
+5. THE SYSTEM SHALL preserve cancellation and the primary collection error, keep continuation values uncut in reports, and report reused reads separately from new calls/records/partitions.
+6. THE SYSTEM SHALL use the same conservative execution identity checker for alert-first correlation; conflicting complete hashes or known identifiers SHALL prevent confirmation even when path/PID/time coincide.
+
+### Requirement 7 — Execute clear chat requests
+
+**User Story:** As an analyst, I want the agent to execute authorized investigation work and produce a decision/note without repeatedly presenting menus.
+
+#### Acceptance Criteria
+
+1. THE SYSTEM SHALL instruct Kiro to discover by status or description with the available bridge tools and to use documented defaults rather than ask for obtainable IDs.
+2. WHEN multiple alert IDs are known THE SYSTEM SHALL instruct Kiro to investigate sequentially, continue independent alerts after a failure, and deliver a consolidated evidence-based report.
+3. THE SYSTEM SHALL distinguish per-attempt ledgers from cumulative diagnostics and SHALL NOT claim initialization repairs another session or proves data API permissions.
+4. THE SYSTEM SHALL request only indispensable missing data, continue authorized pertinent pivots, and preserve the read-only upstream boundary.

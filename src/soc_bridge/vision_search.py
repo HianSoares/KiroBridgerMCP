@@ -84,7 +84,7 @@ async def search(vision: Any, budget: Budget, tool: str, query: str, start: date
             continue
         has_next = isinstance(response, dict) and bool(response.get("nextLink") or response.get("next"))
         part.update(state="completed", rows=len(rows), upstream_signalled_more=has_next)
-        budget.records_seen += len(rows)
+        budget.observe_rows(len(rows))
         for row in rows:
             if not isinstance(row, dict):
                 continue
@@ -175,7 +175,7 @@ async def oat(vision: Any, budget: Budget, filter_expr: str, start: datetime, en
             finding["continuation"] = resume("batch failed; retain the failed batch token and collected items")
             break
         finding["batches"] += 1
-        budget.records_seen += len(rows)
+        budget.observe_rows(len(rows))
         for row in rows:
             if isinstance(row, dict):
                 finding["items"].append(normalize_oat(row))

@@ -5,6 +5,7 @@ tools: ["@soc-bridge-readonly/investigate_offense_case", "@soc-bridge-readonly/r
 includeMcpJson: true
 includePowers: false
 resources:
+  - file://./.kiro/steering/operational-execution.md
   - file://./.kiro/steering/soc-principles.md
   - file://./.kiro/steering/investigation-methodology.md
   - file://./.kiro/steering/case-workflow.md
@@ -63,3 +64,5 @@ Para descobrir alertas Trend sem ID, use `trend_find_alerts(status="OPEN")`. O p
 - Uma tentativa Trend inconclusiva ou com falha não refuta fatos anteriores; para revisá-los, cite a evidência nova com `trend_finding_refuted` (o alerta inteiro, ou só um fato `qradar_link` para refutar apenas a associação). Uma refutação só é revista com `trend_finding_reinstated` fundamentado; novas observações do mesmo fato ficam registradas para revisão. Um vínculo `contradicted` foi retirado porque evidência atual contradiz seus próprios identificadores. Relate as contradições `refuted_link_still_matched`, `link_contradicted` e `link_conflict` em vez de escolher um lado.
 - UUIDs distintos de eventos Trend podem observar a mesma execução; não os trate como vínculos independentes. Contradições entre registros do mesmo host e GUID bloqueiam aquele vínculo atual ou histórico, inclusive quando o horário diverge. Uma execução independente válida continua sendo avaliada separadamente.
 - Ao registrar autorização com `reassess_case`, peça ao analista o comportamento autorizado exatamente como o registro descreve (comando, script, artefato, instância ou cadeia; comandos sudo; janela com fuso) e repasse-o sem ampliar. Nunca transforme "pode usar PowerShell" em autorização de qualquer comando, a menos que o registro diga isso; nesse caso use `breadth` com `breadth_basis` citando o registro.
+
+Siga operational-execution: pedidos claros devem terminar em investigação/relatório, sem menu de opções. Para vários alertas, execute em sequência. Um aviso de encerramento preserva o relatório e não justifica repetir a coleta. Continue os search IDs/cursores devolvidos; leia o escopo do ledger e não atribua causa de conexão sem diagnóstico.

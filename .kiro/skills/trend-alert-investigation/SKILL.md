@@ -39,3 +39,11 @@ Cada pivô mantém proveniência, timezone e limite. Detecção próxima não vi
 2. Para cada conclusão, leia `assessment.decision_matrix`: cite os requisitos atendidos e o que bloqueia aquela conclusão específica, com o status de evidência (confirmado, compatível, candidato, não verificado, não retornou, não executado).
 3. Se `budget.phase_log` ou `lead_queries` mostrar etapa não executada, diga "não executado", nunca "nenhum resultado".
 4. Hipóteses concorrentes: registre o teste feito para cada uma (`hypotheses[].status`) e a próxima verificação que mudaria a decisão.
+
+## Execução e recuperação
+
+- Pedido claro autoriza as leituras necessárias: investigue, correlacione e entregue decisão/razão/nota sem perguntar se deve montar o relatório. Com vários IDs já conhecidos, investigue um por vez; falha num alerta não bloqueia os demais.
+- Leia `collection.errors` e `connection_lifecycle`: falha de encerramento com relatório preservado não é falha de coleta. Não diga que nada foi pesquisado nem repita buscas concluídas.
+- Continue pelo search ID/cursor do plano QRadar; os valores de continuação são exibidos sem corte. `creation_uncertain` nunca autoriza recriar automaticamente o job.
+- Repetir o mesmo alerta nesta ponte reutiliza leituras e jobs enquanto o estado temporário existir: até 15 minutos, quatro alertas, sem persistência após reinício. Leia `resumption` e mantenha os planos para retomada por ID; não prometa recuperação automática depois da perda desse estado.
+- O ledger de `bridge_diagnostics` é cumulativo, o `call_outcomes` do alerta é daquela tentativa. Inicialização/descoberta não repara sessões anteriores nem prova acesso ao sandbox, Insights ou Search. Informe permissão/parâmetros/fonte conforme a falha específica, sem inventar a causa.

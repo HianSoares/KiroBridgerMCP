@@ -37,3 +37,5 @@
 - `DiscoveryTests`: pages, repeated cursor, invalid page, failing page, page cap, deadline, unknown versus absent.
 - `DiagnosticsTests`: a 401 response carrying a synthetic secret, with environment secrets set.
 - `SurfaceTests`: schemas and annotations.
+
+Alert reports have a separate per-attempt ledger. `reused_read` records cache reuse without a new upstream call; diagnostics explicitly label the process-wide scope. Initialization/discovery is not evidence that another session was repaired or that all data APIs are accessible.

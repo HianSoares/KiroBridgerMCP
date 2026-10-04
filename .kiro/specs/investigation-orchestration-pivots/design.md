@@ -75,3 +75,11 @@ It creates no new taxonomy.
 - `test_related_true_positive_alert_by_ip_only_does_not_confirm_malice_but_blocks_benign_closure`
 
 `tests/test_case_review_regressions.py`: `CorrelationTests`, `CheckpointCancellationTests`, `OffenseIsolationTests`.
+
+## Alert execution and connection lifecycle
+
+`connection_lifecycle.InvestigationConnections` tracks named resources and closes them in the same task with a per-resource timeout. An ordinary shutdown error after `collected()` becomes a report warning; cancellation and primary errors propagate. `alert_investigation.read_phase`, `alert_discovery.discover` and `src/soc_bridge/trend_qradar.py` (`correlate`) preserve completed phase results and query checkpoints when a later phase fails.
+
+`alert_resume` stores credential/parameter-scoped read snapshots and query state per event loop. Four alert entries expire after fifteen minutes idle; memoized successful reads have an eight-MiB cap per entry. Locks protect active runs and waiters. Ariel polling/creation/results bypass memoization and `collect_query(resume=...)` continues the exact known job. Uncertain creation never becomes a new job automatically. Restart/expiry/eviction loses this memory; returned plans remain the recovery contract.
+
+`Budget.run` establishes a task-local budget context; a reused read refunds the charged call/partition and records cached rows separately. Thus cached work cannot repeatedly consume the call/record/partition limits and prevent resumption. Alert reports carry a per-attempt ledger and uncut continuation JSON. The Kiro operational-execution steering defines tool routing, sequential multi-alert execution and evidence-based decision/notes without unnecessary confirmation.

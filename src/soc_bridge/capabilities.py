@@ -21,6 +21,7 @@ STATES = {
 }
 CALL_OUTCOMES = {
     "tested_ok": "at least one call returned a usable response",
+    "reused_read": "a successful read from this alert snapshot was reused; no new upstream call",
     "rejected": "the upstream rejected the request (arguments, query or validation)",
     "permission": "the account/key lacks permission",
     "license_or_integration": "license, entitlement or integration not available",

@@ -133,8 +133,23 @@ def window_for(anchor: dict) -> tuple[datetime, datetime, str]:
 
 
 async def discover(vision: Any, budget: Budget, parsed: dict, anchor: dict) -> dict:
-    out: dict[str, Any] = {"logic": "alert-entities-v3", "pivots": [], "oat": [], "instance_followups": [],
-                           "warnings": [], "continuation": []}
+    from .diagnostics import collection_failure
+    out = {"logic": "alert-entities-v3", "pivots": [], "oat": [], "instance_followups": [],
+           "warnings": [], "continuation": []}
+    collected = []
+    try:
+        return await _discover(vision, budget, parsed, anchor, out, collected)
+    except Exception as exc:
+        error = collection_failure("Trend Search/OAT", exc)
+        out["error"] = error
+        out["discovery_status"] = "partial: interrupted"
+        out["warnings"].append(f"Trend Search/OAT interrupted ({error['category']}); earlier records preserved")
+        out["continuation"].append({"action": "resolve_collection_failure", "stage": "Trend Search/OAT",
+                                    "retryable": error["retryable"]})
+        return _finish(out, collected, parsed, parsed["endpoints"][:MAX_ENDPOINTS])
+
+
+async def _discover(vision, budget, parsed, anchor, out, collected):
     endpoints = parsed["endpoints"][:MAX_ENDPOINTS]
     if len(parsed["endpoints"]) > MAX_ENDPOINTS:
         out["warnings"].append(f"Endpoint cap: {MAX_ENDPOINTS} of {len(parsed['endpoints'])} endpoints searched")
@@ -145,7 +160,6 @@ async def discover(vision: Any, budget: Budget, parsed: dict, anchor: dict) -> d
     start, end, why = window_for(anchor)
     out["window"] = {"start": vision_search._iso(start), "end": vision_search._iso(end), "justification": why}
     seen: dict = {}
-    collected: list[dict] = []
     broad: list[dict] = []
     for endpoint in endpoints:
         clause, basis = endpoint_clause(endpoint)
