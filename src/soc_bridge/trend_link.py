@@ -189,7 +189,7 @@ def evidence(report: dict) -> dict:
             "note": "alert_created_utc is the alert clock, never an execution time"}
 
 
-def _trend_states(instance: dict) -> dict:
+def trend_states(instance: dict) -> dict:
     return instance.get("hash_states") or _legacy_states(instance.get("hashes"), "Trend (stored by an earlier version)")
 
 
@@ -238,7 +238,7 @@ def _same_path(a: str | None, b: str | None) -> bool | None:
 
 def same_execution(q: dict, t: dict) -> dict:
     """Whether a QRadar process record and a Trend instance are the same execution, with the basis."""
-    artifact = compare_hashes(q["hash_states"], _trend_states(t))
+    artifact = compare_hashes(q["hash_states"], trend_states(t))
     launched = _when(t.get("launch_time_utc"))
     path = _same_path(q["image"], t.get("image"))
     pid = None if q["pid"] is None or t.get("pid") is None else q["pid"] == t["pid"]
@@ -283,11 +283,12 @@ def same_execution(q: dict, t: dict) -> dict:
             "reason": f"hash {artifact['state']}: needs an identical image path and an equal PID"}
 
 
-def _conflict(q: dict, t: dict, record: dict, check: dict, relation: str) -> dict | None:
+def _conflict(q: dict, t: dict, record: dict, check: dict, relation: str, fact_id: str) -> dict | None:
     """A recorded contradiction when weaker signals suggest identity but a known identifier conflicts."""
     if not check["time_ok"] or not check["conflicts"] or not (check["weak_signals"] or check["artifact"]["state"] == "equal"):
         return None
     return {"relation_tested": relation, "trend_record": record.get("uuid"), "trend_role": t.get("role"),
+            "fact_id": fact_id, "qradar_instance_key": q["key"],
             "qradar_record": q["reference"], "conflicts": check["conflicts"], "weak_signals": check["weak_signals"],
             "hashes": check["artifact"]["by_algorithm"],
             "meaning": "this association is not demonstrated; the conflict does not show the activity is benign"}
@@ -322,7 +323,7 @@ def link(result: dict, alert_id: str, basis: dict | None, association: dict | No
                                 "description": f"the QRadar process {q['image']} (PID {q['pid']}) is the Trend instance "
                                                "that carries the malicious verdict"})
                 continue
-            found = _conflict(q, t, record, check, "same_process_instance")
+            found = _conflict(q, t, record, check, "same_process_instance", fact["fact_id"])
             if found:
                 conflicts.append(found)
             reasons.append(check["reason"])
@@ -336,7 +337,7 @@ def link(result: dict, alert_id: str, basis: dict | None, association: dict | No
                                                    f"identified as the {fact.get('parent_basis') or 'parent'}; the malice "
                                                    "belongs to the child process, launched by this offense activity"})
                     continue
-                found = _conflict(q, parent, record, up, "parent_of_malicious_instance")
+                found = _conflict(q, parent, record, up, "parent_of_malicious_instance", fact["fact_id"])
                 if found:
                     conflicts.append(found)
             if q["parent_pid"] is None or q["parent_pid"] != t.get("pid"):
@@ -380,3 +381,37 @@ def link(result: dict, alert_id: str, basis: dict | None, association: dict | No
                      + (f" ({', '.join(association.get('match_fields') or [])})" if association else ""),
             "why_not_demonstrated": missing, "missing": REQUIRED,
             "trend_instances_compared": len(malicious), "qradar_instances_compared": len(offense)}
+
+
+def stored_link_conflicts(match: dict, current: dict | None, computed: dict) -> list[str]:
+    """Positive contradictions between a stored link and the current evidence of its own identifiers.
+
+    A stored link stays usable only while nothing current contradicts it: a conflict found now for the
+    same Trend fact and QRadar instance, a change of the Trend instance's own complete hashes, PID or
+    launch time, or complete hashes recorded for the linked QRadar process that differ from the current
+    Trend instance (or parent). Missing observations are not contradictions."""
+    out = []
+    key = (match.get("fact_id"), match.get("qradar_instance_key"))
+    for conflict in computed.get("conflicts", []):
+        if (conflict.get("fact_id"), conflict.get("qradar_instance_key")) == key:
+            out += [f"current comparison: {c}" for c in conflict["conflicts"]]
+    if not current:
+        return list(dict.fromkeys(out))
+    then, now = match.get("trend_instance") or {}, current.get("instance") or {}
+    changed = compare_hashes(trend_states(then), trend_states(now))
+    if changed["state"] == "conflict":
+        out.append("Trend instance changed: full " + ", ".join(
+            a for a, v in changed["by_algorithm"].items() if v["state"] == "conflict") + " hashes differ from the linked ones")
+    if then.get("pid") is not None and now.get("pid") is not None and then["pid"] != now["pid"]:
+        out.append(f"Trend instance changed: process ID {then['pid']} -> {now['pid']}")
+    first, second = _when(then.get("launch_time_utc")), _when(now.get("launch_time_utc"))
+    if first and second and not _close(first, second):
+        out.append(f"Trend instance changed: launch time {_iso(first)} -> {_iso(second)}")
+    target = (current.get("parent") if match.get("relation") == "parent_of_malicious_instance" else now) or {}
+    linked = {a: v["qradar"] for a, v in ((match.get("artifact") or {}).get("by_algorithm") or {}).items()
+              if v.get("qradar")}
+    against = compare_hashes(linked, trend_states(target))
+    if against["state"] == "conflict":
+        out.append("full " + ", ".join(a for a, v in against["by_algorithm"].items() if v["state"] == "conflict")
+                   + " hashes of the linked QRadar process differ from the current Trend instance")
+    return list(dict.fromkeys(out))

@@ -10,16 +10,21 @@ demonstrated QRadar link) stay "sustained" until pertinent new evidence refutes 
 - an analyst-supplied ``trend_finding_refuted`` record (labelled external, not verified).
 
 Not observing a fact again (Inconclusive, timeout, failure, Trend not requested) never refutes
-it. A refutation records its basis, source, the facts it replaced and the fingerprint of the
-evidence it addressed. Recomputing or re-collecting that same evidence (a new run ID, the same
-records) does not re-establish the fact: it stays refuted and the rematch is shown as a
-conflict between the bridge evidence and the external record. A fact is re-established only by
-evidence that differs from what the refutation addressed, or by an explicit, reasoned
-``trend_finding_reinstated`` record, each with its own revision. Refuting only a QRadar link
-leaves the alert's own True Positive facts untouched. Links demonstrated under earlier criteria
-are re-evaluated with the current ones; when they are not re-demonstrated they are marked
-``needs_revalidation`` (history kept), never presented as demonstrated. The current assessment
-is derived from the facts, never copied blindly from the latest report.
+it. Each fact keeps three things apart: its identity (the fact ID), its probative content (the
+identifiers it asserts: complete hashes, PID, launch time, image, complete command line,
+QRadar instance, chain GUIDs) and its provenance (runs, jobs, rows, sources, lengths, cut
+flags, incomplete values). A refutation records its basis, source, the facts it replaced and
+the probative content it addressed. A refuted fact is never re-established automatically:
+re-reading the same evidence, a new run or Ariel job, metadata or incomplete values, and even
+changed probative content cannot show that the change is pertinent to the refutation basis.
+The new observation is recorded (``observations_after_refutation``, with the probative changes)
+and shown as a conflict for review; only an explicit, reasoned ``trend_finding_reinstated``
+record re-establishes the fact. Refuting only a QRadar link leaves the alert's own True
+Positive facts untouched, and independent links are new facts. A link whose own identifiers are
+positively contradicted by current evidence becomes ``contradicted`` (history kept) until it is
+re-demonstrated without conflict; missing observations never contradict. Links demonstrated
+under earlier criteria that are not re-demonstrated are marked ``needs_revalidation``. The
+current assessment is derived from the facts, never copied blindly from the latest report.
 """
 
 from __future__ import annotations
@@ -47,54 +52,116 @@ def _entry(state: dict, alert_id: str) -> dict:
 
 
 def fingerprint(data: Any) -> str:
-    """Identity of the evidence behind a fact; the same records give the same fingerprint in any run."""
+    """Stable digest of probative content; the same evidence gives the same fingerprint in any run."""
     return hashlib.sha256(json.dumps(data, sort_keys=True, default=str).encode("utf-8")).hexdigest()[:24]
 
 
-def _sustain(entry: dict, fact_id: str, kind: str, run_id: str, source: str, data: Any,
-             criteria: str | None = None, identity: Any = None) -> str:
-    """Record an observation; returns "new", "observed", "refutation_stands", "reestablished" or "revalidated".
+def _probative_instance(instance: dict | None) -> dict | None:
+    """Identifiers of an execution that can support or contradict identity: complete hashes, PID, launch
+    time, image and a complete command line. Incomplete hashes, sources, lengths and cut flags are
+    metadata, not evidence."""
+    if not instance:
+        return None
+    states = trend_link.trend_states(instance)
+    return {"image": instance.get("image"), "pid": instance.get("pid"), "launch_time_utc": instance.get("launch_time_utc"),
+            "command_line": None if instance.get("command_line_cut") else instance.get("command_line"),
+            "hashes": {a: v["value"] for a, v in sorted(states.items()) if v.get("state") == "complete"}}
 
-    ``identity`` is the evidence that defines the fact (provenance such as search IDs and row
-    numbers excluded), so re-collecting the same records in a new job is not new evidence."""
+
+def probative(kind: str, data: Any) -> Any:
+    """What a fact asserts, separated from its identity (the fact ID) and its provenance (runs, jobs,
+    rows, sources). Only a change here can be a new observation of the fact."""
+    data = data or {}
+    if kind == "malicious_instance":
+        record = data.get("trend_record") or {}
+        return {"uuid": record.get("uuid"), "endpoint_host": record.get("endpoint_host"),
+                "endpoint_guid": record.get("endpoint_guid"), "instance": _probative_instance(data.get("instance")),
+                "parent": _probative_instance(data.get("parent")), "verdict_hashes": sorted(data.get("verdict_hashes") or [])}
+    if kind == "qradar_link":
+        qradar = {a: v["qradar"]["value"] for a, v in sorted(((data.get("artifact") or {}).get("by_algorithm") or {}).items())
+                  if (v.get("qradar") or {}).get("state") == "complete"}
+        return {"fact_id": data.get("fact_id"), "relation": data.get("relation"),
+                "qradar_instance": data.get("qradar_instance_key"), "qradar_hashes": qradar,
+                "qradar_execution_time": data.get("qradar_execution_time"),
+                "trend": _probative_instance(data.get("trend_instance")),
+                "chain": {k: v for k, v in sorted((data.get("chain") or {}).items()) if k in ("child_guid", "parent_guid")}}
+    if kind == "alert_assessment":
+        return {"classification": data.get("classification")}
+    return data
+
+
+def _flatten(value: Any, path: str = "") -> dict:
+    if isinstance(value, dict):
+        out = {}
+        for key, item in value.items():
+            out.update(_flatten(item, f"{path}.{key}" if path else str(key)))
+        return out
+    return {path: value}
+
+
+def changes(before: Any, after: Any) -> list[str]:
+    old, new = _flatten(before or {}), _flatten(after or {})
+    return sorted(f"{k}: {old.get(k)!r} -> {new.get(k)!r}" for k in set(old) | set(new) if old.get(k) != new.get(k))[:20]
+
+
+def _sustain(entry: dict, fact_id: str, kind: str, run_id: str, source: str, data: Any,
+             criteria: str | None = None) -> str:
+    """Record an observation; returns "new", "observed", "refutation_stands" or "revalidated".
+
+    A refuted fact is never re-established here: neither the same evidence (another run, job or
+    read) nor a changed fingerprint shows that the change is pertinent to the refutation basis.
+    The observation is recorded for review, with the probative changes, and only an explicit,
+    reasoned ``trend_finding_reinstated`` record re-establishes the fact."""
     fact = entry["facts"].get(fact_id)
-    print_ = fingerprint(identity if identity is not None else data)
+    content = probative(kind, data)
+    print_ = fingerprint(content)
     if fact is None:
         entry["facts"][fact_id] = {"kind": kind, "status": "sustained", "first_run": run_id, "last_observed_run": run_id,
-                                   "source": source, "data": data, "fingerprint": print_,
+                                   "source": source, "data": data, "probative": content, "fingerprint": print_,
                                    **({"criteria": criteria} if criteria else {})}
         return "new"
     if fact["status"] == "refuted":
-        if (fact.get("refuted_by") or {}).get("fingerprint") in (print_, None):
-            # The same evidence the refutation addressed: recomputing or re-reading it is not a new observation.
-            fact["rematched_after_refutation"] = (fact.get("rematched_after_refutation", []) + [run_id])[-20:]
-            return "refutation_stands"
-        fact.update(status="sustained", data=data, fingerprint=print_, reestablished_in_run=run_id, last_observed_run=run_id,
-                    **({"criteria": criteria} if criteria else {}))
-        entry["revisions"].append({"at": now_iso(), "run": run_id, "source": source,
-                                   "basis": "evidence differs from the evidence the refutation addressed "
-                                            f"({fact['refuted_by'].get('fingerprint')} -> {print_}); review it against "
-                                            f"the refutation basis: {fact['refuted_by'].get('basis')}",
-                                   "replaced_facts": [], "reestablished_facts": [fact_id]})
-        return "reestablished"
+        addressed = (fact.get("refuted_by") or {}).get("probative")
+        changed = changes(addressed, content) if addressed is not None else []
+        fact["rematched_after_refutation"] = (fact.get("rematched_after_refutation", []) + [run_id])[-20:]
+        fact["observations_after_refutation"] = (fact.get("observations_after_refutation", []) + [{
+            "run": run_id, "at": now_iso(), "source": source, "fingerprint": print_,
+            "probative_change": bool(changed) or addressed is None, "changes": changed or (
+                ["refuted before probative content was recorded; compare manually"] if addressed is None else []),
+            "status_kept": "refuted"}])[-20:]
+        return "refutation_stands"
     outcome = "observed"
-    if fact["status"] == "needs_revalidation":
+    if fact["status"] in ("needs_revalidation", "contradicted"):
+        # Only demonstrated, conflict-free current evidence reaches this point (record_link).
         fact["revalidated_in_run"] = run_id
+        fact.setdefault("status_history", []).append({"run": run_id, "from": fact["status"], "to": "sustained",
+                                                      "basis": "re-demonstrated with the current criteria and data"})
         outcome = "revalidated"
-    fact.update(status="sustained", last_observed_run=run_id, data=data, fingerprint=print_,
+    if fact.get("fingerprint") != print_ and fact.get("probative") is not None:
+        fact["history"] = (fact.get("history", []) + [{"until_run": run_id, "probative": fact["probative"],
+                                                       "fingerprint": fact["fingerprint"],
+                                                       "changes": changes(fact["probative"], content)}])[-10:]
+    fact.update(status="sustained", last_observed_run=run_id, data=data, probative=content, fingerprint=print_,
                 **({"criteria": criteria} if criteria else {}))
     return outcome
 
 
+def contradict(entry: dict, fact_id: str, run_id: str, conflicts: list[str]) -> None:
+    """Current evidence positively contradicts the fact: withdraw it from any conclusion, keep its data."""
+    fact = entry["facts"][fact_id]
+    fact.setdefault("status_history", []).append({"run": run_id, "from": fact["status"], "to": "contradicted"})
+    fact.update(status="contradicted", contradicted_by={"run": run_id, "at": now_iso(), "conflicts": conflicts,
+                                                        "meaning": "withdrawn until resolved; not a benign finding"})
+
+
 def refute(entry: dict, fact_ids: list[str] | None, run_id: str, source: str, basis: str) -> list[str]:
-    targets = [f for f, fact in sorted(entry["facts"].items()) if fact["status"] in ("sustained", "needs_revalidation")
-               and (not fact_ids or f in fact_ids)]
+    targets = [f for f, fact in sorted(entry["facts"].items())
+               if fact["status"] in ("sustained", "needs_revalidation", "contradicted") and (not fact_ids or f in fact_ids)]
     for fact_id in targets:
         fact = entry["facts"][fact_id]
+        addressed = fact.get("probative") if fact.get("probative") is not None else probative(fact["kind"], fact.get("data"))
         fact.update(status="refuted", refuted_by={"run": run_id, "source": source, "basis": basis, "at": now_iso(),
-                                                  # None for facts stored before fingerprints existed: then
-                                                  # only an explicit reinstatement re-establishes them.
-                                                  "fingerprint": fact.get("fingerprint")})
+                                                  "probative": addressed, "fingerprint": fingerprint(addressed)})
     if targets:
         entry["revisions"].append({"at": now_iso(), "run": run_id, "source": source, "basis": basis,
                                    "replaced_facts": targets})
@@ -157,17 +224,11 @@ def link_fact_id(match: dict) -> str:
     return f"link:{match['fact_id']}:{match['relation']}:{match.get('qradar_instance_key')}"
 
 
-def link_identity(match: dict) -> dict:
-    return {"fact_id": match["fact_id"], "relation": match["relation"], "qradar_instance": match.get("qradar_instance_key"),
-            "trend_instance": match.get("trend_instance"), "artifact": (match.get("artifact") or {}).get("by_algorithm"),
-            "chain": {k: v for k, v in (match.get("chain") or {}).items() if k in ("child_guid", "parent_guid")}}
-
-
 def record_link(entry: dict, relation: dict, run_id: str) -> dict[str, str]:
     """Record each demonstrated match as a qradar_link fact; returns the outcome per fact ID."""
     return {link_fact_id(match): _sustain(entry, link_fact_id(match), "qradar_link", run_id,
                                           f"bridge comparison of QRadar and Trend records ({run_id})", match,
-                                          criteria=trend_link.LINK_CRITERIA, identity=link_identity(match))
+                                          criteria=trend_link.LINK_CRITERIA)
             for match in relation.get("matches", [])}
 
 

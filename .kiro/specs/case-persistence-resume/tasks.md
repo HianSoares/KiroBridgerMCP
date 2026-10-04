@@ -23,6 +23,9 @@
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.9_
 - [x] 7a. Alert validity separate from association validity; refutations not undone by the same evidence; reasoned reinstatement; legacy links revalidated
   - `trend_state.fingerprint/_sustain/refute/reinstate/mark_unvalidated_links`, `link_fact_id`, `bridge_findings`; `RefutationTests`
-  - _Requirements: 5.6, 5.7, 5.8_
+  - _Requirements: 5.6, 5.9_
+- [x] 7b. Identity, probative content and provenance separated; refutations kept against any new observation; stored links withdrawn when contradicted
+  - `trend_state.probative/changes/_sustain/contradict`, `trend_link.stored_link_conflicts`, `bridge_findings`; `test_case_review_round4`
+  - _Requirements: 5.7, 5.8, 5.10_
 - [x] 8. Documentation of storage, locking, checkpoints, retention and deletion (`docs/case-store.md`)
   - _Requirements: 1.5, 3.1-3.8_

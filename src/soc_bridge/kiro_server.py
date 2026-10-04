@@ -432,7 +432,8 @@ async def reassess_case(case_id: str, confirmations: list[dict] | None = None) -
     "source": "...", "reference": "...", "summary": "<the refuting evidence>", "facts": [ids]
     (optional; a qradar_link fact alone refutes only the association with the offense)}; to
     revise a refutation, "trend_finding_reinstated" with the same fields and its reasoning.
-    Re-reading the same evidence never undoes a refutation. Records stay labelled as
+    No new observation undoes a refutation by itself (same evidence, new job, metadata,
+    incomplete or changed identifiers are recorded for review). Records stay labelled as
     analyst-supplied.
     Adds a new report revision; earlier revisions are kept.
     """

@@ -50,13 +50,24 @@ def bridge_findings(result: dict, trend: dict | None, run_id: str | None = None)
         outcomes = trend_state.record_link(entry, computed, run_id)
         stale = trend_state.mark_unvalidated_links(entry, set(outcomes), run_id)
         facts = entry["facts"]
-        sustained_instances = {f for f, x in facts.items() if x["kind"] == "malicious_instance" and x["status"] == "sustained"}
+        current_instances = {f: x["data"] for f, x in facts.items()
+                             if x["kind"] == "malicious_instance" and x["status"] == "sustained"}
         current_links = [m for m in computed.get("matches", [])
                          if facts[trend_state.link_fact_id(m)]["status"] == "sustained"]
         kept = {trend_state.link_fact_id(m) for m in current_links}
-        stored = [x["data"] for f, x in facts.items()
-                  if x["kind"] == "qradar_link" and x["status"] == "sustained" and f not in kept
-                  and x.get("criteria") == trend_link.LINK_CRITERIA and x["data"].get("fact_id") in sustained_instances]
+        # A stored link (not demonstrated again now, e.g. QRadar data changed) is reused only while no
+        # current evidence contradicts its own identifiers; otherwise it is withdrawn, history kept.
+        stored = []
+        for f, x in facts.items():
+            if (x["kind"] != "qradar_link" or x["status"] != "sustained" or f in kept
+                    or x.get("criteria") != trend_link.LINK_CRITERIA or x["data"].get("fact_id") not in current_instances):
+                continue
+            conflicts = trend_link.stored_link_conflicts(x["data"], current_instances[x["data"]["fact_id"]], computed)
+            if conflicts:
+                trend_state.contradict(entry, f, run_id, conflicts)
+            else:
+                stored.append(x["data"])
+        withdrawn = [(f, x) for f, x in facts.items() if x["kind"] == "qradar_link" and x["status"] == "contradicted"]
         refuted = [(f, facts[f]) for f, outcome in outcomes.items() if outcome == "refutation_stands"]
         effective = current_links + stored
         if effective:
@@ -77,13 +88,26 @@ def bridge_findings(result: dict, trend: dict | None, run_id: str | None = None)
         entry["link"] = relation
         links[alert_id] = relation
         for f, x in refuted:
+            observation = (x.get("observations_after_refutation") or [{}])[-1]
+            changed = observation.get("probative_change")
             contradictions.append({
                 "id": f"refuted_link_still_matched:{alert_id}:{f}",
-                "summary": (f"the bridge comparison still matches the records of link {f}, refuted by "
-                            f"{x['refuted_by']['source']}: {x['refuted_by']['basis']}; the refutation stands until new "
-                            "evidence or a reasoned trend_finding_reinstated record"),
+                "summary": (f"the bridge comparison still matches link {f}, refuted by {x['refuted_by']['source']}: "
+                            f"{x['refuted_by']['basis']}; "
+                            + (f"the new observation changes {'; '.join(observation.get('changes', []))[:300]} — "
+                               "review it against the refutation basis" if changed else
+                               "the same evidence (or only metadata/incomplete values) was observed again")
+                            + "; the refutation stands until a reasoned trend_finding_reinstated record"),
                 "affects": [], "status": "unresolved",
-                "evidence": {"alert_id": alert_id, "fact": f, "refuted_by": x["refuted_by"]}})
+                "evidence": {"alert_id": alert_id, "fact": f, "refuted_by": x["refuted_by"], "observation": observation}})
+        for f, x in withdrawn:
+            contradictions.append({
+                "id": f"link_contradicted:{alert_id}:{f}",
+                "summary": (f"stored link {f} of {alert_id} is contradicted by current evidence "
+                            f"({'; '.join(x['contradicted_by']['conflicts'])[:300]}); it no longer supports the "
+                            "association until resolved (this is not a benign finding)"),
+                "affects": [], "status": "unresolved",
+                "evidence": {"alert_id": alert_id, "fact": f, "contradicted_by": x["contradicted_by"]}})
         if computed.get("conflicts"):
             first = computed["conflicts"][0]
             contradictions.append({

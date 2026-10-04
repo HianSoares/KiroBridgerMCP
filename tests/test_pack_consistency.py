@@ -86,7 +86,8 @@ class PackConsistencyTests(unittest.TestCase):
         steering = (ROOT / ".kiro" / "steering" / "case-workflow.md").read_text(encoding="utf-8")
         for phrase in ("verify_alert_link", "processes", "fuso explícito", "pertence a uma offense", "uncovered_instances",
                        "instances_not_evaluated", "breadth_basis", "trend_finding_refuted", "não apaga fatos anteriores",
-                       "trend_finding_reinstated", "ParentProcessGuid", "link_conflict"):
+                       "trend_finding_reinstated", "ParentProcessGuid", "link_conflict", "link_contradicted",
+                       "observations_after_refutation"):
             self.assertIn(phrase, steering)
         # Superseded promise: a shared hash/command line alone no longer demonstrates the link.
         self.assertNotIn("hash completo ou linha de comando exata compartilhados", steering)
