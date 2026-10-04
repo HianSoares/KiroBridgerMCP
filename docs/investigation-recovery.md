@@ -29,6 +29,12 @@ sendo cancelamento, e falha de encerramento não substitui um erro anterior de c
 
 ## Evidência parcial e diagnósticos
 
+Na entrada de alerta WB, a Trend é a fonte primária. Se a conexão/inicialização
+do QRadar falhar, seus recursos são encerrados antes de continuar a coleta
+Trend. O relatório preserva a evidência Trend e declara a correlação QRadar como
+não executada, com a falha de conexão/permissão identificada. Falha de
+inicialização da própria Trend não produz um relatório inventado.
+
 Depois do detalhe Workbench validado, falhas em fases secundárias são relatadas
 em `collection.errors`, preservando os resultados anteriores. Search/OAT mantém
 os registros e pivôs concluídos antes de uma interrupção. A correlação Ariel
@@ -88,6 +94,7 @@ Nome de alerta, caminho
 de ferramenta, conta ou conexão bem-sucedida não demonstram autorização, malícia
 ou exfiltração. A razão e a nota devem citar evidência decisiva e o que permanece pendente.
 
-Os testes usam dados sintéticos, incluindo um subprocesso stdio com o SDK real.
+Os testes usam dados sintéticos, incluindo um subprocesso stdio com o SDK real
+e uma API HTTP local que retorna 401 para verificar a continuação da Trend.
 A causa de uma falha específica do ambiente ainda depende dos logs locais
 sanitizados; o projeto não acessa credenciais ou telemetria reais durante os testes.

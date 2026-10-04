@@ -24,6 +24,7 @@ Use os padrões documentados quando o usuário não indicar período, declare-os
 ## Falha, encerramento e continuação
 
 - `connection_lifecycle.report_preserved=true` significa que a coleta retornou um relatório e houve falha no encerramento. Leia o relatório normalmente, declare o aviso e os limites de cada consulta. Não diga que nada foi coletado e não repita buscas concluídas por causa desse aviso.
+- Na entrada de alerta WB, indisponibilidade do QRadar não impede a coleta Trend; o relatório registra a correlação como não executada. Não diga que nenhuma fonte foi consultada quando houver evidência Trend preservada.
 - `collection.state=partial` e `collection.errors` identificam etapas interrompidas. Preserve fatos das etapas concluídas, sem inventar resultado para as outras. Permissão, licença, parâmetros rejeitados e indisponibilidade são lacunas diferentes.
 - Jobs Ariel conhecidos: `poll_same_search` e `fetch_next_page` continuam o mesmo search ID e cursor, pelas tools indicadas no plano. `creation_uncertain` exige verificar a criação antes de qualquer repetição; não recrie às cegas.
 - Na mesma ponte em execução, repetir o mesmo alerta com os mesmos parâmetros reutiliza leituras bem-sucedidas e checkpoints Ariel enquanto o estado temporário estiver disponível (até 15 minutos, quatro alertas). Leia `resumption`: reinício, expiração ou remoção por limite elimina esse estado; os planos devolvidos continuam sendo a referência para retomada pelos IDs. Essa memória não é um caso persistido.

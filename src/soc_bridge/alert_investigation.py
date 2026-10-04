@@ -95,7 +95,8 @@ async def investigate_vision_alert(qradar: Protocol, vision: Protocol, alert_id:
                                    budget: Budget | None = None,
                                    now: datetime | None = None,
                                    qradar_correlation: bool = True,
-                                   query_state: dict | None = None) -> dict[str, Any]:
+                                   query_state: dict | None = None,
+                                   qradar_unavailable: dict | None = None) -> dict[str, Any]:
     if not isinstance(alert_id, str) or not ALERT_ID.fullmatch(alert_id) or not 1 <= max_ips <= 30 or not 1 <= max_offenses <= 100:
         raise ValueError("Invalid alert ID or investigation limits")
     if not isinstance(timezone_verified, bool):
@@ -113,6 +114,10 @@ async def investigate_vision_alert(qradar: Protocol, vision: Protocol, alert_id:
     warnings: list[str] = []
     collection_errors: list[dict] = []
     completed_phases: list[str] = ["Workbench alert detail"]
+    if qradar_unavailable is not None:
+        qradar_correlation = False
+        collection_errors.append(qradar_unavailable)
+        warnings.append("QRadar connection unavailable: correlation was not executed; Trend evidence is preserved")
 
     async def read_phase(stage, operation, fallback):
         # Optional/secondary collection cannot erase earlier evidence. Cancellation
@@ -205,8 +210,11 @@ async def investigate_vision_alert(qradar: Protocol, vision: Protocol, alert_id:
         # Started from an offense: that offense is the QRadar side. No offense lookup runs here,
         # which also prevents an offense -> alert -> offense loop.
         ips = []
-        budget.release("correlation", "QRadar side skipped: alert deepened from an offense investigation")
-        warnings.append("QRadar lookups skipped: this alert was deepened from an offense investigation")
+        reason = ("QRadar connection unavailable" if qradar_unavailable is not None else
+                  "QRadar side skipped: alert deepened from an offense investigation")
+        budget.release("correlation", reason)
+        if qradar_unavailable is None:
+            warnings.append("QRadar lookups skipped: this alert was deepened from an offense investigation")
     elif len(all_ips) > len(ips):
         warnings.append(f"IP cap/IPv6: inspected {len(ips)} of {len(all_ips)} available IPs in QRadar address indexes")
     if qradar_correlation and not ips:

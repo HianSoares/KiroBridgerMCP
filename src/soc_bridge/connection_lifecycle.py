@@ -24,13 +24,24 @@ class _Resource:
         try:
             # Run in this task: wait_for/create_task would break AnyIO cancel scopes.
             async with asyncio.timeout(self.scope.CLEANUP_SECONDS):
-                return await self.context.__aexit__(kind, error, traceback)
+                suppressed = await self.context.__aexit__(kind, error, traceback)
+                # SDK task-group teardown can suppress an initialization failure.
+                # The caller must still see it rather than continue with no report.
+                return False if isinstance(error, Exception) else suppressed
         except Exception as exc:
             diagnostic = {"source": self.source, "component": self.component,
                           "stage": "shutdown", "reason": failure_reason(exc)}
             self.scope.errors.append(diagnostic)
             # A cleanup failure must not replace an earlier collection error/cancellation.
             if error is not None:
+                # A transport's task group cancels its waiter on HTTP failure,
+                # then clears its own cancellation and raises the actual error.
+                # Preserve that diagnostic; external task cancellation remains active.
+                task = asyncio.current_task()
+                transport_failure = diagnostic["reason"].startswith(("HTTP ", "cannot connect to local MCP"))
+                if (isinstance(error, asyncio.CancelledError) and transport_failure
+                        and task is not None and not task.cancelling()):
+                    raise MCPToolFailure(self.source, self.component, diagnostic["reason"]) from None
                 return False
             if self.scope.completed:
                 return False
@@ -58,7 +69,8 @@ class InvestigationConnections(AsyncExitStack):
         warning = ("Collection returned a report; connection shutdown failed. Collected evidence and query "
                    "coverage are preserved. Do not rerun completed searches because of this cleanup error.")
         if isinstance(report, dict):
-            report["connection_lifecycle"] = {"report_preserved": True, "shutdown_errors": self.errors,
+            previous = report.get("connection_lifecycle", {}).get("shutdown_errors", [])
+            report["connection_lifecycle"] = {"report_preserved": True, "shutdown_errors": previous + self.errors,
                                               "retry_collection": False}
             report.setdefault("warnings", []).append(warning)
             for item in self.errors:

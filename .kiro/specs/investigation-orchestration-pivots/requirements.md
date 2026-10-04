@@ -70,6 +70,7 @@
 4. THE SYSTEM SHALL isolate alert cache state, serialize same-alert runs, bound the cache, and state that restart/expiry/eviction removes this temporary memory.
 5. THE SYSTEM SHALL preserve cancellation and the primary collection error, keep continuation values uncut in reports, and report reused reads separately from new calls/records/partitions.
 6. THE SYSTEM SHALL use the same conservative execution identity checker for alert-first correlation; conflicting complete hashes or known identifiers SHALL prevent confirmation even when path/PID/time coincide.
+7. WHEN QRadar startup fails for an alert-first request THE SYSTEM SHALL close its failed resources and collect the primary Trend evidence with QRadar correlation explicitly not executed; a primary Trend startup failure SHALL NOT fabricate a report.
 
 ### Requirement 7 — Execute clear chat requests
 

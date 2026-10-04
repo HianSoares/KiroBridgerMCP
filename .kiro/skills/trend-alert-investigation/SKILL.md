@@ -47,3 +47,5 @@ Cada pivô mantém proveniência, timezone e limite. Detecção próxima não vi
 - Continue pelo search ID/cursor do plano QRadar; os valores de continuação são exibidos sem corte. `creation_uncertain` nunca autoriza recriar automaticamente o job.
 - Repetir o mesmo alerta nesta ponte reutiliza leituras e jobs enquanto o estado temporário existir: até 15 minutos, quatro alertas, sem persistência após reinício. Leia `resumption` e mantenha os planos para retomada por ID; não prometa recuperação automática depois da perda desse estado.
 - O ledger de `bridge_diagnostics` é cumulativo, o `call_outcomes` do alerta é daquela tentativa. Inicialização/descoberta não repara sessões anteriores nem prova acesso ao sandbox, Insights ou Search. Informe permissão/parâmetros/fonte conforme a falha específica, sem inventar a causa.
+
+A Trend é a fonte primária da entrada WB: se a inicialização do QRadar falhar, analise a evidência Trend devolvida e declare correlação não executada com a causa indicada. A investigação do alerta pode continuar; isso não autoriza concluir sobre uma offense não consultada.

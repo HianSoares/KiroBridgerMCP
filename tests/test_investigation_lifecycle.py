@@ -26,13 +26,20 @@ from trend_fixtures import ALERT, ALERT_ID, FakeVision, NOW, T0, procdump_search
 
 
 class LiveHarness:
-    def __init__(self, broken=(), cancel_shutdown=False):
+    def __init__(self, broken=(), cancel_shutdown=False, fail_initialize=None, fail_qradar_enter=False,
+                 use_real_vision=False):
         self.broken = broken
         self.cancel_shutdown = cancel_shutdown
         self.closed = []
+        self.fail_initialize = fail_initialize
+        self.fail_qradar_enter = fail_qradar_enter
+        self.fake_vision = FakeVision(search=procdump_search) if use_real_vision else None
 
     @asynccontextmanager
     async def resource(self, name, value):
+        if name == "qradar" and self.fail_qradar_enter:
+            import httpx
+            raise httpx.ConnectError("SECRET-BODY")
         try:
             yield value
         finally:
@@ -50,9 +57,14 @@ class LiveHarness:
         stack.enter_context(patch("mcp.client.stdio.stdio_client",
                                   lambda *a, **kw: self.resource("trend", (None, None))))
 
+        harness = self
+        session_number = 0
+
         class Session:
             def __init__(self, *a, **kw):
-                pass
+                nonlocal session_number
+                session_number += 1
+                self.number = session_number
 
             async def __aenter__(self):
                 return self
@@ -61,9 +73,14 @@ class LiveHarness:
                 return False
 
             async def initialize(self):
+                if self.number == harness.fail_initialize:
+                    raise MCPToolFailure("QRadar" if self.number == 2 else "Vision One", "initialize", "HTTP 403")
                 return None
 
             async def call_tool(self, *args, **kw):
+                if harness.fake_vision is not None:
+                    data = await harness.fake_vision.call(args[0], kw["arguments"])
+                    return SimpleNamespace(isError=False, structuredContent=data)
                 return SimpleNamespace(isError=False, structuredContent={"items": []})
 
         stack.enter_context(patch("mcp.ClientSession", Session))
@@ -82,6 +99,116 @@ class LiveHarness:
 
 
 class ShutdownTests(unittest.IsolatedAsyncioTestCase):
+    async def test_external_task_cancellation_survives_http_cleanup_error(self):
+        import httpx
+
+        @asynccontextmanager
+        async def failed_cleanup():
+            try:
+                yield None
+            finally:
+                raise httpx.HTTPStatusError("synthetic", request=httpx.Request("POST", "http://localhost/mcp"),
+                    response=httpx.Response(401))
+
+        started = asyncio.Event()
+
+        async def run():
+            async with InvestigationConnections() as scope:
+                await scope.enter(failed_cleanup(), "QRadar", "transport")
+                started.set()
+                await asyncio.Event().wait()
+
+        task = asyncio.create_task(run())
+        await started.wait()
+        task.cancel()
+        with self.assertRaises(asyncio.CancelledError):
+            await task
+
+    async def test_context_does_not_suppress_an_ordinary_collection_failure(self):
+        class SuppressingContext:
+            async def __aenter__(self):
+                return None
+
+            async def __aexit__(self, *args):
+                return True
+
+        with self.assertRaisesRegex(ValueError, "synthetic"):
+            async with InvestigationConnections() as scope:
+                await scope.enter(SuppressingContext(), "QRadar", "transport")
+                raise ValueError("synthetic")
+
+    async def test_real_sdk_http_401_falls_back_to_primary_stdio_alert(self):
+        import sys
+        import threading
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        from pathlib import Path
+        from mcp import StdioServerParameters
+        from mcp.client.stdio import stdio_client as real_stdio
+
+        class Denied(BaseHTTPRequestHandler):
+            def do_POST(self):
+                self.send_response(401)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
+            do_GET = do_POST
+
+            def log_message(self, *args):
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Denied)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            local = StdioServerParameters(command=sys.executable,
+                args=[str(Path(__file__).with_name("fake_stdio_mcp.py")), "vision_alert"])
+            with patch("mcp.client.stdio.stdio_client", lambda params: real_stdio(local)), \
+                 patch.object(transports, "ALERT_READ_CACHE", AlertReadCache()):
+                async with asyncio.timeout(10):
+                    report = await transports.live_alert_investigation(ALERT_ID,
+                        f"http://127.0.0.1:{server.server_port}/mcp", None, "synthetic-key", "us")
+            self.assertEqual(report["alert_id"], ALERT_ID)
+            self.assertEqual(report["collection"]["errors"][0]["category"], "permission")
+            self.assertIn("HTTP 401", report["collection"]["errors"][0]["reason"])
+            self.assertIsNone(report["qradar_correlation"])
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
+    async def test_unavailable_qradar_does_not_block_primary_trend_investigation(self):
+        harness = LiveHarness(fail_qradar_enter=True, use_real_vision=True)
+        with harness.patch(investigate_vision_alert):
+            report = await harness.alert()
+        self.assertEqual(report["alert_id"], ALERT_ID)
+        self.assertTrue(report["auto_pivots"]["search_rows"])
+        self.assertEqual(report["collection"]["state"], "partial")
+        self.assertEqual(report["collection"]["errors"][0]["source"], "QRadar")
+        self.assertEqual(report["collection"]["errors"][0]["category"], "connection")
+        self.assertIsNone(report["qradar_correlation"])
+        self.assertEqual(report["lead_queries"], [])
+        self.assertEqual(report["budget"]["queries_started"], 0)
+        self.assertNotIn("deepened from an offense", render_alert_markdown(report))
+
+    async def test_denied_qradar_initialization_preserves_trend_and_names_permission(self):
+        harness = LiveHarness(fail_initialize=2, use_real_vision=True)
+        with harness.patch(investigate_vision_alert):
+            report = await harness.alert()
+        error = report["collection"]["errors"][0]
+        self.assertEqual(error["category"], "permission")
+        self.assertFalse(error["retryable"])
+        self.assertTrue(report["auto_pivots"]["search_rows"])
+        self.assertEqual(harness.closed, ["qradar", "http", "trend"])
+
+    async def test_primary_trend_initialization_failure_does_not_fabricate_report(self):
+        harness = LiveHarness(fail_initialize=1)
+        collector = AsyncMock(return_value={"alert_id": ALERT_ID})
+        with harness.patch(collector):
+            with self.assertRaises(InvestigationUnavailable) as caught:
+                await harness.alert()
+        self.assertIn("Vision One MCP initialization", str(caught.exception))
+        self.assertEqual(collector.await_count, 0)
+
     async def test_qradar_start_search_id_survives_connection_shutdown(self):
         harness = LiveHarness(broken=("qradar",))
         with harness.patch(AsyncMock(return_value={"search_id": "synthetic-existing-job", "status": "WAIT"}),
@@ -130,7 +257,7 @@ class ShutdownTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(report["connection_lifecycle"]["shutdown_errors"][0]["source"], "Vision One")
         self.assertFalse(report["connection_lifecycle"]["retry_collection"])
         self.assertNotIn("SECRET-BODY", json.dumps(report))
-        self.assertEqual(harness.closed, ["trend", "qradar", "http"])
+        self.assertEqual(harness.closed, ["qradar", "http", "trend"])
 
     async def test_qradar_cleanup_is_not_blamed_on_trend(self):
         harness = LiveHarness(broken=("qradar",))
@@ -143,7 +270,7 @@ class ShutdownTests(unittest.IsolatedAsyncioTestCase):
         with harness.patch(AsyncMock(return_value={"alert_id": ALERT_ID})):
             report = await harness.alert()
         self.assertEqual(len(report["connection_lifecycle"]["shutdown_errors"]), 3)
-        self.assertEqual(harness.closed, ["trend", "qradar", "http"])
+        self.assertEqual(harness.closed, ["qradar", "http", "trend"])
 
     async def test_real_collection_error_is_not_overwritten_by_cleanup(self):
         harness = LiveHarness(broken=("trend",))

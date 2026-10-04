@@ -26,6 +26,11 @@ def initialize_result() -> dict:
 
 
 def tools_response(request_id: int) -> dict:
+    if MODE == "vision_alert":
+        return {"jsonrpc": "2.0", "id": request_id, "result": {"tools": [{
+            "name": "workbench_alert_detail_get", "inputSchema": {
+                "type": "object", "properties": {"alertId": {"type": "string"}}, "required": ["alertId"]},
+            "annotations": {"readOnlyHint": True}}]}}
     if MODE == "tools_error":
         return {"jsonrpc": "2.0", "id": request_id,
                 "error": {"code": -32603, "message": f"upstream failure token={SECRET}"}}
@@ -63,3 +68,7 @@ for line in sys.stdin:
                       "params": {"level": "info", "data": "busy"}})
                 time.sleep(0.01)
         send(tools_response(request["id"]))
+    elif request.get("method") == "tools/call" and MODE == "vision_alert":
+        from trend_fixtures import ALERT
+        send({"jsonrpc": "2.0", "id": request["id"], "result": {
+            "content": [{"type": "text", "text": json.dumps(ALERT)}], "isError": False}})

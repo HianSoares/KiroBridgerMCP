@@ -290,6 +290,7 @@ async def investigate_vision_alert(alert_id: str) -> str:
     linked/candidate/unverified and a recommended classification with a pt-BR note
     for human review. Completed collection survives a shutdown error (reported separately).
     Secondary failures preserve earlier evidence and known Ariel search IDs/cursors.
+    If QRadar startup fails, Trend investigation continues with correlation explicitly not executed.
     Same-ID/parameter calls in this running bridge reuse successful reads and resume jobs
     while the temporary state exists (15 minutes, four alerts; not durable after restart).
     Inspect resumption, collection errors and the per-attempt call ledger. Investigate
