@@ -225,7 +225,7 @@ class SearchTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(r['records'][0]['provenance']), 1)
 
     async def test_source_contract_matches_versioned_official_handler_catalog(self):
-        snapshot = json.loads((ROOT / 'docs/coverage/vision-one-mcp-tools.json').read_text())
+        snapshot = json.loads((ROOT / 'docs/coverage/vision-one-mcp-tools.json').read_text(encoding='utf-8'))
         catalog = {tool['name']: tool for tool in snapshot['tools']}
         for tool in SOURCES.values():
             self.assertEqual(catalog[tool]['registered_as'], 'read')
@@ -340,7 +340,7 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
         for name in ('trend_search_data', 'trend_read_search_resource'):
             self.assertTrue(tools[name].annotations.readOnlyHint)
         for agent in ('case-investigator', 'threat-hunter'):
-            text = (ROOT / f'.kiro/agents/{agent}.md').read_text()
+            text = (ROOT / f'.kiro/agents/{agent}.md').read_text(encoding='utf-8')
             for tool in ('trend_search_data', 'trend_read_search_resource'):
                 self.assertIn(f'@soc-bridge-readonly/{tool}', text)
             self.assertIn('trend-search-conventions.md', text)
