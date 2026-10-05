@@ -127,7 +127,7 @@ Consultas obrigatórias ausentes também impedem confirmar a coleta, mesmo que a
 
 A ponte agora carrega o toolset `eiqs` da Trend. Uma imagem Docker antiga em cache que não conheça esse toolset falha ao iniciar com o erro `unknown toolset`. Nesse caso, rode `docker pull ghcr.io/trendmicro/vision-one-mcp-server`.
 
-Depois de atualizar o código e o pacote, reconecte `soc-bridge-readonly` no Kiro e abra um chat novo, para carregar as 26 tools e as instruções atualizadas.
+Depois de atualizar o código e o pacote, reconecte `soc-bridge-readonly` no Kiro e abra um chat novo, para carregar as 28 tools e as instruções atualizadas.
 
 ## O que foi e o que não foi validado
 
@@ -150,3 +150,7 @@ Não houve execução contra QRadar ou Vision One reais. A sintaxe de alguns fil
 - `userDisplayName` da busca de identidade.
 
 Uma rejeição desses filtros aparece como `request_rejected`, e os resultados são sempre conferidos localmente.
+
+## Search direta Trend
+
+`trend_read_search_resource` e `trend_search_data` expõem oito fontes Search sem WB/offense nem QRadar. A ponte integra 40 leituras Trend; cloud é leitura explícita, sem associação automática a entidades de alertas. Consulte o [guia](trend-direct-search.md): campos nativos/cortes, fonte/filtro/janela, partições sem cursor, limites e distinção entre logs e countOnly. Não há paridade garantida com todas as fontes do console, incorporação automática ao caso ou veredito por consulta.

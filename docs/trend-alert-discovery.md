@@ -61,7 +61,7 @@ e leia evidências, vínculos Trend↔QRadar, hipóteses, confiança e lacunas. 
 fechado e nenhuma nota é publicada. Para um pedido somente de descoberta, informe
 o resultado e a cobertura sem iniciar investigações desnecessárias.
 
-Após atualizar, reconecte `soc-bridge-readonly` e abra um novo chat. São **26 tools**;
+Após atualizar, reconecte `soc-bridge-readonly` e abra um novo chat. São **28 tools**;
 os 18 schemas anteriores permanecem iguais. Os testes usam dados sintéticos e
 incluem uma sessão MCP stdio real, sem credenciais ou APIs de produção.
 
