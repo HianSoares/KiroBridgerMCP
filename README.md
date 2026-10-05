@@ -56,7 +56,7 @@ See [custom AQL setup, examples and limits](docs/dynamic-aql.md). Offense invest
 
 ## Verify an offense before concluding
 
-`qradar_verify_offense` performs the QRadar collection without Trend credentials; `qradar_get_rule` reads contributing rule metadata. Together with the existing tools, the bridge exposes **26 tools** (24 read-only; the two case tools write only the local case store). The report distinguishes original metadata times, observed event times and padded collection windows, follows result pages within a budget and preserves unresolved count/payload/attribution gaps.
+`qradar_verify_offense` performs the QRadar collection without Trend credentials; `qradar_get_rule` reads contributing rule metadata. Together with the existing tools, the bridge exposes **28 tools** (26 read-only; the two case tools write only the local case store). The report distinguishes original metadata times, observed event times and padded collection windows, follows result pages within a budget and preserves unresolved count/payload/attribution gaps.
 
 > Use `qradar_verify_offense` with the offense ID. Resume pending search IDs and collect missing evidence before assessing the case. For a historical case, confirm the actual QRadar timezone before setting `timezone_verified=true`.
 
@@ -76,7 +76,7 @@ Ask Kiro: "Investigue a offense 12345". `investigate_offense_case` collects offe
 
 ## Investigative coverage and closure decisions
 
-The bridge now integrates 34 of 83 QRadar MCP tools (GET reads plus Ariel validation/search creation) and 39 of 349 Trend Vision One MCP tools, each with a trigger, limits and handler-verified pagination; every upstream tool is classified in the [coverage matrix](docs/coverage-matrix.md). Alert investigations run in budgeted phases (primary evidence, hypothesis checks, reserved Trend↔QRadar correlation, optional enrichments), keep Insight values with explicit truncation, and offense investigations deepen up to two related Workbench alerts without recursion. `qradar_read_context` reads rules, building blocks, QIDs, log sources, assets and reference data by validated arguments; `qradar_assess_closure` evaluates each live closing reason against its own requirements and accepts cited analyst records. Conclusions use explicit evidence statuses instead of scores; nothing is closed or posted. See [investigative coverage (Portuguese)](docs/investigative-coverage.md).
+The bridge now integrates 34 of 83 QRadar MCP tools (GET reads plus Ariel validation/search creation) and 40 of 349 Trend Vision One MCP tools, each with a trigger, limits and handler-verified pagination; every upstream tool is classified in the [coverage matrix](docs/coverage-matrix.md). Alert investigations run in budgeted phases (primary evidence, hypothesis checks, reserved Trend↔QRadar correlation, optional enrichments), keep Insight values with explicit truncation, and offense investigations deepen up to two related Workbench alerts without recursion. `qradar_read_context` reads rules, building blocks, QIDs, log sources, assets and reference data by validated arguments; `qradar_assess_closure` evaluates each live closing reason against its own requirements and accepts cited analyst records. Conclusions use explicit evidence statuses instead of scores; nothing is closed or posted. See [investigative coverage (Portuguese)](docs/investigative-coverage.md).
 
 ## Scope and safety
 
@@ -94,3 +94,7 @@ To list all OPEN offenses without a description, use `qradar_list_offenses`. It 
 ### Discover Trend alerts without an ID
 
 Ask Kiro: "Veja se há alertas abertos na Trend nas últimas 24 horas." It calls `trend_find_alerts(status="OPEN")`, including Open and In Progress, with no QRadar connection. Filter by severity or provide both ISO time bounds (maximum 30 days). Results include WB IDs for `investigate_vision_alert`. The official Workbench list MCP handler does not forward a pagination cursor: nextLink, local output caps and collection failures are explicitly distinguished from a complete empty page. This does not enumerate all historical open alerts. See [discovery limits](docs/trend-alert-discovery.md).
+
+### Direct Trend log search
+
+`trend_read_search_resource` reads the live query schema; `trend_search_data` searches endpoint, detections, network, identity, email, cloud, container or mobile data without a WB/offense ID or QRadar connection. Native command/hash/process/object/instance fields are preserved within explicit limits. Full pages split by time; pending windows and dense leaves carry continuation/refinement plans, never invented cursors. Search does not cover every console feature, assert a verdict or mutate data. See [direct Search guide](docs/trend-direct-search.md).

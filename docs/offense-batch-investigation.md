@@ -1,6 +1,6 @@
 # Discover and investigate matching offenses
 
-The bridge exposes **26 tools** (24 read-only; two case tools write only local case files). Existing schemas are preserved.
+The bridge exposes **28 tools** (26 read-only; two case tools write only local case files). Existing schemas are preserved.
 `qradar_find_offenses` and `qradar_investigate_offenses` use QRadar only; no Trend
 credentials are required. The upstream must expose `list_offenses` for discovery.
 Existing ID-based investigations continue working when that optional tool is absent.
@@ -44,7 +44,7 @@ Example Kiro request:
 > listagem. Não inicie investigações individuais neste pedido.
 
 After updating the package, reconnect `soc-bridge-readonly` and open a new Kiro
-chat to load the new tool and steering. There are now 26 tools. To investigate
+chat to load the new tool and steering. There are now 28 tools. To investigate
 selected queue IDs later, use existing ID-based tools or bounded investigation
 batches; listing does not establish a case verdict or close any offense.
 

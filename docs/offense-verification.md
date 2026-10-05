@@ -1,6 +1,6 @@
 # Verificação de offense e conclusão baseada em evidências
 
-Entre as 26 tools da ponte estão sete de investigação, seis de AQL, duas de verificação, duas de descoberta/lotes e as tools de caso persistido.
+Entre as 28 tools da ponte estão sete de investigação, seis de AQL, duas de verificação, duas de descoberta/lotes e as tools de caso persistido.
 `investigate_offense` acrescenta `offense_evidence` ao relatório, além do contexto
 por IP e dos resultados Trend. `qradar_verify_offense` devolve essa coleta como
 JSON usando apenas QRadar; não exige chave Trend. `qradar_get_rule` consulta

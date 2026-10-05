@@ -11,11 +11,11 @@ ROOT = Path(__file__).resolve().parents[1]
 TOOL_LIKE = re.compile(r"`((?:investigate|qradar|trend|bridge)_[a-z_]+|list_cases|get_case|reassess_case)\b")
 # Identifiers with a tool-like prefix that are report fields, parameters or pivot actions.
 NOT_TOOLS = {"qradar_correlation", "qradar_utc_offset_hours", "investigate_related_alert", "bridge_findings",
-             "trend_link", "trend_state", "trend_finding_refuted",
+             "trend_link", "trend_state", "trend_search", "trend_finding_refuted",
              "qradar_link", "trend_finding_reinstated", "trend_hash_states",
              "qradar_instance_key"}  # functions, modules and record types
 SPECS = ["capability-discovery-diagnostics", "case-persistence-resume", "investigation-orchestration-pivots",
-         "evidence-decisions-closure", "kiro-pack-quality"]
+         "evidence-decisions-closure", "kiro-pack-quality", "trend-direct-search"]
 
 
 def texts():
