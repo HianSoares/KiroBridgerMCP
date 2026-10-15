@@ -155,6 +155,12 @@ async def diagnose(check_trend: bool = False, timeout: float = 20.0) -> dict:
     else:
         report["trend"] = {"stages": [{"stage": "not_requested", "state": "skipped"}],
                            "note": "Run with check_trend to start the local Vision One container and list its tools"}
+    from .upstream_access import counts, registry
+    report["upstream_registry"] = {
+        "policy_version": registry()["policy_version"],
+        "sources": {p: {"commit": s["commit"][:12], "tags": s["tags"]} for p, s in registry()["sources"].items()},
+        "counts": {p: {k: v for k, v in c.items() if k != "by_effect"} for p, c in counts().items()},
+        "change_server": "separate soc-bridge-change process, disabled by default; not reachable from this server"}
     report["call_outcomes"] = GLOBAL_LEDGER.describe()
     report["call_outcomes"]["scope"] = "all upstream calls since this bridge process started; not one investigation"
     report["handling"] = ("States and categories only: no token, header, credential URL or upstream message is shown. "
@@ -168,6 +174,11 @@ def render(report: dict) -> str:
     lines.append("Environment: " + ", ".join(f"{k}={v}" for k, v in report["environment"].items()))
     lines.append(f"Kiro pack: {report['pack']['state']} ({report['pack']['tools']} tools)" +
                  (f"; {report['pack']['problems']}" if report["pack"]["problems"] else ""))
+    if report.get("upstream_registry"):
+        reg = report["upstream_registry"]
+        lines.append("Upstream registry: " + "; ".join(
+            f"{p} {reg['sources'][p]['commit']}: {c['total']} tools, {c['query']} query, {c['change']} change, "
+            f"{c['unsupported']} unsupported, {c['pending_review']} pending review" for p, c in reg["counts"].items()))
     for source in ("qradar", "trend"):
         section = report[source]
         stages = ", ".join(f"{s['stage']}={s['state']}" + (f" ({s['category']})" if s.get("category") else "")

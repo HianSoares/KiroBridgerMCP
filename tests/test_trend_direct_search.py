@@ -336,7 +336,7 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
             await trend_read_search_resource('cloud')
             self.assertEqual(call.call_args.args[:2], ('resource', {'source': 'cloud'}))
         tools = {t.name: t for t in await mcp.list_tools()}
-        self.assertEqual(len(tools), 28)
+        self.assertEqual(len(tools), 33)
         for name in ('trend_search_data', 'trend_read_search_resource'):
             self.assertTrue(tools[name].annotations.readOnlyHint)
         for agent in ('case-investigator', 'threat-hunter'):
