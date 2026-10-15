@@ -74,7 +74,7 @@ if ($LASTEXITCODE -ne 0) { throw "Falha na instalação." }
 .\start-kiro-soc-bridge.ps1 -Live
 ```
 
-Reconecte `soc-bridge-readonly` e abra um chat novo. São 28 tools. As duas novas consultas usam somente Trend; a necessidade de credenciais adicionais do launcher Live segue o guia de instalação. No WSL, use o launcher e a `.venv` Linux descritos no [guia WSL](guia-wsl.md).
+Reconecte `soc-bridge-readonly` e abra um chat novo. São 33 tools. As duas novas consultas usam somente Trend; a necessidade de credenciais adicionais do launcher Live segue o guia de instalação. No WSL, use o launcher e a `.venv` Linux descritos no [guia WSL](guia-wsl.md).
 
 ## Referências oficiais verificadas
 

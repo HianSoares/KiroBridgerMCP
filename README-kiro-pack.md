@@ -2,7 +2,7 @@
 
 Kiro continua conectado somente a `soc-bridge-readonly`. A ponte oferece sete
 tools de investigação, seis tools `qradar_*` de AQL personalizada e duas de
-verificação (`qradar_verify_offense`, `qradar_get_rule`), duas de descoberta/lotes de offenses e `trend_find_alerts`, além de `qradar_read_context`, `qradar_assess_closure` e `qradar_list_offenses` para fila/prioridade e as tools de caso (`investigate_offense_case`, `reassess_case`, `list_cases`, `get_case`, `bridge_diagnostics`), e `trend_read_search_resource`/`trend_search_data` para Search independente, totalizando 28. Estas
+verificação (`qradar_verify_offense`, `qradar_get_rule`), duas de descoberta/lotes de offenses e `trend_find_alerts`, além de `qradar_read_context`, `qradar_assess_closure` e `qradar_list_offenses` para fila/prioridade e as tools de caso (`investigate_offense_case`, `reassess_case`, `list_cases`, `get_case`, `bridge_diagnostics`), e `trend_read_search_resource`/`trend_search_data` para Search independente, e as cinco `upstream_*` de acesso ao registro auditado dos MCPs oficiais, totalizando 33. Estas
 permitem ler os resources do QRadar, validar/iniciar buscas, recuperar payload,
 flows e campos selecionados, e acompanhar/paginar o mesmo search ID.
 
@@ -11,7 +11,7 @@ antigas dos agents, steering e skills proíbem AQL e descrevem payload como
 inacessível. Não sobrescreva um `mcp.json` funcional nem suas preferências de
 `autoApprove`: o configurador continua preservando as escolhas existentes.
 
-`case-investigator` e `threat-hunter` incluem AQL e verificação em suas listas.
+`case-investigator` e `threat-hunter` incluem AQL, verificação e `upstream_tools`/`upstream_tool_details`/`upstream_query`/`upstream_inventory` em suas listas (steering `upstream-access.md`, skill `upstream-tool-access`); só o `case-investigator` tem `upstream_download`. Ferramentas de alteração ficam no servidor separado `soc-bridge-change`, desabilitado por padrão e fora dos agents ([guia](docs/upstream-access.md)).
 `report-writer` mantém as duas tools de redação/coleta inicial e encaminha
 lacunas para o investigador. `response-advisor` mantém `tools: []` e nenhum
 MCP carregado; planos de resposta continuam sujeitos à execução humana.

@@ -1,13 +1,15 @@
-"""Bridge coverage of the upstream MCP catalogs: what is integrated, when it runs, and why the rest is not.
+"""Curated workflows over the upstream MCP catalogs, and the tools exercised by contract tests.
 
-The upstream catalogs (docs/coverage/*.json) are snapshots extracted from the official
-handlers. A tool listed there may still be absent from a given installation (feature
-toggles, toolsets, license, permissions); the bridge checks availability at run time.
+Every audited upstream tool is reachable through the registry (upstream_registry.json): query tools via
+upstream_query on soc-bridge-readonly, changes only via the separate soc-bridge-change server. This
+module adds what the registry does not hold: which tools the curated investigation workflows call
+automatically (entry point, trigger, limits) and which tools have end-to-end contract tests against
+the synthetic upstream (tests/fake_upstream_mcp.py). A tool listed in a catalog may still be absent
+from a given installation (feature toggles, toolsets, license, permissions); the bridge checks
+availability at run time.
 """
 
 from __future__ import annotations
-
-import re
 
 E_OFF = "investigate_offense/investigate_case (offense)"
 E_VER = "qradar_verify_offense, qradar_investigate_offenses, qradar_assess_closure"
@@ -96,61 +98,24 @@ TREND = {
     "search_cloud_activities_list": ("search", "trend_search_data", "explicit CloudTrail/VPC source query", "bounded time partitions; no upstream cursor"),
 }
 
-TREND_RULES = [
-    (r"^iam_", "Vision One platform IAM (console accounts, keys, roles); not evidence about Windows/Linux/AD accounts"),
-    (r"_generate_|^container_security_generate_service_gateway_password$", "registered as read but generates templates/credentials"),
-    (r"^aisecurity_guardrails_apply$", "submits content for AI guardrail evaluation; not a read of case evidence"),
-    (r"^(cam_|cloud_risk_management_)", "cloud account management/posture configuration; no verifiable mapping from alert entities"),
-    (r"^container_security_", "container security policies/clusters/rulesets; container activity is read through Search when an entity justifies it"),
-    (r"^email_security_", "email security deployment inventory"),
-    (r"^security_awareness_", "awareness training/phishing simulation data; not case evidence"),
-    (r"^security_playbooks_", "playbook definitions/runs; no verifiable link to a case in the handler arguments"),
-    (r"^tag_management_", "asset tag administration"),
-    (r"^healthcheck_", "connectivity check of the MCP itself"),
-    (r"^business_profile_get$", "tenant business profile"),
-    (r"^(datalake_|oat_data_pipeline)", "data export pipeline administration"),
-    (r"^file_security_", "file security storage configuration"),
-    (r"^endpoint_security_", "endpoint fleet policies/tasks/schedules administration"),
-    (r"^sandbox_(submission_usage_get|tasks_list|task_get)$", "submission quota/tasks; the bridge never submits samples"),
-    (r"^sandbox_analysis_result_(report_get|investigation_package_get)$", "downloads report/package files; binary artifacts are not downloaded"),
-    (r"^response_", "response configuration (scripts, osquery, YARA, exceptions, settings); no case trigger"),
-    (r"^threatintel_", "intelligence feeds/reports/tasks catalogs; not keyed by the alert's identifiers"),
-    (r"^crem_(account_compromise|high_risk_user|attack_surface_high_risk_users)", "account risk needs a CREM user ID; alerts do not provide a verifiable mapping"),
-    (r"^crem_", "risk inventory for other asset classes or tenant posture; not keyed to the alert entities"),
-    (r"^case_management_", "case attachments/tasks/highlights not read automatically; case and contents are read"),
-    (r"^workbench_alert_note_get$", "single note by ID; the notes list already returns the notes"),
-    (r"^dmm_exception_get$", "single exception by ID; the exceptions list is read"),
-]
-
-QRADAR_RULES = [
-    (r"^(dns_lookup|whois_lookup)$", "creates a lookup task and sends the IP to external DNS/WHOIS services"),
-    (r"^(get_dns_result|get_whois_result)$", "reads a lookup task the bridge never creates"),
-    (r"^(list_users|list_user_roles)$", "QRadar console accounts/roles administration; not case evidence"),
-    (r"^(get_staged_network_hierarchy|get_deploy_status)$", "staged/deploy administration; the deployed hierarchy is read instead"),
-    (r"^(get_system_info|list_servers)$", "platform administration"),
-    (r"^(get_custom_action|list_custom_actions)$", "custom action (response script) definitions; no case relation"),
-    (r"^(list_high_level_categories|list_low_level_categories|list_qid_records)$", "catalog listings; the specific QID/category is read instead"),
-    (r"^(get_qid_record|get_dsm_event_mapping)$", "lookup by internal record ID; QID-based lookups are used"),
-    (r"^(get_reference_set)$", "set metadata by ID; listings are read and entries have no read tool upstream"),
-    (r"^(get_saved_search)$", "single saved search by ID; the listing is read"),
-    (r"^(list_qvm_assets)$", "QVM asset listing by saved search; asset context comes from the asset model"),
-    (r"^(list_cases)$", "forensics case listing has no case-to-offense relation; get_case reads a cited case"),
-]
-
-
-def nature_qradar(tool: dict) -> str:
-    if tool["name"] in ("create_ariel_search",):
-        return "creates an Ariel search job (reads data; allowed and budgeted)"
-    if tool["name"] == "validate_aql":
-        return "validation (POST without state change)"
-    return {"GET": "read", "POST": "mutation (POST)", "PUT": "mutation (PUT)", "DELETE": "mutation (DELETE)"}.get(tool["verb"], tool["verb"])
-
-
-def exclusion(name: str, rules: list) -> str:
-    for pattern, why in rules:
-        if re.search(pattern, name):
-            return why
-    return "not integrated: no investigative trigger identified"
+# Tools with an end-to-end test through upstream_query/upstream_download/soc-bridge-change against the
+# synthetic upstream, reproducing the product's response format (tests/test_upstream_access.py).
+CONTRACT_TESTED = {
+    ("qradar", "list_offenses"): "range pagination forwarded (offset/limit), arguments forwarded unchanged",
+    ("qradar", "get_offense"): "HTTP 404 classified, upstream body not copied",
+    ("qradar", "list_users"): "HTTP 403 classified as permission, not license",
+    ("qradar", "geolocate_ip"): "formatted text over stdio, UTF-8 preserved",
+    ("qradar", "get_system_info"): "timeout during the call and cancellation",
+    ("qradar", "list_rules"): "absent from tools/list: tool_absent, no call",
+    ("qradar", "add_offense_note"): "change path: human approval, policy, single use",
+    ("vision_one", "endpoint_security_endpoints_list"): "skipToken continuation and ETag headers block",
+    ("vision_one", "workbench_alert_notes_list"): "skipToken not forwarded: continuation refused; untrusted text",
+    ("vision_one", "audit_logs_list"): "HTTP 403 with entitlement text: permission_or_license",
+    ("vision_one", "search_detections_list"): "empty result; read-only container flags",
+    ("vision_one", "sandbox_analysis_result_report_get"): "binary embedded resource, saved by upstream_download",
+    ("vision_one", "workbench_alert_notes_create"): "change path in a container started without -readonly",
+    ("vision_one", "container_security_generate_service_gateway_password"): "generated credential returned once, not stored",
+}
 
 
 def pagination_qradar(tool: dict) -> str:
