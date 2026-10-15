@@ -2,8 +2,11 @@
 
 Each call opens one upstream session, walks the complete tools/list, checks that the tool is announced
 and that its announced schema still matches the audited contract, then makes exactly one tool call.
-Vision One always starts with the toolset of the requested tool only; query calls always use
-``-readonly=true``, so the container cannot register a write tool at all.
+An incomplete discovery blocks the call even when the tool appeared on a page that was read.
+Vision One always starts the audited image (pinned by digest) with the toolset of the requested tool
+only; query calls always use ``-readonly=true``, so the container cannot register a write tool at all.
+A matching schema does not prove that the handler's effect is unchanged; for QRadar the running
+version cannot be verified by the bridge (see ``version_binding``).
 """
 
 from __future__ import annotations
@@ -19,10 +22,10 @@ from urllib.parse import urlparse
 from .capabilities import GLOBAL_LEDGER, discover
 from .connection_lifecycle import InvestigationConnections
 from .diagnostics import failure_reason
-from .upstream_access import (PLATFORMS, Refused, contract_drift, gate_query, normalize, registry,
-                              _index)
+from .upstream_access import (PLATFORMS, Refused, contract_drift, gate_query, normalize, registry, trend_image,
+                              version_binding, _index)
 
-TREND_IMAGE = "ghcr.io/trendmicro/vision-one-mcp-server"
+MOUNT_TARGET = "/approved"
 REGIONS = {"au", "ca", "eu", "id", "in", "jp", "mea", "sg", "uk", "us", "za"}
 SOURCES = {"qradar": "QRadar", "vision_one": "Vision One"}
 
@@ -41,8 +44,18 @@ def _check_qradar_url(url: str) -> None:
         raise Refused("configuration", "QRADAR_MCP_URL must be a local http://127.0.0.1:<port>/mcp endpoint")
 
 
+def _mount_args(mounts: list[tuple[str, str]] | None) -> list[str]:
+    """One read-only bind mount per approved file; never a directory of the user."""
+    args = []
+    for host, target in mounts or []:
+        if any(c in host + target for c in ',"\n') or not target.startswith(MOUNT_TARGET + "/"):
+            raise Refused("configuration", "staged file path cannot be mounted safely")
+        args += ["--mount", f"type=bind,source={host},target={target},readonly"]
+    return args
+
+
 async def open_session(stack: InvestigationConnections, platform: str, toolset: str = "", readonly: bool = True,
-                       settings: dict[str, str] | None = None) -> Any:
+                       settings: dict[str, str] | None = None, mounts: list[tuple[str, str]] | None = None) -> Any:
     """Enter the transport and session for one upstream; credentials only travel to that upstream."""
     from mcp import ClientSession, StdioServerParameters
     s = settings or _settings()
@@ -63,9 +76,11 @@ async def open_session(stack: InvestigationConnections, platform: str, toolset: 
         raise Refused("configuration", "TREND_VISION_ONE_API_KEY is not set for this bridge process")
     if toolset not in {t["category"] for t in registry()["tools"] if t["platform"] == "vision_one"}:
         raise Refused("configuration", "unknown Vision One toolset")
+    if mounts and readonly:
+        raise Refused("configuration", "file mounts are only used for approved uploads")
     params = StdioServerParameters(command="docker", args=[
-        "run", "-i", "--rm", "-e", "TREND_VISION_ONE_API_KEY", TREND_IMAGE, "-region", s["region"],
-        f"-readonly={'true' if readonly else 'false'}", f"-toolsets={toolset}"],
+        "run", "-i", "--rm", "-e", "TREND_VISION_ONE_API_KEY", *_mount_args(mounts), trend_image(),
+        "-region", s["region"], f"-readonly={'true' if readonly else 'false'}", f"-toolsets={toolset}"],
         env={**os.environ, "TREND_VISION_ONE_API_KEY": s["api_key"]})
     stream = await stack.enter(stdio_client(params), "Vision One", "Docker stdio transport")
     return await stack.enter(ClientSession(stream[0], stream[1]), "Vision One", "MCP session")
@@ -74,6 +89,9 @@ async def open_session(stack: InvestigationConnections, platform: str, toolset: 
 def _failure(stage: str, category: str, message: str, attempted: bool, t: dict | None = None) -> dict[str, Any]:
     out = {"outcome": "error", "stage": stage, "upstream_call_attempted": attempted,
            "error": {"category": category, "meaning": message}}
+    if attempted:
+        out["error"]["result_state"] = ("unknown: the request was sent and no valid answer was received; the "
+                                        "upstream may or may not have processed it")
     if t is not None:
         out.update(platform=t["platform"], tool=t["name"], effect=t["effect"])
         if attempted and t["effect"] == "query_job":
@@ -83,70 +101,88 @@ def _failure(stage: str, category: str, message: str, attempted: bool, t: dict |
 
 
 async def call_registered(t: dict, arguments: dict, *, readonly: bool, timeout_seconds: float,
-                          max_chars: int, settings: dict[str, str] | None = None) -> tuple[dict, Any]:
-    """One session, complete discovery, contract check and exactly one tool call."""
-    stage = "connection"
+                          max_chars: int, settings: dict[str, str] | None = None, skip_items: int = 0,
+                          mounts: list[tuple[str, str]] | None = None,
+                          progress: dict[str, Any] | None = None) -> tuple[dict, Any]:
+    """One session, complete discovery, contract check and exactly one tool call.
+
+    ``progress`` (if given) is updated in place with the stage and whether the call was sent, so a
+    caller can tell, even after cancellation, whether the upstream may have received the request.
+    """
+    progress = progress if progress is not None else {}
+    progress.update(stage="connection", sent=False)
     source = SOURCES[t["platform"]]
     raw = None
     try:
         async with asyncio.timeout(timeout_seconds):
             async with InvestigationConnections() as stack:
                 session = await open_session(stack, t["platform"], (t.get("server_flags") or {}).get("toolset", ""),
-                                             readonly=readonly, settings=settings)
-                stage = "initialization"
+                                             readonly=readonly, settings=settings, mounts=mounts)
+                progress["stage"] = "initialization"
                 init = await session.initialize()
-                stage = "tools/list discovery"
+                progress["stage"] = "tools/list discovery"
                 found = await discover(session, source, deadline_seconds=min(30.0, timeout_seconds))
                 found.server = {"name": getattr(init.serverInfo, "name", None),
                                 "version": getattr(init.serverInfo, "version", None)}
-                discovery = {"complete": found.complete, "pages": found.pages, "server": found.server}
+                discovery = {"complete": found.complete, "pages": found.pages, "server": found.server,
+                             "stop_reason": found.stop_reason}
                 drift = contract_drift(t, {"inputSchema": found.schemas.get(t["name"])})
-                if t["name"] not in found.names:
-                    out = _failure(stage, "tool_absent" if found.complete else "discovery_incomplete",
-                                   "the running server does not announce this tool (toolset, feature toggle, version "
-                                   "or read-only mode)" if found.complete else
-                                   f"tools/list did not complete ({found.stop_reason}); availability unknown", False, t)
+                if not found.complete:
+                    out = _failure(progress["stage"], "discovery_incomplete",
+                                   f"tools/list did not complete ({found.stop_reason}); the call is blocked even if "
+                                   "the tool appeared on a page that was read", False, t)
+                elif t["name"] not in found.names:
+                    out = _failure(progress["stage"], "tool_absent", "the running server does not announce this tool "
+                                   "(toolset, feature toggle, version or read-only mode)", False, t)
                 elif drift:
-                    out = _failure(stage, "contract_changed", "the announced schema differs from the audited "
-                                   "contract; the tool stays blocked until the audit is refreshed", False, t)
+                    out = _failure(progress["stage"], "contract_changed", "the announced schema differs from the "
+                                   "audited contract; the tool stays blocked until the audit is refreshed", False, t)
                     out["differences"] = drift
                 else:
-                    stage = "tool call"
+                    progress["stage"] = "tool call"
+                    progress["sent"] = True
                     raw = await session.call_tool(t["name"], arguments=arguments)
-                    out = normalize(t, arguments, raw, max_chars)
+                    progress["stage"] = "response"
+                    out = normalize(t, arguments, raw, max_chars, skip_items)
                     GLOBAL_LEDGER.record(f"{t['platform']}/{t['name']}",
                                          "tested_ok" if out["outcome"] != "error" else "rejected")
                 out["discovery"] = discovery
+                out["version_binding"] = version_binding(t["platform"])
                 stack.collected(out)
             return stack.deliver(out), raw
     except Refused as refused:
         return {**refused.describe(), "platform": t["platform"], "tool": t["name"]}, None
     except TimeoutError:
-        return _failure(stage, "timeout", f"no answer within {timeout_seconds:g} s", stage == "tool call", t), None
+        return _failure(progress["stage"], "timeout", f"no answer within {timeout_seconds:g} s", progress["sent"],
+                        t), None
     except Exception as exc:
-        category = "connection" if stage in ("connection", "initialization") else "upstream_error"
-        return _failure(stage, category, failure_reason(exc), stage == "tool call", t), None
+        category = ("connection_lost_or_invalid_response" if progress["sent"] else
+                    "connection" if progress["stage"] in ("connection", "initialization") else "upstream_error")
+        return _failure(progress["stage"], category, failure_reason(exc), progress["sent"], t), None
 
 
-def _limits(max_chars: Any, timeout_seconds: Any) -> tuple[int, float]:
+def _limits(max_chars: Any, timeout_seconds: Any, skip_items: Any = 0) -> tuple[int, float]:
     if isinstance(max_chars, bool) or not isinstance(max_chars, int) or not 1000 <= max_chars <= 200_000:
         raise Refused("invalid_arguments", "max_output_chars must be 1000..200000")
     if isinstance(timeout_seconds, bool) or not isinstance(timeout_seconds, (int, float)) or \
             not 5 <= timeout_seconds <= 180:
         raise Refused("invalid_arguments", "timeout_seconds must be 5..180")
+    if isinstance(skip_items, bool) or not isinstance(skip_items, int) or not 0 <= skip_items <= 100_000:
+        raise Refused("invalid_arguments", "skip_items must be 0..100000")
     return max_chars, float(timeout_seconds)
 
 
 async def live_upstream_query(platform: str, tool: str, arguments: Any = None, max_output_chars: int = 50_000,
-                              timeout_seconds: float = 60, settings: dict[str, str] | None = None) -> dict[str, Any]:
+                              timeout_seconds: float = 60, settings: dict[str, str] | None = None,
+                              skip_items: int = 0) -> dict[str, Any]:
     try:
         t, args = gate_query(platform, tool, arguments)
-        max_chars, timeout = _limits(max_output_chars, timeout_seconds)
+        max_chars, timeout = _limits(max_output_chars, timeout_seconds, skip_items)
     except Refused as refused:
         return {**refused.describe(), "platform": platform, "tool": tool}
     out, _ = await call_registered(t, args, readonly=True, timeout_seconds=timeout, max_chars=max_chars,
-                                   settings=settings)
-    out["budget"] = {"calls": 1, "timeout_seconds": timeout, "max_output_chars": max_chars}
+                                   settings=settings, skip_items=skip_items)
+    out["budget"] = {"calls": 1, "timeout_seconds": timeout, "max_output_chars": max_chars, "skip_items": skip_items}
     return out
 
 
@@ -245,7 +281,7 @@ async def _open_all_toolsets(stack: InvestigationConnections, settings: dict[str
     if not s["api_key"]:
         raise Refused("configuration", "TREND_VISION_ONE_API_KEY is not set for this bridge process")
     params = StdioServerParameters(command="docker", args=[
-        "run", "-i", "--rm", "-e", "TREND_VISION_ONE_API_KEY", TREND_IMAGE, "-region", s["region"],
+        "run", "-i", "--rm", "-e", "TREND_VISION_ONE_API_KEY", trend_image(), "-region", s["region"],
         "-readonly=true", "-toolsets=all"], env={**os.environ, "TREND_VISION_ONE_API_KEY": s["api_key"]})
     stream = await stack.enter(stdio_client(params), "Vision One", "Docker stdio transport")
     return await stack.enter(ClientSession(stream[0], stream[1]), "Vision One", "MCP session")

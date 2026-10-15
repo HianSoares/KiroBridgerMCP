@@ -19,6 +19,7 @@ from typing import Any
 
 from .capabilities import GLOBAL_LEDGER, discover
 from .diagnostics import failure_reason
+from .upstream_access import trend_image
 from .wsl_setup import BRIDGE_ENV, env_state
 
 QRADAR_URL_DEFAULT = "http://127.0.0.1:5001/mcp"
@@ -122,7 +123,7 @@ async def _trend(api_key: str, region: str, timeout: float) -> dict:
     try:
         async with AsyncExitStack() as stack:
             params = StdioServerParameters(command="docker", args=[
-                "run", "-i", "--rm", "-e", "TREND_VISION_ONE_API_KEY", "ghcr.io/trendmicro/vision-one-mcp-server",
+                "run", "-i", "--rm", "-e", "TREND_VISION_ONE_API_KEY", trend_image(),
                 "-region", region, "-readonly=true", f"-toolsets={ALERT_TOOLSETS}"],
                 env={**os.environ, "TREND_VISION_ONE_API_KEY": api_key})
             streams = await stack.enter_async_context(stdio_client(params))
@@ -139,7 +140,7 @@ async def _trend(api_key: str, region: str, timeout: float) -> dict:
                                   "reason": found.stop_reason})
     except Exception as exc:
         out["stages"].append({"stage": stage, "state": "failed", "category": failure_reason(exc)})
-        out["remediation"] = ("If the log shows 'unknown toolset', run docker pull ghcr.io/trendmicro/vision-one-mcp-server; "
+        out["remediation"] = ("If the log shows 'unknown toolset', run docker pull " + trend_image() + "; "
                               "otherwise check Docker and the region")
     return out
 

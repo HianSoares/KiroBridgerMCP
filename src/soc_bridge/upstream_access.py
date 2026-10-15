@@ -137,27 +137,67 @@ def describe(platform: str, tool: str) -> dict[str, Any]:
     return {**t, "call_through": path, "untrusted_content": UNTRUSTED}
 
 
-def _structure(schema: dict) -> dict:
-    props = schema.get("properties", {}) or {}
-    return {"required": sorted(schema.get("required", []) or []),
-            "properties": {k: {"type": v.get("type"), "enum": v.get("enum"), "items": (v.get("items") or {}).get("type")}
-                           for k, v in sorted(props.items())}}
+# Keywords that only document a schema. Every other keyword (type, required, enum, const, bounds,
+# pattern, format, items, properties, additionalProperties, anyOf/oneOf/allOf/not, $ref, $defs,
+# default, ...) changes what the handler accepts or does, so a difference blocks the call.
+DESCRIPTIVE = {"description", "title", "examples", "$comment", "markdownDescription"}
+UNORDERED = {"required", "enum", "type"}
+ALTERNATIVES = {"anyOf", "oneOf", "allOf"}
+
+
+def _canonical(schema: Any) -> Any:
+    """Schema without descriptive keywords, with order-insensitive lists sorted."""
+    if isinstance(schema, dict):
+        out = {}
+        for key, value in schema.items():
+            if key in DESCRIPTIVE or key.startswith("x-"):
+                continue
+            if key in UNORDERED and isinstance(value, list):
+                out[key] = sorted(value, key=lambda v: json.dumps(v, sort_keys=True))
+            elif key in ALTERNATIVES and isinstance(value, list):
+                out[key] = sorted((_canonical(v) for v in value), key=lambda v: json.dumps(v, sort_keys=True))
+            else:
+                out[key] = _canonical(value)
+        return out
+    if isinstance(schema, list):
+        return [_canonical(v) for v in schema]
+    return schema
+
+
+def _differences(audited: Any, live: Any, path: str, out: list[str]) -> None:
+    if isinstance(audited, dict) and isinstance(live, dict):
+        for key in sorted(set(audited) | set(live)):
+            where = f"{path}.{key}" if path else key
+            if key not in live:
+                out.append(f"{where}: removed")
+            elif key not in audited:
+                out.append(f"{where}: added")
+            else:
+                _differences(audited[key], live[key], where, out)
+        return
+    if isinstance(audited, list) and isinstance(live, list) and len(audited) == len(live) and \
+            any(isinstance(v, (dict, list)) for v in audited + live):
+        for index, (a, b) in enumerate(zip(audited, live)):
+            _differences(a, b, f"{path}[{index}]", out)
+        return
+    if audited != live:
+        out.append(f"{path or '(root)'}: {json.dumps(audited, sort_keys=True)[:80]} -> "
+                   f"{json.dumps(live, sort_keys=True)[:80]}")
 
 
 def contract_drift(t: dict, announced: dict | None) -> list[str]:
-    """Structural differences between the audited schema and the one the running server announces."""
+    """Differences in validation semantics between the audited schema and the announced one.
+
+    Compares the whole inputSchema recursively (types, required, enums, bounds, patterns, formats,
+    nested objects and arrays, anyOf/oneOf/allOf, $ref/$defs, defaults); only descriptive keywords
+    are ignored. An equal schema does not prove that the handler's effect is unchanged.
+    """
     if announced is None:
         return []
-    audited = _structure(t.get("announced_schema") or t["input_schema"])
-    live = _structure(announced.get("inputSchema") or {})
-    problems = []
-    if audited["required"] != live["required"]:
-        problems.append(f"required parameters changed: {audited['required']} -> {live['required']}")
-    for name in sorted(set(audited["properties"]) | set(live["properties"])):
-        a, b = audited["properties"].get(name), live["properties"].get(name)
-        if a != b:
-            problems.append(f"parameter {name}: {'removed' if b is None else 'added' if a is None else 'changed'}")
-    return problems
+    out: list[str] = []
+    _differences(_canonical(t.get("announced_schema") or t["input_schema"]),
+                 _canonical(announced.get("inputSchema") or {}), "", out)
+    return out[:50]
 
 
 def validate_arguments(t: dict, arguments: Any) -> dict[str, Any]:
@@ -276,22 +316,78 @@ def _headers(text: str) -> dict[str, str] | None:
     return dict(ln.split(": ", 1) for ln in lines)
 
 
-def _bound(value: Any, max_chars: int) -> tuple[Any, dict]:
-    text = json.dumps(value, ensure_ascii=False, default=str)
-    if len(text) <= max_chars:
-        return value, {"output_truncated": False}
+# Fields kept when the bridge shrinks a large response object: continuation, totals and identifiers.
+PRESERVED_FIELDS = {"nextLink", "nextBatchToken", "totalCount", "count", "id", "search_id", "status", "progress",
+                    "record_count", "cursor"}
+
+
+def _size(value: Any) -> int:
+    return len(json.dumps(value, ensure_ascii=False, default=str))
+
+
+def _text_prefix(text: str, max_chars: int) -> str:
+    prefix = text[:max_chars]
+    while prefix and _size(prefix) > max_chars:  # escapes and quotes count against the limit
+        prefix = prefix[:len(prefix) - max(1, _size(prefix) - max_chars)]
+    return prefix
+
+
+def _shrink(obj: dict, budget: int, keep_key: str | None) -> tuple[dict, list[str]]:
+    """Replace the largest fields (not continuation/identifier fields) with a size marker until obj fits."""
+    out, omitted = dict(obj), []
+    for key in sorted((k for k in obj if k != keep_key), key=lambda k: -_size(obj[k])):
+        if _size(out) <= budget:
+            break
+        if key in PRESERVED_FIELDS and _size(obj[key]) <= 2000:
+            continue
+        out[key] = f"[omitted by the bridge: {_size(obj[key])} characters]"
+        omitted.append(key)
+    return out, omitted
+
+
+def _bound(value: Any, max_chars: int, skip_items: int = 0) -> tuple[Any, dict]:
+    """Bound ``value`` so that its JSON never exceeds max_chars; report exactly what was delivered.
+
+    For item lists, ``skip_items`` drops the first items of this page (used to recover items a previous
+    call could not deliver); items are kept whole and in order.
+    """
     items, key = _items(value)
+    info: dict[str, Any] = {"output_truncated": False}
     if items is not None:
-        kept, size = [], 2
-        for item in items:
-            size += len(json.dumps(item, ensure_ascii=False, default=str)) + 1
-            if size > max_chars:
+        skip = min(skip_items, len(items))
+        remaining = items[skip:]
+        info.update(items_in_response=len(items), items_skipped=skip)
+        shell: Any = [] if key is None else {**value, key: []}
+        omitted_fields: list[str] = []
+        if key is not None and _size(shell) > max_chars // 2:
+            shell, omitted_fields = _shrink(shell, max_chars // 2, key)
+        kept, size = [], _size(shell)
+        for item in remaining:
+            grown = size + _size(item) + (1 if kept else 0)
+            if grown > max_chars:
                 break
             kept.append(item)
-        bounded = kept if key is None else {**value, key: kept}
-        return bounded, {"output_truncated": True, "items_kept": len(kept), "items_omitted": len(items) - len(kept),
-                         "original_chars": len(text)}
-    return text[:max_chars], {"output_truncated": True, "original_chars": len(text), "kept_as": "text prefix"}
+            size = grown
+        bounded = kept if key is None else {**shell, key: kept}
+        info.update(items_delivered=len(kept), items_omitted=len(remaining) - len(kept))
+        if omitted_fields:
+            info["fields_omitted"] = omitted_fields
+        if len(kept) < len(remaining) or omitted_fields:
+            info.update(output_truncated=True, original_chars=_size(value))
+        if _size(bounded) <= max_chars:
+            return bounded, info
+    elif _size(value) <= max_chars:
+        return value, info
+    elif isinstance(value, dict):
+        bounded, omitted_fields = _shrink(value, max_chars, None)
+        if _size(bounded) <= max_chars:
+            return bounded, {"output_truncated": True, "original_chars": _size(value), "fields_omitted": omitted_fields}
+    text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False, default=str)
+    out = {"output_truncated": True, "original_chars": _size(value), "kept_as": "text prefix"}
+    if items is not None:
+        out.update(items_in_response=len(items), items_skipped=min(skip_items, len(items)), items_delivered=0,
+                   items_omitted=max(0, len(items) - skip_items))
+    return _text_prefix(text, max_chars), out
 
 
 def _skip_token(link: str) -> str | None:
@@ -302,17 +398,33 @@ def _skip_token(link: str) -> str | None:
     return values[0] if values else None
 
 
-def pagination_state(t: dict, arguments: dict, data: Any, returned: int | None) -> dict[str, Any]:
+def pagination_state(t: dict, arguments: dict, data: Any, delivery: dict) -> dict[str, Any]:
+    """Continuation exactly as the handler forwards it, adjusted for what the bridge delivered.
+
+    ``next_arguments`` is present only when it continues right after the last delivered item. When
+    the bridge delivered only part of a page, a token for the next page would skip the rest of this
+    one: it is offered as ``next_page_arguments`` after a ``recover`` step instead.
+    """
     p = t["pagination"]
     style = p["style"]
     state: dict[str, Any] = {"style": style}
+    returned = delivery.get("items_in_response")
+    delivered_end = delivery.get("items_skipped", 0) + delivery.get("items_delivered", 0)
+    cut = returned is not None and delivered_end < returned
+    recover = {"arguments": arguments, "skip_items": delivered_end,
+               "note": "repeat the same call with skip_items to receive the items of this page the bridge did not "
+                       "deliver (output limit); the page is read again and may have changed upstream"}
     if style == "range":
         props = t["input_schema"].get("properties", {})
         off_name, lim_name = p["offset_param"], p["limit_param"]
         offset = arguments.get(off_name, (props.get(off_name) or {}).get("default", 0)) or 0
         limit = arguments.get(lim_name, (props.get(lim_name) or {}).get("default"))
         state.update(offset=offset, limit=limit)
-        if returned is not None and limit and returned >= limit:
+        if cut:
+            state.update(more_may_exist=True, next_arguments={**arguments, off_name: offset + delivered_end},
+                         note="the bridge delivered part of this page; the next offset starts at the first item "
+                              "not delivered, so nothing is skipped")
+        elif returned is not None and limit and returned >= limit:
             state.update(more_may_exist=True, next_arguments={**arguments, off_name: offset + limit},
                          note="the page is full; no total is returned, so continue with the next offset")
         elif returned is not None:
@@ -323,11 +435,20 @@ def pagination_state(t: dict, arguments: dict, data: Any, returned: int | None) 
     if style == "token":
         token = _skip_token(link) if p["param"] == "skipToken" and isinstance(link, str) else \
             batch if p["param"] == "nextBatchToken" and isinstance(batch, str) and batch else None
-        if token:
-            state.update(more_available=True, next_arguments={**arguments, p["param"]: token})
+        following = {**arguments, p["param"]: token} if token else None
+        if cut:
+            state.update(more_available=True, recover=recover)
+            if following:
+                state["next_page_arguments"] = following
+                state["note"] = ("use next_page_arguments only after recovering this page; using it now would skip "
+                                 "the items the bridge did not deliver")
+        elif following:
+            state.update(more_available=True, next_arguments=following)
         else:
             state.update(more_available=False)
         return state
+    if cut:
+        state.update(more_available=True, recover=recover)
     if link or batch:
         state.update(more_available=True, continuation_supported=False,
                      note="the response indicates more data, but this tool's handler has no continuation input; "
@@ -335,7 +456,9 @@ def pagination_state(t: dict, arguments: dict, data: Any, returned: int | None) 
     return state
 
 
-def normalize(t: dict, arguments: dict, result: Any, max_chars: int = DEFAULT_MAX_CHARS) -> dict[str, Any]:
+def normalize(t: dict, arguments: dict, result: Any, max_chars: int = DEFAULT_MAX_CHARS,
+              skip_items: int = 0) -> dict[str, Any]:
+    """Normalize one tools/call result. ``max_chars`` bounds the JSON of ``data`` (not the envelope)."""
     texts, binaries, headers = [], [], None
     for index, block in enumerate(getattr(result, "content", None) or []):
         if getattr(block, "type", "") == "text":
@@ -374,22 +497,51 @@ def normalize(t: dict, arguments: dict, result: Any, max_chars: int = DEFAULT_MA
             data, kind = texts[0], "text"
     elif texts:
         data, kind = "\n".join(texts), "text"
-    items, key = _items(data) if kind == "json" else (None, None)
-    returned = len(items) if items is not None else None
-    bounded, truncation = _bound(data, max(1000, min(max_chars, MAX_CHARS)))
+    bounded, delivery = _bound(data, max(1000, min(max_chars, MAX_CHARS)), skip_items if kind == "json" else 0)
+    if kind != "json":
+        for key in ("items_in_response", "items_skipped", "items_delivered", "items_omitted"):
+            delivery.pop(key, None)
+    returned = delivery.get("items_in_response")
+    pagination = pagination_state(t, arguments, data, delivery)
     out = {**base, "outcome": "ok", "format": kind, "data": bounded, "items_returned": returned,
-           **({"items_field": key} if key else {}), **truncation,
-           "pagination": pagination_state(t, arguments, data, returned)}
+           **({"items_field": _items(data)[1]} if returned is not None and _items(data)[1] else {}),
+           **delivery, "output_limit": {"max_chars": max(1000, min(max_chars, MAX_CHARS)), "applies_to": "data"},
+           "pagination": pagination}
+    if delivery.get("output_truncated") and returned is None:
+        out["truncation_note"] = ("data was cut to the output limit; repeat with a larger max_output_chars (up to "
+                                  f"{MAX_CHARS}) or narrower arguments to read the rest")
     if headers:
         out["response_headers"] = headers
     if binaries:
         out["binary"] = binaries
+    more = pagination.get("more_may_exist") or pagination.get("more_available")
     if returned == 0 and not binaries:
-        out["outcome"] = "empty"
-        out["empty_meaning"] = "no item matched this query, filter and window; this is not proof of absence elsewhere"
-    elif truncation.get("output_truncated") or out["pagination"].get("more_may_exist") or \
-            out["pagination"].get("more_available"):
+        if more:
+            out["outcome"] = "partial"
+            out["empty_meaning"] = ("this page has no items but the response indicates more data; the query is not "
+                                    "exhausted" + ("" if pagination.get("next_arguments") else
+                                                   " and this handler cannot continue: narrow the filter or window"))
+        else:
+            out["outcome"] = "empty"
+            out["empty_meaning"] = ("no item matched this query, filter and window; this is not proof of absence "
+                                    "elsewhere")
+    elif delivery.get("output_truncated") or more:
         out["outcome"] = "partial"
     elif kind == "none" and not binaries:
         out["outcome"] = "empty_response"
     return out
+
+
+def trend_image() -> str:
+    """Vision One MCP image pinned by index digest; its labels and provenance name the audited commit."""
+    return registry()["sources"]["vision_one"]["image"]["reference"]
+
+
+def version_binding(platform: str) -> dict[str, Any]:
+    src = registry()["sources"][platform]
+    if platform == "vision_one":
+        image = src["image"]
+        return {"audited_commit": src["commit"], "image": image["reference"], "tag": image["tag"],
+                "basis": "the bridge starts this exact image digest; its OCI labels and build provenance name the "
+                         "audited commit (registry metadata, not a rebuild of the binary)"}
+    return {"audited_commit": src["commit"], "verified": False, "basis": src["runtime_binding"]}

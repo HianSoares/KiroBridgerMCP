@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import Any
 
-POLICY_VERSION = "2026-10-15"
+POLICY_VERSION = "2026-10-15.2"
 
 EFFECTS = {
     "read": "retrieves data; the handler sends HTTP GET only and changes nothing",
@@ -125,9 +125,8 @@ def classify_trend(tool: dict[str, Any]) -> dict[str, Any]:
     """tool: handler facts from docs/coverage/vision-one-mcp-tools.json."""
     name, methods, registered = tool["name"], set(tool.get("http_methods") or []), tool.get("registered_as")
     unsupported = None
-    if tool.get("file_upload"):
-        unsupported = ("the handler uploads a local file path read inside the MCP container; the bridge does not "
-                       "mount host files into the Vision One container")
+    if tool.get("file_upload") and registered != "write":
+        unsupported = "file upload in a tool not registered as write: not reviewed"
     if registered == "read" and name in TREND_READ_REGISTERED_EXCEPTIONS:
         effect, basis = TREND_READ_REGISTERED_EXCEPTIONS[name]
         status = "verified" if methods == {"POST"} else "pending_review"

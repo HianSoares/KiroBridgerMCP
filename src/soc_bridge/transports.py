@@ -9,6 +9,7 @@ from typing import Any
 from .capabilities import GLOBAL_LEDGER, Ledger, outcome_for, tool_names
 from .diagnostics import MCPToolFailure, collection_failure, failure_reason, unavailable
 from .connection_lifecycle import InvestigationConnections
+from .upstream_access import trend_image
 from .alert_resume import ALERT_READ_CACHE
 from .trend_search import DIRECT_SEARCH_TOOLS
 from .aql_errors import AQLValidationError, ResponseFormatError
@@ -303,7 +304,7 @@ async def live_investigation(offense_id: int, url: str, token: str | None,
             params = StdioServerParameters(
                 command="docker",
                 args=["run", "-i", "--rm", "-e", "TREND_VISION_ONE_API_KEY",
-                      "ghcr.io/trendmicro/vision-one-mcp-server", "-region", region,
+                      trend_image(), "-region", region,
                       "-readonly=true", f"-toolsets={ALERT_TOOLSETS}"],
                 env={**os.environ, "TREND_VISION_ONE_API_KEY": api_key},
             )
@@ -367,7 +368,7 @@ async def live_case_investigation(offense_id: int, url: str, token: str | None, 
                 trend_stage = "Vision One Docker MCP startup"
                 try:
                     params = StdioServerParameters(command="docker", args=[
-                        "run", "-i", "--rm", "-e", "TREND_VISION_ONE_API_KEY", "ghcr.io/trendmicro/vision-one-mcp-server",
+                        "run", "-i", "--rm", "-e", "TREND_VISION_ONE_API_KEY", trend_image(),
                         "-region", region, "-readonly=true", f"-toolsets={ALERT_TOOLSETS}"],
                         env={**os.environ, "TREND_VISION_ONE_API_KEY": api_key})
                     v_stream = await stack.enter(stdio_client(params), "Vision One", "Docker stdio transport")
@@ -446,7 +447,7 @@ async def _live_alert_investigation(alert_id: str, url: str, token: str | None,
             params = StdioServerParameters(
                 command="docker",
                 args=["run", "-i", "--rm", "-e", "TREND_VISION_ONE_API_KEY",
-                      "ghcr.io/trendmicro/vision-one-mcp-server", "-region", region,
+                      trend_image(), "-region", region,
                       "-readonly=true", f"-toolsets={ALERT_TOOLSETS}"],
                 env={**os.environ, "TREND_VISION_ONE_API_KEY": api_key},
             )
@@ -548,7 +549,7 @@ async def live_trend_search(operation: str, parameters: dict[str, Any], api_key:
     try:
         async with InvestigationConnections() as stack:
             params = StdioServerParameters(command="docker", args=["run", "-i", "--rm", "-e",
-                "TREND_VISION_ONE_API_KEY", "ghcr.io/trendmicro/vision-one-mcp-server", "-region", region,
+                "TREND_VISION_ONE_API_KEY", trend_image(), "-region", region,
                 "-readonly=true", "-toolsets=search"], env={**os.environ, "TREND_VISION_ONE_API_KEY": api_key})
             stream = await stack.enter(stdio_client(params), "Vision One", "Docker stdio transport")
             session = await stack.enter(ClientSession(stream[0], stream[1]), "Vision One", "MCP session")
@@ -602,7 +603,7 @@ async def live_trend_discovery(parameters: dict[str, Any], api_key: str, region:
         async with asyncio.timeout(60):
             async with AsyncExitStack() as stack:
                 params = StdioServerParameters(command="docker", args=["run", "-i", "--rm", "-e",
-                    "TREND_VISION_ONE_API_KEY", "ghcr.io/trendmicro/vision-one-mcp-server", "-region", region,
+                    "TREND_VISION_ONE_API_KEY", trend_image(), "-region", region,
                     "-readonly=true", "-toolsets=workbench"],
                     env={**os.environ, "TREND_VISION_ONE_API_KEY": api_key})
                 stream = await stack.enter_async_context(stdio_client(params))
@@ -656,7 +657,7 @@ async def live_extra_case(kind: str, parameters: dict[str, Any], url: str, token
             await qr.initialize()
             stage = "Vision One Docker MCP startup"
             params = StdioServerParameters(command="docker", args=["run", "-i", "--rm", "-e", "TREND_VISION_ONE_API_KEY",
-                "ghcr.io/trendmicro/vision-one-mcp-server", "-region", region, "-readonly=true", "-toolsets=search,endpoint"],
+                trend_image(), "-region", region, "-readonly=true", "-toolsets=search,endpoint"],
                 env={**os.environ, "TREND_VISION_ONE_API_KEY": api_key})
             v_stream = await stack.enter(stdio_client(params), "Vision One", "Docker stdio transport")
             vision = await stack.enter(ClientSession(v_stream[0], v_stream[1]), "Vision One", "MCP session")

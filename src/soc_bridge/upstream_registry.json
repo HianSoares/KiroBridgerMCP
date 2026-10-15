@@ -1,11 +1,12 @@
 {
- "policy_version": "2026-10-15",
+ "policy_version": "2026-10-15.2",
  "sources": {
   "qradar": {
    "repository": "https://github.com/IBM/qradar-mcp.git",
    "commit": "60ca119ecc0553946c44ac1702d574109a80f603",
    "commit_date": "2026-10-05",
-   "tags": []
+   "tags": [],
+   "runtime_binding": "not verifiable by the bridge: the QRadar MCP is installed and run by the operator; tools/list and schemas are compared with the audited contract, handler effects are not"
   },
   "vision_one": {
    "repository": "https://github.com/trendmicro/vision-one-mcp-server.git",
@@ -13,7 +14,22 @@
    "commit_date": "2026-09-23",
    "tags": [
     "v0.9.0"
-   ]
+   ],
+   "image": {
+    "repository": "ghcr.io/trendmicro/vision-one-mcp-server",
+    "tag": "v0.9.0",
+    "index_digest": "sha256:91e8a673c94a5612f145d6a23f14c9a1b712ec8eb2345202b5e8310661408b67",
+    "platform_digests": {
+     "linux/amd64": "sha256:e5ddc28d01557363bd7e90d51c4392c1350c6ac22eade54c214804987b125516",
+     "linux/arm64": "sha256:95ab75d77cec044a0e7f4119935f18b6ae4d122edad7b7f7bf39e82ee6da7d6a"
+    },
+    "label_revision": "2d137401c26e7c50345d448ea1c662746cb2e7a9",
+    "provenance_revision": "2d137401c26e7c50345d448ea1c662746cb2e7a9",
+    "label_version": "0.9.0",
+    "inspected_at": "2026-10-15",
+    "method": "docker buildx imagetools inspect ghcr.io/trendmicro/vision-one-mcp-server:v0.9.0 (index digest, OCI labels org.opencontainers.image.revision/version of both platform images, BuildKit SLSA provenance vcs:revision). Registry metadata only: the image was not rebuilt from source to compare binaries.",
+    "reference": "ghcr.io/trendmicro/vision-one-mcp-server@sha256:91e8a673c94a5612f145d6a23f14c9a1b712ec8eb2345202b5e8310661408b67"
+   }
   }
  },
  "tools": [
@@ -11907,11 +11923,17 @@
    "basis": "POST v3.0/caseManagement/cases/%s/attachments; registered as write",
    "review": "verified",
    "access": "change",
-   "support": "unsupported",
-   "unsupported_reason": "the handler uploads a local file path read inside the MCP container; the bridge does not mount host files into the Vision One container",
+   "support": "supported",
+   "unsupported_reason": null,
    "server_flags": {
     "toolset": "cases",
     "readonly": false
+   },
+   "upload": {
+    "field": "file",
+    "required": false,
+    "handler": "opens the path inside the MCP container and sends its basename and bytes as multipart/form-data",
+    "bridge": "staged copy approved by SHA-256, bind-mounted read-only as one file"
    },
    "pagination": {
     "style": "single_response"
@@ -12833,11 +12855,17 @@
    "basis": "POST v3.0/caseManagement/cases/%s/tasks/%s/attachments; registered as write",
    "review": "verified",
    "access": "change",
-   "support": "unsupported",
-   "unsupported_reason": "the handler uploads a local file path read inside the MCP container; the bridge does not mount host files into the Vision One container",
+   "support": "supported",
+   "unsupported_reason": null,
    "server_flags": {
     "toolset": "cases",
     "readonly": false
+   },
+   "upload": {
+    "field": "file",
+    "required": true,
+    "handler": "opens the path inside the MCP container and sends its basename and bytes as multipart/form-data",
+    "bridge": "staged copy approved by SHA-256, bind-mounted read-only as one file"
    },
    "pagination": {
     "style": "single_response"
@@ -15144,11 +15172,17 @@
    "basis": "POST v3.0/containerSecurity/customRulesets/%s/update; registered as write",
    "review": "verified",
    "access": "change",
-   "support": "unsupported",
-   "unsupported_reason": "the handler uploads a local file path read inside the MCP container; the bridge does not mount host files into the Vision One container",
+   "support": "supported",
+   "unsupported_reason": null,
    "server_flags": {
     "toolset": "container",
     "readonly": false
+   },
+   "upload": {
+    "field": "file",
+    "required": false,
+    "handler": "opens the path inside the MCP container and sends its basename and bytes as multipart/form-data",
+    "bridge": "staged copy approved by SHA-256, bind-mounted read-only as one file"
    },
    "pagination": {
     "style": "single_response"
@@ -15203,11 +15237,17 @@
    "basis": "POST v3.0/containerSecurity/customRulesets; registered as write",
    "review": "verified",
    "access": "change",
-   "support": "unsupported",
-   "unsupported_reason": "the handler uploads a local file path read inside the MCP container; the bridge does not mount host files into the Vision One container",
+   "support": "supported",
+   "unsupported_reason": null,
    "server_flags": {
     "toolset": "container",
     "readonly": false
+   },
+   "upload": {
+    "field": "file",
+    "required": true,
+    "handler": "opens the path inside the MCP container and sends its basename and bytes as multipart/form-data",
+    "bridge": "staged copy approved by SHA-256, bind-mounted read-only as one file"
    },
    "pagination": {
     "style": "single_response"
@@ -24224,11 +24264,17 @@
    "basis": "POST v3.0/iam/identityProviders/%s/update; registered as write",
    "review": "verified",
    "access": "change",
-   "support": "unsupported",
-   "unsupported_reason": "the handler uploads a local file path read inside the MCP container; the bridge does not mount host files into the Vision One container",
+   "support": "supported",
+   "unsupported_reason": null,
    "server_flags": {
     "toolset": "iam",
     "readonly": false
+   },
+   "upload": {
+    "field": "file",
+    "required": false,
+    "handler": "opens the path inside the MCP container and sends its basename and bytes as multipart/form-data",
+    "bridge": "staged copy approved by SHA-256, bind-mounted read-only as one file"
    },
    "pagination": {
     "style": "single_response"
@@ -24300,11 +24346,17 @@
    "basis": "POST v3.0/iam/identityProviders; registered as write",
    "review": "verified",
    "access": "change",
-   "support": "unsupported",
-   "unsupported_reason": "the handler uploads a local file path read inside the MCP container; the bridge does not mount host files into the Vision One container",
+   "support": "supported",
+   "unsupported_reason": null,
    "server_flags": {
     "toolset": "iam",
     "readonly": false
+   },
+   "upload": {
+    "field": "file",
+    "required": true,
+    "handler": "opens the path inside the MCP container and sends its basename and bytes as multipart/form-data",
+    "bridge": "staged copy approved by SHA-256, bind-mounted read-only as one file"
    },
    "pagination": {
     "style": "single_response"
@@ -25578,11 +25630,17 @@
    "basis": "POST v3.0/response/customScripts/%s/update; registered as write",
    "review": "verified",
    "access": "change",
-   "support": "unsupported",
-   "unsupported_reason": "the handler uploads a local file path read inside the MCP container; the bridge does not mount host files into the Vision One container",
+   "support": "supported",
+   "unsupported_reason": null,
    "server_flags": {
     "toolset": "response",
     "readonly": false
+   },
+   "upload": {
+    "field": "file",
+    "required": true,
+    "handler": "opens the path inside the MCP container and sends its basename and bytes as multipart/form-data",
+    "bridge": "staged copy approved by SHA-256, bind-mounted read-only as one file"
    },
    "pagination": {
     "style": "single_response"
@@ -25641,11 +25699,17 @@
    "basis": "POST v3.0/response/customScripts; registered as write",
    "review": "verified",
    "access": "change",
-   "support": "unsupported",
-   "unsupported_reason": "the handler uploads a local file path read inside the MCP container; the bridge does not mount host files into the Vision One container",
+   "support": "supported",
+   "unsupported_reason": null,
    "server_flags": {
     "toolset": "response",
     "readonly": false
+   },
+   "upload": {
+    "field": "file",
+    "required": true,
+    "handler": "opens the path inside the MCP container and sends its basename and bytes as multipart/form-data",
+    "bridge": "staged copy approved by SHA-256, bind-mounted read-only as one file"
    },
    "pagination": {
     "style": "single_response"
@@ -27946,11 +28010,17 @@
    "basis": "POST v3.0/sandbox/files/analyze; registered as write",
    "review": "verified",
    "access": "change",
-   "support": "unsupported",
-   "unsupported_reason": "the handler uploads a local file path read inside the MCP container; the bridge does not mount host files into the Vision One container",
+   "support": "supported",
+   "unsupported_reason": null,
    "server_flags": {
     "toolset": "sandbox",
     "readonly": false
+   },
+   "upload": {
+    "field": "file",
+    "required": true,
+    "handler": "opens the path inside the MCP container and sends its basename and bytes as multipart/form-data",
+    "bridge": "staged copy approved by SHA-256, bind-mounted read-only as one file"
    },
    "pagination": {
     "style": "single_response"
@@ -31150,11 +31220,17 @@
    "basis": "POST v3.0/threatintel/intelligenceReports; registered as write",
    "review": "verified",
    "access": "change",
-   "support": "unsupported",
-   "unsupported_reason": "the handler uploads a local file path read inside the MCP container; the bridge does not mount host files into the Vision One container",
+   "support": "supported",
+   "unsupported_reason": null,
    "server_flags": {
     "toolset": "threatintel",
     "readonly": false
+   },
+   "upload": {
+    "field": "file",
+    "required": true,
+    "handler": "opens the path inside the MCP container and sends its basename and bytes as multipart/form-data",
+    "bridge": "staged copy approved by SHA-256, bind-mounted read-only as one file"
    },
    "pagination": {
     "style": "single_response"

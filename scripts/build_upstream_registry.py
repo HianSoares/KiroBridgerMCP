@@ -106,6 +106,11 @@ def build() -> dict:
                                       "annotations": listed.get("annotations", {})},
             **decision,
             "server_flags": {"toolset": facts["toolset"], "readonly": facts["registered_as"] == "read"},
+            **({"upload": {"field": "file", "required": "file" in (listed["inputSchema"].get("required") or []),
+                           "handler": "opens the path inside the MCP container and sends its basename and bytes as "
+                                      "multipart/form-data",
+                           "bridge": "staged copy approved by SHA-256, bind-mounted read-only as one file"}}
+               if facts.get("file_upload") else {}),
             "pagination": trend_pagination(facts, listed["inputSchema"]),
             "output": ("json_text; ETag/Operation-Location/Location headers as an extra text block; non-text bodies "
                        "as base64 embedded resources" if facts["response_handler"] == "handleResponse" else "json_text"),
@@ -115,8 +120,16 @@ def build() -> dict:
                   (set(announced_t) - {f["name"] for f in tfacts["tools"]})
     if unannounced:
         raise SystemExit(f"announced tools without handler facts: {sorted(unannounced)}")
+    image = load("vision-one-image.json")
+    commit = tfacts["source"]["commit"]
+    if image["label_revision"] != commit or image["provenance_revision"] != commit:
+        raise SystemExit("the pinned Vision One image does not name the audited commit")
+    image["reference"] = f"{image['repository']}@{image['index_digest']}"
     return {"policy_version": policy.POLICY_VERSION,
-            "sources": {"qradar": qfacts["source"], "vision_one": tfacts["source"]},
+            "sources": {"qradar": {**qfacts["source"], "runtime_binding": (
+                            "not verifiable by the bridge: the QRadar MCP is installed and run by the operator; "
+                            "tools/list and schemas are compared with the audited contract, handler effects are not")},
+                        "vision_one": {**tfacts["source"], "image": image}},
             "tools": sorted(entries, key=lambda e: (e["platform"], e["name"]))}
 
 
