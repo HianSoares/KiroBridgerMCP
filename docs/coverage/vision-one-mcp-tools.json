@@ -2,13 +2,17 @@
  "source": {
   "repository": "https://github.com/trendmicro/vision-one-mcp-server.git",
   "commit": "2d137401c26e7c50345d448ea1c662746cb2e7a9",
-  "commit_date": "2026-09-23"
+  "commit_date": "2026-09-23",
+  "tags": [
+   "v0.9.0"
+  ]
  },
  "tools": [
   {
    "toolset": "ai",
    "registered_as": "read",
    "name": "aisecurity_guardrails_apply",
+   "source_file": "internal/v1mcp/tools/aisecurity.go",
    "declared": [
     "applicationName",
     "prompt",
@@ -18,12 +22,24 @@
     "prefer"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "AISecurityApplyGuardrails"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/aiSecurity/applyGuardrails"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "audit",
    "registered_as": "read",
    "name": "audit_logs_list",
+   "source_file": "internal/v1mcp/tools/audit.go",
    "declared": [
     "startDateTime",
     "endDateTime",
@@ -35,50 +51,110 @@
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "AuditLogsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/audit/logs"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "business",
    "registered_as": "read",
    "name": "business_profile_get",
+   "source_file": "internal/v1mcp/tools/business.go",
    "declared": [],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "BusinessProfileGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/business/profile"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "business",
    "registered_as": "write",
    "name": "business_profile_update",
+   "source_file": "internal/v1mcp/tools/business.go",
    "declared": [
     "businessName"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "BusinessProfileUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/business/profile"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "write",
    "name": "cam_alibaba_account_delete",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CamAlibabaAccountDelete"
+   ],
+   "http_methods": [
+    "DELETE"
+   ],
+   "paths": [
+    "v3.0/cam/alibabaAccounts/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "read",
    "name": "cam_alibaba_account_get",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "accountId"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CAMGetAlibabaAccountDetails"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/cam/alibabaAccounts/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "write",
    "name": "cam_alibaba_account_update",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "id",
     "ifMatch",
@@ -86,12 +162,24 @@
     "description"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CamAlibabaAccountUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/cam/alibabaAccounts/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "write",
    "name": "cam_alibaba_accounts_create",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "alibabaRegion",
     "roleArn",
@@ -101,12 +189,24 @@
     "connectedSecurityServices"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CamAlibabaAccountsCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/cam/alibabaAccounts"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "read",
    "name": "cam_alibaba_accounts_generate_terraform_package",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "cloudAccountName",
     "cloudAccountDescription",
@@ -114,44 +214,92 @@
     "connectedSecurityServices"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CamAlibabaAccountsGenerateTerraformPackage"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/cam/alibabaAccounts/generateTerraformPackage"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "read",
    "name": "cam_alibaba_accounts_list",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "top",
     "filter",
     "nextBatchToken"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CAMListAlibabaAccounts"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/cam/alibabaAccounts"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "write",
    "name": "cam_aws_account_delete",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CamAwsAccountDelete"
+   ],
+   "http_methods": [
+    "DELETE"
+   ],
+   "paths": [
+    "v3.0/cam/awsAccounts/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "read",
    "name": "cam_aws_account_get",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "accountId"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CAMGetAWSAccount"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/cam/awsAccounts/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "write",
    "name": "cam_aws_account_update",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "id",
     "ifMatch",
@@ -163,12 +311,24 @@
     "features"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CamAwsAccountUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/cam/awsAccounts/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "write",
    "name": "cam_aws_accounts_create",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "roleArn",
     "name",
@@ -178,20 +338,44 @@
     "features"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CamAwsAccountsCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/cam/awsAccounts"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "read",
    "name": "cam_aws_accounts_features_list",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CamAwsAccountsFeaturesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/cam/awsAccounts/features"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "read",
    "name": "cam_aws_accounts_generate_cfn_template_links",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "awsRegion",
     "features",
@@ -202,12 +386,24 @@
     "customTags"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CamAwsAccountsGenerateCfnTemplateLinks"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/cam/awsAccounts/generateCfnTemplateLinks"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "read",
    "name": "cam_aws_accounts_generate_terraform_package",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "awsRegion",
     "features",
@@ -216,44 +412,92 @@
     "connectedSecurityServices"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CamAwsAccountsGenerateTerraformPackage"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/cam/awsAccounts/generateTerraformPackage"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "read",
    "name": "cam_aws_accounts_list",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "top",
     "filter",
     "nextBatchToken"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CAMListAWSAccounts"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/cam/awsAccounts"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "write",
    "name": "cam_azure_subscription_delete",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CamAzureSubscriptionDelete"
+   ],
+   "http_methods": [
+    "DELETE"
+   ],
+   "paths": [
+    "v3.0/cam/azureSubscriptions/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "read",
    "name": "cam_azure_subscription_get",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CamAzureSubscriptionGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/cam/azureSubscriptions/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "write",
    "name": "cam_azure_subscription_update",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "id",
     "ifMatch",
@@ -261,12 +505,24 @@
     "description"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CamAzureSubscriptionUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/cam/azureSubscriptions/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "write",
    "name": "cam_azure_subscriptions_create",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "tenantId",
     "subscriptionId",
@@ -276,12 +532,24 @@
     "connectedSecurityServices"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CamAzureSubscriptionsCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/cam/azureSubscriptions"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "read",
    "name": "cam_azure_subscriptions_generate_mgmt_group_terraform_package",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "managementGroupId",
     "azureRegion",
@@ -290,12 +558,24 @@
     "excludedSubscriptionIds"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CamAzureSubscriptionsGenerateMgmtGroupTerraformPackage"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/cam/azureSubscriptions/generateManagementGroupTerraformPackage"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "read",
    "name": "cam_azure_subscriptions_generate_terraform_package",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "azureSubscriptionName",
     "azureSubscriptionDescription",
@@ -304,55 +584,115 @@
     "azureRegion"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CamAzureSubscriptionsGenerateTerraformPackage"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/cam/azureSubscriptions/generateTerraformPackage"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "read",
    "name": "cam_azure_subscriptions_list",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "top",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CamAzureSubscriptionsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/cam/azureSubscriptions"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "read",
    "name": "cam_gcp_account_get",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "accountId"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CAMGetGCPAccountDetails"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/cam/gcpProjects/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "read",
    "name": "cam_gcp_accounts_list",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "top",
     "filter",
     "nextBatchToken"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CAMListGCPAccounts"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/cam/gcpProjects"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "write",
    "name": "cam_gcp_project_delete",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CamGcpProjectDelete"
+   ],
+   "http_methods": [
+    "DELETE"
+   ],
+   "paths": [
+    "v3.0/cam/gcpProjects/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "write",
    "name": "cam_gcp_project_update",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "id",
     "ifMatch",
@@ -360,12 +700,24 @@
     "description"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CamGcpProjectUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/cam/gcpProjects/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "write",
    "name": "cam_gcp_projects_create",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "workloadIdentityPoolId",
     "oidcProviderId",
@@ -377,12 +729,24 @@
     "features"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CamGcpProjectsCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/cam/gcpProjects"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "read",
    "name": "cam_gcp_projects_generate_terraform_package",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "gcpProjectName",
     "gcpProjectDescription",
@@ -390,32 +754,68 @@
     "features"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CamGcpProjectsGenerateTerraformPackage"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/cam/gcpProjects/generateTerraformPackage"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "write",
    "name": "cam_oci_compartment_delete",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CamOciCompartmentDelete"
+   ],
+   "http_methods": [
+    "DELETE"
+   ],
+   "paths": [
+    "v3.0/cam/ociCompartments/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "read",
    "name": "cam_oci_compartment_get",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CamOciCompartmentGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/cam/ociCompartments/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "write",
    "name": "cam_oci_compartment_update",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "id",
     "ifMatch",
@@ -426,12 +826,24 @@
     "definedTags"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CamOciCompartmentUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/cam/ociCompartments/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "write",
    "name": "cam_oci_compartments_create",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "serviceUserId",
     "compartmentId",
@@ -446,12 +858,24 @@
     "definedTags"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CamOciCompartmentsCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/cam/ociCompartments"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "read",
    "name": "cam_oci_compartments_generate_terraform_package",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "ociCompartmentName",
     "ociCompartmentDescription",
@@ -462,91 +886,187 @@
     "definedTags"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CamOciCompartmentsGenerateTerraformPackage"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/cam/ociCompartments/generateTerraformPackage"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cam",
    "registered_as": "read",
    "name": "cam_oci_compartments_list",
+   "source_file": "internal/v1mcp/tools/cam.go",
    "declared": [
     "top",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CamOciCompartmentsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/cam/ociCompartments"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "write",
    "name": "case_management_case_attachment_delete",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "attachmentId"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CaseManagementCaseAttachmentDelete"
+   ],
+   "http_methods": [
+    "DELETE"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/attachments/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "read",
    "name": "case_management_case_attachment_get",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "attachmentId"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CaseManagementCaseAttachmentGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/attachments/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "write",
    "name": "case_management_case_attachments_create",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "file",
     "externalAttachmentId"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CaseManagementCaseAttachmentsCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/attachments"
+   ],
+   "file_upload": true,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "write",
    "name": "case_management_case_bind_oat_event",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "uuid",
     "detectedDateTime"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CaseManagementCaseBindOatEvent"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/bindOatEvent"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "write",
    "name": "case_management_case_content_delete",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "contentId"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CaseManagementCaseContentDelete"
+   ],
+   "http_methods": [
+    "DELETE"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/contents/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "read",
    "name": "case_management_case_content_get",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "contentId"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CaseManagementCaseContentGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/contents/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "write",
    "name": "case_management_case_content_update",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "contentId",
@@ -555,24 +1075,48 @@
     "comment"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CaseManagementCaseContentUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/contents/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "write",
    "name": "case_management_case_contents_create",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "attachmentIds",
     "comment"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CaseManagementCaseContentsCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/contents"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "read",
    "name": "case_management_case_contents_list",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "top",
@@ -583,66 +1127,138 @@
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CaseManagementCaseContentsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/contents"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "read",
    "name": "case_management_case_get",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CaseManagementCaseGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "write",
    "name": "case_management_case_highlighted_object_delete",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "highlightedObjectId"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CaseManagementCaseHighlightedObjectDelete"
+   ],
+   "http_methods": [
+    "DELETE"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/highlightedObjects/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "read",
    "name": "case_management_case_highlighted_object_get",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "highlightedObjectId"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CaseManagementCaseHighlightedObjectGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/highlightedObjects/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "read",
    "name": "case_management_case_highlighted_objects_list",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CaseManagementCaseHighlightedObjectsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/highlightedObjects"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "write",
    "name": "case_management_case_risk_indicator_events_close",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "status"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CaseManagementCaseRiskIndicatorEventsClose"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/riskIndicatorEvents/close"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "read",
    "name": "case_management_case_risk_indicator_events_list",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "top",
@@ -650,36 +1266,72 @@
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CaseManagementCaseRiskIndicatorEventsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/riskIndicatorEvents"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "write",
    "name": "case_management_case_task_attachment_delete",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "taskId",
     "attachmentId"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CaseManagementCaseTaskAttachmentDelete"
+   ],
+   "http_methods": [
+    "DELETE"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/tasks/%s/attachments/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "read",
    "name": "case_management_case_task_attachment_get",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "taskId",
     "attachmentId"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CaseManagementCaseTaskAttachmentGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/tasks/%s/attachments/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "write",
    "name": "case_management_case_task_attachments_create",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "taskId",
@@ -687,36 +1339,72 @@
     "externalAttachmentId"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CaseManagementCaseTaskAttachmentsCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/tasks/%s/attachments"
+   ],
+   "file_upload": true,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "write",
    "name": "case_management_case_task_content_delete",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "taskId",
     "contentId"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CaseManagementCaseTaskContentDelete"
+   ],
+   "http_methods": [
+    "DELETE"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/tasks/%s/contents/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "read",
    "name": "case_management_case_task_content_get",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "taskId",
     "contentId"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CaseManagementCaseTaskContentGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/tasks/%s/contents/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "write",
    "name": "case_management_case_task_content_update",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "taskId",
@@ -726,12 +1414,24 @@
     "comment"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CaseManagementCaseTaskContentUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/tasks/%s/contents/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "write",
    "name": "case_management_case_task_contents_create",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "taskId",
@@ -739,12 +1439,24 @@
     "comment"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CaseManagementCaseTaskContentsCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/tasks/%s/contents"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "read",
    "name": "case_management_case_task_contents_list",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "taskId",
@@ -753,23 +1465,47 @@
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CaseManagementCaseTaskContentsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/tasks/%s/contents"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "read",
    "name": "case_management_case_task_get",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "taskId"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CaseManagementCaseTaskGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/tasks/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "write",
    "name": "case_management_case_task_update",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "taskId",
@@ -781,12 +1517,24 @@
     "status"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CaseManagementCaseTaskUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/tasks/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "write",
    "name": "case_management_case_tasks_create",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "description",
@@ -796,12 +1544,24 @@
     "status"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CaseManagementCaseTasksCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/tasks"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "read",
    "name": "case_management_case_tasks_list",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "top",
@@ -809,12 +1569,24 @@
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CaseManagementCaseTasksList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s/tasks"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "write",
    "name": "case_management_case_update",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "id",
     "ifMatch",
@@ -830,12 +1602,24 @@
     "externalTicketId"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CaseManagementCaseUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "write",
    "name": "case_management_cases_create",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "type",
     "name",
@@ -854,12 +1638,24 @@
     "externalTicketCreatedDateTime"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "CaseManagementCasesCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cases",
    "registered_as": "read",
    "name": "case_management_cases_list",
+   "source_file": "internal/v1mcp/tools/casemanagement.go",
    "declared": [
     "top",
     "startDateTime",
@@ -869,56 +1665,116 @@
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CaseManagementCasesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/caseManagement/cases"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "cloudrisk",
    "registered_as": "read",
    "name": "cloud_risk_management_account_scan_rules_get",
+   "source_file": "internal/v1mcp/tools/cloudriskmanagement.go",
    "declared": [
     "accountId",
     "filter",
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CloudRiskManagementGetAccountScanRules"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/cloudRiskManagement/accounts/%s/scanRules"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "cloudrisk",
    "registered_as": "read",
    "name": "cloud_risk_management_accounts_list",
+   "source_file": "internal/v1mcp/tools/cloudriskmanagement.go",
    "declared": [
     "filter",
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CloudRiskManagementListAccounts"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/cloudRiskManagement/accounts"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "cloudrisk",
    "registered_as": "read",
    "name": "cloud_risk_management_services_list",
+   "source_file": "internal/v1mcp/tools/cloudriskmanagement.go",
    "declared": [
     "filter",
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CloudRiskManagementListServices"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/cloudRiskManagement/services"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_amazon_ecs_cluster_get",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityAmazonEcsClusterGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/amazonEcsClusters/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "write",
    "name": "container_security_amazon_ecs_cluster_update",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "id",
     "description",
@@ -929,12 +1785,24 @@
     "connection"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityAmazonEcsClusterUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/amazonEcsClusters/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_amazon_ecs_evaluation_event_logs_list",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "top",
     "startDateTime",
@@ -943,55 +1811,115 @@
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityAmazonEcsEvaluationEventLogsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/amazonEcsEvaluationEventLogs"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_amazon_ecs_image_occurrences_list",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "top",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityAmazonEcsImageOccurrencesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/amazonEcsImageOccurrences"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_amazon_ecs_sensor_event_logs_list",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "startDateTime",
     "endDateTime",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityAmazonEcsSensorEventLogsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/amazonEcsSensorEventLogs"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "write",
    "name": "container_security_attestor_delete",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityAttestorDelete"
+   ],
+   "http_methods": [
+    "DELETE"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/attestors/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_attestor_get",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityAttestorGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/attestors/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "write",
    "name": "container_security_attestor_update",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "id",
     "description",
@@ -1000,12 +1928,24 @@
     "transparencyLogOptions"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityAttestorUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/attestors/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "write",
    "name": "container_security_attestors_create",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "name",
     "description",
@@ -1015,32 +1955,68 @@
     "transparencyLogOptions"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityAttestorsCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/attestors"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_attestors_list",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "top",
     "orderBy",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityAttestorsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/attestors"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_compliance_scan_configuration_get",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityComplianceScanConfigurationGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/complianceScanConfiguration"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "write",
    "name": "container_security_compliance_scan_configuration_update",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "scheduleScanEnabled",
     "exceptions",
@@ -1048,126 +2024,270 @@
     "frameworks"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityComplianceScanConfigurationUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/complianceScanConfiguration"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_compliance_scan_summary_get",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityComplianceScanSummaryGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/complianceScanSummary"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_compliance_scan_versions_list",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityComplianceScanVersionsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/complianceScanVersions"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "write",
    "name": "container_security_custom_ruleset_delete",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityCustomRulesetDelete"
+   ],
+   "http_methods": [
+    "DELETE"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/customRulesets/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_custom_ruleset_get",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityCustomRulesetGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/customRulesets/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_custom_ruleset_rule_file_source_get",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "id",
     "ruleFileSourceId"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityCustomRulesetRuleFileSourceGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/customRulesets/%s/ruleFileSources/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "write",
    "name": "container_security_custom_ruleset_update",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "id",
     "description",
     "file"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityCustomRulesetUpdate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/customRulesets/%s/update"
+   ],
+   "file_upload": true,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "write",
    "name": "container_security_custom_rulesets_create",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "name",
     "description",
     "file"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityCustomRulesetsCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/customRulesets"
+   ],
+   "file_upload": true,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_custom_rulesets_list",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "top",
     "orderBy",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityCustomRulesetsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/customRulesets"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_ecs_clusters_list",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "orderBy",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityListECSClusters"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/amazonEcsClusters"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "container",
    "registered_as": "write",
    "name": "container_security_file_integrity_monitoring_rule_delete",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityFileIntegrityMonitoringRuleDelete"
+   ],
+   "http_methods": [
+    "DELETE"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/fileIntegrityMonitoringRules/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_file_integrity_monitoring_rule_get",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityFileIntegrityMonitoringRuleGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/fileIntegrityMonitoringRules/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "write",
    "name": "container_security_file_integrity_monitoring_rule_update",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "id",
     "name",
@@ -1175,44 +2295,92 @@
     "content"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityFileIntegrityMonitoringRuleUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/fileIntegrityMonitoringRules/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "write",
    "name": "container_security_file_integrity_monitoring_rules_create",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "name",
     "description",
     "content"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityFileIntegrityMonitoringRulesCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/fileIntegrityMonitoringRules"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_file_integrity_monitoring_rules_list",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "top",
     "orderBy",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityFileIntegrityMonitoringRulesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/fileIntegrityMonitoringRules"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_generate_service_gateway_password",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityGenerateServiceGatewayPassword"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/generateServiceGatewayPassword"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_image_vulnerabilities_list",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "filter",
     "orderBy",
@@ -1223,78 +2391,162 @@
     "skipToken"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityListContainerImageVulnerabilities"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/vulnerabilities"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_k8_cluster_get",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "clusterID"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityGetK8ClusterDetails"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/kubernetesClusters/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_k8_clusters_list",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "orderBy",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityListK8Clusters"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/kubernetesClusters"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_k8_images_list",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "orderBy",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityListK8Images"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/kubernetesImages"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_kubernetes_audit_event_logs_list",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "startDateTime",
     "endDateTime",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityKubernetesAuditEventLogsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/kubernetesAuditEventLogs"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "write",
    "name": "container_security_kubernetes_cluster_delete",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityKubernetesClusterDelete"
+   ],
+   "http_methods": [
+    "DELETE"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/kubernetesClusters/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_kubernetes_cluster_groups_list",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "top",
     "orderBy",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityKubernetesClusterGroupsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/kubernetesClusterGroups"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "write",
    "name": "container_security_kubernetes_cluster_update",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "id",
     "description",
@@ -1305,12 +2557,24 @@
     "connection"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityKubernetesClusterUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/kubernetesClusters/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "write",
    "name": "container_security_kubernetes_clusters_create",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "name",
     "groupId",
@@ -1321,12 +2585,24 @@
     "connectionType"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityKubernetesClustersCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/kubernetesClusters"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_kubernetes_evaluation_event_logs_list",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "top",
     "startDateTime",
@@ -1335,57 +2611,117 @@
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityKubernetesEvaluationEventLogsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/kubernetesEvaluationEventLogs"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_kubernetes_image_occurrences_list",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "top",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityKubernetesImageOccurrencesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/kubernetesImageOccurrences"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_kubernetes_sensor_event_logs_list",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "startDateTime",
     "endDateTime",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityKubernetesSensorEventLogsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/kubernetesSensorEventLogs"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_managed_rule_get",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityManagedRuleGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/managedRules/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_managed_rules_list",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "orderBy",
     "top",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityManagedRulesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/managedRules"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "write",
    "name": "container_security_policies_create",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "name",
     "description",
@@ -1399,44 +2735,92 @@
     "fileIntegrityMonitoringScan"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityPoliciesCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/policies"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_policies_list",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "top",
     "orderBy",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityPoliciesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/policies"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "write",
    "name": "container_security_policy_delete",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityPolicyDelete"
+   ],
+   "http_methods": [
+    "DELETE"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/policies/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_policy_get",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityPolicyGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/policies/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "write",
    "name": "container_security_policy_update",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "id",
     "description",
@@ -1449,32 +2833,68 @@
     "fileIntegrityMonitoringScan"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityPolicyUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/policies/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "write",
    "name": "container_security_ruleset_delete",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityRulesetDelete"
+   ],
+   "http_methods": [
+    "DELETE"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/rulesets/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_ruleset_get",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityRulesetGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/rulesets/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "write",
    "name": "container_security_ruleset_update",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "id",
     "description",
@@ -1483,12 +2903,24 @@
     "rules"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityRulesetUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/rulesets/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "write",
    "name": "container_security_rulesets_create",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "name",
     "description",
@@ -1497,130 +2929,272 @@
     "rules"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityRulesetsCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/rulesets"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "read",
    "name": "container_security_rulesets_list",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [
     "top",
     "orderBy",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ContainerSecurityRulesetsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/rulesets"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "container",
    "registered_as": "write",
    "name": "container_security_start_compliance_scan",
+   "source_file": "internal/v1mcp/tools/container.go",
    "declared": [],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ContainerSecurityStartComplianceScan"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/containerSecurity/startComplianceScan"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_account_compromise_event_definitions_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremAccountCompromiseEventDefinitionsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/accountCompromiseEventDefinitions"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_account_compromise_indicators_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "top",
     "orderBy",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremAccountCompromiseIndicatorsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/accountCompromiseIndicators"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_account_compromise_risk_indicator_event_get",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremAccountCompromiseRiskIndicatorEventGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/accountCompromiseRiskIndicatorEvents/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_account_compromise_risk_indicator_events_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "top",
     "orderBy",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremAccountCompromiseRiskIndicatorEventsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/accountCompromiseRiskIndicatorEvents"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_anomaly_detection_risk_indicator_event_get",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremAnomalyDetectionRiskIndicatorEventGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/anomalyDetectionRiskIndicatorEvents/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_anomaly_detection_risk_indicator_events_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "top",
     "orderBy",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremAnomalyDetectionRiskIndicatorEventsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/anomalyDetectionRiskIndicatorEvents"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_asset_groups_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "orderBy",
     "top",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremAssetGroupsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/assetGroups"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "write",
    "name": "crem_attack_surface_assets_update_criticality",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "CremAttackSurfaceAssetsUpdateCriticality"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/asrm/attackSurfaceAssets/updateCriticality"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_attack_surface_cloud_asset_profile_get",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "cloudAssetId"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CREMGetAttackSurfaceCloudAssetProfile"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/attackSurfaceCloudAssets/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_attack_surface_cloud_asset_risk_indicators_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "cloudAssetId",
     "top",
@@ -1629,12 +3203,24 @@
     "skipToken"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CREMListAttackSurfaceCloudAssetRiskIndicators"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/attackSurfaceCloudAssets/%s/riskIndicatorEvents"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_attack_surface_cloud_assets_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "top",
     "filter",
@@ -1646,24 +3232,46 @@
     "skipToken"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CREMListAttackSurfaceCloudAssets"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/attackSurfaceCloudAssets"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "write",
    "name": "crem_attack_surface_cloud_assets_update",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "CremAttackSurfaceCloudAssetsUpdate"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/asrm/attackSurfaceCloudAssets/update"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_attack_surface_custom_tags_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "top",
     "filter",
@@ -1671,12 +3279,24 @@
     "skipToken"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CREMListCustomTags"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/attackSurfaceCustomTags"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_attack_surface_devices_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "filter",
     "orderBy",
@@ -1688,24 +3308,46 @@
     "skipToken"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CREMListAttackSurfaceDevices"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/attackSurfaceDevices"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "write",
    "name": "crem_attack_surface_devices_update",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "CremAttackSurfaceDevicesUpdate"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/asrm/attackSurfaceDevices/update"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_attack_surface_domain_accounts_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "top",
     "filter",
@@ -1713,12 +3355,24 @@
     "skipToken"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CREMListAttackSurfaceDomainAccounts"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/attackSurfaceDomainAccounts"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_attack_surface_global_fqdns_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "top",
     "filter",
@@ -1726,12 +3380,24 @@
     "skipToken"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CREMListAttackSurfaceGlobalFQDNs"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/attackSurfaceGlobalFqdns"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_attack_surface_high_risk_users_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "top",
     "filter",
@@ -1739,12 +3405,24 @@
     "skipToken"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CREMListHighRiskUsers"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/highRiskUsers"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_attack_surface_local_app_devices_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "appID",
     "top",
@@ -1753,12 +3431,24 @@
     "skipToken"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CREMListAttackSurfaceLocalAppDevices"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/attackSurfaceLocalApps/%s/devices"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_attack_surface_local_app_executable_files_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "appID",
     "top",
@@ -1767,22 +3457,46 @@
     "skipToken"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CREMListAttackSurfaceLocalAppExecutableFiles"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/attackSurfaceLocalApps/%s/executableFiles"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_attack_surface_local_app_profile_get",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "appID"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CREMGetAttackSurfaceLocalAppProfile"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/attackSurfaceLocalApps/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_attack_surface_local_app_risk_indicators_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "appID",
     "top",
@@ -1791,12 +3505,24 @@
     "skipToken"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CREMGetAttackSurfaceLocalAppRiskIndicators"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/attackSurfaceLocalApps/%s/riskIndicatorEvents"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_attack_surface_local_apps_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "top",
     "filter",
@@ -1804,12 +3530,24 @@
     "skipToken"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CREMListAttackSurfaceLocalApps"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/attackSurfaceLocalApps"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_attack_surface_public_ips_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "top",
     "filter",
@@ -1817,223 +3555,463 @@
     "skipToken"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CREMListAttackSurfacePublicIPs"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/attackSurfacePublicIpAddresses"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_attack_surface_service_accounts_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "top",
     "filter",
     "orderBy"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CREMListAttackSurfaceServiceAccounts"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/attackSurfaceServiceAccounts"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_cloud_vm_vulnerabilities_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "orderBy",
     "top",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremCloudVmVulnerabilitiesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/cloudVmVulnerabilities"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_container_vulnerabilities_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "orderBy",
     "top",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremContainerVulnerabilitiesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/containerVulnerabilities"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_high_risk_device_get",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "id",
     "riskyEventScore"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremHighRiskDeviceGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/highRiskDevices/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_high_risk_devices_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "orderBy",
     "top",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremHighRiskDevicesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/highRiskDevices"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_high_risk_user_get",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremHighRiskUserGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/highRiskUsers/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_internal_asset_vulnerabilities_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "orderBy",
     "top",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremInternalAssetVulnerabilitiesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/internalAssetVulnerabilities"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_internet_facing_asset_vulnerabilities_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "orderBy",
     "top",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremInternetFacingAssetVulnerabilitiesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/internetFacingAssetVulnerabilities"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_security_posture_get",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremSecurityPostureGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/securityPosture"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_serverless_function_vulnerabilities_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "orderBy",
     "top",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremServerlessFunctionVulnerabilitiesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/serverlessFunctionVulnerabilities"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_vulnerability_affected_cloud_storage_assets_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "id",
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremVulnerabilityAffectedCloudStorageAssetsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/vulnerabilities/%s/affectedCloudStorageAssets"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_vulnerability_affected_cloud_vms_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "id",
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremVulnerabilityAffectedCloudVmsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/vulnerabilities/%s/affectedCloudVms"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_vulnerability_affected_container_clusters_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "id",
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremVulnerabilityAffectedContainerClustersList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/vulnerabilities/%s/affectedContainerClusters"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_vulnerability_affected_container_images_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "id",
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremVulnerabilityAffectedContainerImagesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/vulnerabilities/%s/affectedContainerImages"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_vulnerability_affected_devices_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "id",
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremVulnerabilityAffectedDevicesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/vulnerabilities/%s/affectedDevices"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_vulnerability_affected_global_fqdns_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "id",
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremVulnerabilityAffectedGlobalFqdnsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/vulnerabilities/%s/affectedGlobalFqdns"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_vulnerability_affected_serverless_function_layers_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "id",
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremVulnerabilityAffectedServerlessFunctionLayersList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/vulnerabilities/%s/affectedServerlessFunctionLayers"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_vulnerability_affected_serverless_functions_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "id",
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremVulnerabilityAffectedServerlessFunctionsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/vulnerabilities/%s/affectedServerlessFunctions"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_vulnerability_get",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremVulnerabilityGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/vulnerabilities/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "crem",
    "registered_as": "read",
    "name": "crem_vulnerable_devices_list",
+   "source_file": "internal/v1mcp/tools/crem.go",
    "declared": [
     "orderBy",
     "top",
@@ -2041,33 +4019,69 @@
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "CremVulnerableDevicesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/asrm/vulnerableDevices"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "datalake",
    "registered_as": "read",
    "name": "datalake_data_pipeline_get",
+   "source_file": "internal/v1mcp/tools/datalake.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "DatalakeDataPipelineGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/datalake/dataPipelines/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "datalake",
    "registered_as": "read",
    "name": "datalake_data_pipeline_package_get",
+   "source_file": "internal/v1mcp/tools/datalake.go",
    "declared": [
     "id",
     "packageId"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "DatalakeDataPipelinePackageGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/datalake/dataPipelines/%s/packages/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "datalake",
    "registered_as": "read",
    "name": "datalake_data_pipeline_packages_list",
+   "source_file": "internal/v1mcp/tools/datalake.go",
    "declared": [
     "id",
     "startDateTime",
@@ -2075,12 +4089,24 @@
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "DatalakeDataPipelinePackagesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/datalake/dataPipelines/%s/packages"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "datalake",
    "registered_as": "write",
    "name": "datalake_data_pipeline_update",
+   "source_file": "internal/v1mcp/tools/datalake.go",
    "declared": [
     "id",
     "type",
@@ -2088,70 +4114,152 @@
     "description"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "DatalakeDataPipelineUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/datalake/dataPipelines/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "datalake",
    "registered_as": "write",
    "name": "datalake_data_pipelines_create",
+   "source_file": "internal/v1mcp/tools/datalake.go",
    "declared": [
     "type",
     "description",
     "subType"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "DatalakeDataPipelinesCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/datalake/dataPipelines"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "datalake",
    "registered_as": "write",
    "name": "datalake_data_pipelines_delete",
+   "source_file": "internal/v1mcp/tools/datalake.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "DatalakeDataPipelinesDelete"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/datalake/dataPipelines/delete"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "datalake",
    "registered_as": "read",
    "name": "datalake_data_pipelines_list",
+   "source_file": "internal/v1mcp/tools/datalake.go",
    "declared": [],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "DatalakeDataPipelinesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/datalake/dataPipelines"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "dmm",
    "registered_as": "read",
    "name": "dmm_custom_filters_list",
+   "source_file": "internal/v1mcp/tools/dmm.go",
    "declared": [],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "DmmCustomFiltersList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/dmm/customFilters"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "dmm",
    "registered_as": "read",
    "name": "dmm_custom_models_list",
+   "source_file": "internal/v1mcp/tools/dmm.go",
    "declared": [],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "DmmCustomModelsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/dmm/customModels"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "dmm",
    "registered_as": "read",
    "name": "dmm_exception_get",
+   "source_file": "internal/v1mcp/tools/dmm.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "DmmExceptionGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/dmm/exceptions/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "dmm",
    "registered_as": "write",
    "name": "dmm_exception_update",
+   "source_file": "internal/v1mcp/tools/dmm.go",
    "declared": [
     "id",
     "name",
@@ -2161,55 +4269,111 @@
     "criteria"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "DmmExceptionUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/dmm/exceptions/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "dmm",
    "registered_as": "write",
    "name": "dmm_exceptions_create",
+   "source_file": "internal/v1mcp/tools/dmm.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "DmmExceptionsCreate"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/dmm/exceptions"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "dmm",
    "registered_as": "write",
    "name": "dmm_exceptions_delete",
+   "source_file": "internal/v1mcp/tools/dmm.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "DmmExceptionsDelete"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/dmm/exceptions/delete"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "dmm",
    "registered_as": "read",
    "name": "dmm_exceptions_list",
+   "source_file": "internal/v1mcp/tools/dmm.go",
    "declared": [],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "DmmExceptionsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/dmm/exceptions"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "dmm",
    "registered_as": "write",
    "name": "dmm_model_update",
+   "source_file": "internal/v1mcp/tools/dmm.go",
    "declared": [
     "id",
     "enabled"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "DmmModelUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/dmm/models/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "dmm",
    "registered_as": "read",
    "name": "dmm_models_list",
+   "source_file": "internal/v1mcp/tools/dmm.go",
    "declared": [
     "startDateTime",
     "endDateTime",
@@ -2218,211 +4382,429 @@
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "DmmModelsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/dmm/models"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "eiqs",
    "registered_as": "read",
    "name": "eiqs_endpoints_list",
+   "source_file": "internal/v1mcp/tools/eiqs.go",
    "declared": [
     "top",
     "query"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "EiqsEndpointsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/eiqs/endpoints"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "email",
    "registered_as": "read",
    "name": "email_security_accounts_list",
+   "source_file": "internal/v1mcp/tools/email.go",
    "declared": [
     "top",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "EmailSecurityListAccounts"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/emailAssetInventory/emailAccounts"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "email",
    "registered_as": "read",
    "name": "email_security_domains_list",
+   "source_file": "internal/v1mcp/tools/email.go",
    "declared": [
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "EmailSecurityListDomains"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/emailAssetInventory/emailDomains"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "email",
    "registered_as": "read",
    "name": "email_security_servers_list",
+   "source_file": "internal/v1mcp/tools/email.go",
    "declared": [
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "EmailSecurityListServers"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/emailAssetInventory/emailServers"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "endpoint",
    "registered_as": "read",
    "name": "endpoint_security_agent_update_policies_list",
+   "source_file": "internal/v1mcp/tools/endpoint.go",
    "declared": [],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "EndpointSecurityListAgentUpdatePolicies"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/endpointSecurity/versionControlPolicies/agentUpdatePolicies"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "endpoint",
    "registered_as": "read",
    "name": "endpoint_security_endpoint_get",
+   "source_file": "internal/v1mcp/tools/endpoint.go",
    "declared": [
     "endpointID"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "EndpointSecurityGetEndpoint"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/endpointSecurity/endpoints/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "endpoint",
    "registered_as": "write",
    "name": "endpoint_security_endpoints_apply_sensor_policy",
+   "source_file": "internal/v1mcp/tools/endpoint.go",
    "declared": [
     "agentGuids",
     "sensorDetectionAndResponse",
     "advancedRiskTelemetry"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "EndpointSecurityEndpointsApplySensorPolicy"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/endpointSecurity/endpoints/applySensorPolicy"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "endpoint",
    "registered_as": "write",
    "name": "endpoint_security_endpoints_delete",
+   "source_file": "internal/v1mcp/tools/endpoint.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "EndpointSecurityEndpointsDelete"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/endpointSecurity/endpoints/delete"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "endpoint",
    "registered_as": "write",
    "name": "endpoint_security_endpoints_export",
+   "source_file": "internal/v1mcp/tools/endpoint.go",
    "declared": [
     "filter",
     "orderBy"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "EndpointSecurityEndpointsExport"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/endpointSecurity/endpoints/export"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "endpoint",
    "registered_as": "read",
    "name": "endpoint_security_endpoints_list",
+   "source_file": "internal/v1mcp/tools/endpoint.go",
    "declared": [
     "filter",
     "orderBy",
     "skipToken"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "EndpointSecurityListEndpoints"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/endpointSecurity/endpoints"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "endpoint",
    "registered_as": "write",
    "name": "endpoint_security_endpoints_remove_overridden_sensor_policy",
+   "source_file": "internal/v1mcp/tools/endpoint.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "EndpointSecurityEndpointsRemoveOverriddenSensorPolicy"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/endpointSecurity/endpoints/removeOverriddenSensorPolicy"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "endpoint",
    "registered_as": "read",
    "name": "endpoint_security_kernel_support_package_update_policies_list",
+   "source_file": "internal/v1mcp/tools/endpoint.go",
    "declared": [
     "orderBy",
     "top",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "EndpointSecurityKernelSupportPackageUpdatePoliciesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/endpointSecurity/versionControlPolicies/kernelSupportPackageUpdatePolicies"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "endpoint",
    "registered_as": "read",
    "name": "endpoint_security_schedule_get",
+   "source_file": "internal/v1mcp/tools/endpoint.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "EndpointSecurityScheduleGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/endpointSecurity/schedules/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "endpoint",
    "registered_as": "write",
    "name": "endpoint_security_schedules_create",
+   "source_file": "internal/v1mcp/tools/endpoint.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "EndpointSecuritySchedulesCreate"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/endpointSecurity/schedules"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "endpoint",
    "registered_as": "write",
    "name": "endpoint_security_schedules_delete",
+   "source_file": "internal/v1mcp/tools/endpoint.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "EndpointSecuritySchedulesDelete"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/endpointSecurity/schedules/delete"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "endpoint",
    "registered_as": "read",
    "name": "endpoint_security_schedules_list",
+   "source_file": "internal/v1mcp/tools/endpoint.go",
    "declared": [
     "orderBy",
     "top",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "EndpointSecuritySchedulesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/endpointSecurity/schedules"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "endpoint",
    "registered_as": "write",
    "name": "endpoint_security_schedules_update",
+   "source_file": "internal/v1mcp/tools/endpoint.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "EndpointSecuritySchedulesUpdate"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/endpointSecurity/schedules/update"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "endpoint",
    "registered_as": "read",
    "name": "endpoint_security_task_get",
+   "source_file": "internal/v1mcp/tools/endpoint.go",
    "declared": [
     "taskID"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "EndpointSecurityGetTask"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/endpointSecurity/tasks/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "endpoint",
    "registered_as": "read",
    "name": "endpoint_security_tasks_list",
+   "source_file": "internal/v1mcp/tools/endpoint.go",
    "declared": [
     "filter",
     "orderBy",
@@ -2431,41 +4813,89 @@
     "endDateTime"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "EndpointSecurityListTasks"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/endpointSecurity/tasks"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "endpoint",
    "registered_as": "read",
    "name": "endpoint_security_version_control_policies_list",
+   "source_file": "internal/v1mcp/tools/endpoint.go",
    "declared": [],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "EndpointSecurityListVersionControlPolicies"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/endpointSecurity/versionControlPolicies"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "endpoint",
    "registered_as": "write",
    "name": "endpoint_security_version_control_policy_delete",
+   "source_file": "internal/v1mcp/tools/endpoint.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "EndpointSecurityVersionControlPolicyDelete"
+   ],
+   "http_methods": [
+    "DELETE"
+   ],
+   "paths": [
+    "v3.0/endpointSecurity/versionControlPolicies/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "endpoint",
    "registered_as": "read",
    "name": "endpoint_security_version_control_policy_priorities_list",
+   "source_file": "internal/v1mcp/tools/endpoint.go",
    "declared": [
     "top",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "EndpointSecurityVersionControlPolicyPrioritiesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/endpointSecurity/versionControlPolicyPriorities"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "endpoint",
    "registered_as": "write",
    "name": "endpoint_security_version_control_policy_priority_update",
+   "source_file": "internal/v1mcp/tools/endpoint.go",
    "declared": [
     "id",
     "agentUpdateStatus",
@@ -2475,64 +4905,134 @@
     "kernelSupportPackageUpdateStatus"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "EndpointSecurityVersionControlPolicyPriorityUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/endpointSecurity/versionControlPolicyPriorities/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "filesecurity",
    "registered_as": "read",
    "name": "file_security_storages_list",
+   "source_file": "internal/v1mcp/tools/filesecurity.go",
    "declared": [
     "top",
     "orderBy",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "FileSecurityStoragesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/fileSecurity/storages"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "filesecurity",
    "registered_as": "write",
    "name": "file_security_storages_update",
+   "source_file": "internal/v1mcp/tools/filesecurity.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "FileSecurityStoragesUpdate"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/fileSecurity/storages/update"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "healthcheck",
    "registered_as": "read",
    "name": "healthcheck_connectivity_get",
+   "source_file": "internal/v1mcp/tools/healthcheck.go",
    "declared": [],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "HealthcheckConnectivityGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/healthcheck/connectivity"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "iam",
    "registered_as": "write",
    "name": "iam_account_delete",
+   "source_file": "internal/v1mcp/tools/iam.go",
    "declared": [
     "accountId"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "IAMDeleteAccount"
+   ],
+   "http_methods": [
+    "DELETE"
+   ],
+   "paths": [
+    "v3.0/iam/accounts/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "iam",
    "registered_as": "read",
    "name": "iam_account_get",
+   "source_file": "internal/v1mcp/tools/iam.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "IamAccountGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/iam/accounts/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "iam",
    "registered_as": "write",
    "name": "iam_account_invite",
+   "source_file": "internal/v1mcp/tools/iam.go",
    "declared": [
     "email",
     "role",
@@ -2540,12 +5040,24 @@
     "description"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "IAMInviteAccount"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/iam/accounts"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "iam",
    "registered_as": "write",
    "name": "iam_account_update",
+   "source_file": "internal/v1mcp/tools/iam.go",
    "declared": [
     "accountId",
     "role",
@@ -2553,32 +5065,68 @@
     "description"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "IAMUpdateAccount"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/iam/accounts/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "iam",
    "registered_as": "read",
    "name": "iam_accounts_list",
+   "source_file": "internal/v1mcp/tools/iam.go",
    "declared": [
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "IAMListAccounts"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/iam/accounts"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "iam",
    "registered_as": "read",
    "name": "iam_api_key_get",
+   "source_file": "internal/v1mcp/tools/iam.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "IamApiKeyGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/iam/apiKeys/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "iam",
    "registered_as": "write",
    "name": "iam_api_key_update",
+   "source_file": "internal/v1mcp/tools/iam.go",
    "declared": [
     "id",
     "ifMatch",
@@ -2588,66 +5136,136 @@
     "description"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "IamApiKeyUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/iam/apiKeys/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "iam",
    "registered_as": "write",
    "name": "iam_api_keys_create",
+   "source_file": "internal/v1mcp/tools/iam.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "IamApiKeysCreate"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/iam/apiKeys"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "iam",
    "registered_as": "write",
    "name": "iam_api_keys_delete",
+   "source_file": "internal/v1mcp/tools/iam.go",
    "declared": [
     "apiKeyIds"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "IAMDeleteAPIKeys"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/iam/apiKeys/delete"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "iam",
    "registered_as": "read",
    "name": "iam_api_keys_list",
+   "source_file": "internal/v1mcp/tools/iam.go",
    "declared": [
     "filter",
     "orderBy",
     "skipToken"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "IAMListAPIKeys"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/iam/apiKeys"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "iam",
    "registered_as": "write",
    "name": "iam_identity_provider_delete",
+   "source_file": "internal/v1mcp/tools/iam.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "IamIdentityProviderDelete"
+   ],
+   "http_methods": [
+    "DELETE"
+   ],
+   "paths": [
+    "v3.0/iam/identityProviders/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "iam",
    "registered_as": "read",
    "name": "iam_identity_provider_get",
+   "source_file": "internal/v1mcp/tools/iam.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "IamIdentityProviderGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/iam/identityProviders/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "iam",
    "registered_as": "write",
    "name": "iam_identity_provider_update",
+   "source_file": "internal/v1mcp/tools/iam.go",
    "declared": [
     "id",
     "ifMatch",
@@ -2660,12 +5278,24 @@
     "samlAssertionGroupAttribute"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "IamIdentityProviderUpdate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/iam/identityProviders/%s/update"
+   ],
+   "file_upload": true,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "iam",
    "registered_as": "write",
    "name": "iam_identity_providers_create",
+   "source_file": "internal/v1mcp/tools/iam.go",
    "declared": [
     "name",
     "description",
@@ -2676,54 +5306,114 @@
     "samlAssertionGroupAttribute"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "IamIdentityProvidersCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/iam/identityProviders"
+   ],
+   "file_upload": true,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "iam",
    "registered_as": "read",
    "name": "iam_identity_providers_list",
+   "source_file": "internal/v1mcp/tools/iam.go",
    "declared": [
     "top",
     "orderBy",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "IamIdentityProvidersList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/iam/identityProviders"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "iam",
    "registered_as": "write",
    "name": "iam_role_delete",
+   "source_file": "internal/v1mcp/tools/iam.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "IamRoleDelete"
+   ],
+   "http_methods": [
+    "DELETE"
+   ],
+   "paths": [
+    "v3.0/iam/roles/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "iam",
    "registered_as": "read",
    "name": "iam_role_get",
+   "source_file": "internal/v1mcp/tools/iam.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "IamRoleGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/iam/roles/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "iam",
    "registered_as": "read",
    "name": "iam_role_permissions_list",
+   "source_file": "internal/v1mcp/tools/iam.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "IamRolePermissionsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/iam/roles/%s/permissions"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "iam",
    "registered_as": "write",
    "name": "iam_role_update",
+   "source_file": "internal/v1mcp/tools/iam.go",
    "declared": [
     "id",
     "ifMatch",
@@ -2734,12 +5424,24 @@
     "allowUserAccountAssignment"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "IamRoleUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/iam/roles/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "iam",
    "registered_as": "write",
    "name": "iam_roles_create",
+   "source_file": "internal/v1mcp/tools/iam.go",
    "declared": [
     "name",
     "description",
@@ -2748,53 +5450,113 @@
     "allowUserAccountAssignment"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "IamRolesCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/iam/roles"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "iam",
    "registered_as": "read",
    "name": "iam_roles_list",
+   "source_file": "internal/v1mcp/tools/iam.go",
    "declared": [
     "top",
     "orderBy",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "IamRolesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/iam/roles"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "iam",
    "registered_as": "read",
    "name": "iam_roles_permission_keys_list",
+   "source_file": "internal/v1mcp/tools/iam.go",
    "declared": [],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "IamRolesPermissionKeysList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/iam/roles/permissionKeys"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "workbench",
    "registered_as": "read",
    "name": "oat_data_pipeline_get",
+   "source_file": "internal/v1mcp/tools/workbench.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "OatDataPipelineGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/oat/dataPipelines/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "workbench",
    "registered_as": "read",
    "name": "oat_data_pipeline_package_get",
+   "source_file": "internal/v1mcp/tools/workbench.go",
    "declared": [
     "id",
     "packageId"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "OatDataPipelinePackageGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/oat/dataPipelines/%s/packages/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "workbench",
    "registered_as": "read",
    "name": "oat_data_pipeline_packages_list",
+   "source_file": "internal/v1mcp/tools/workbench.go",
    "declared": [
     "id",
     "startDateTime",
@@ -2802,12 +5564,24 @@
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "OatDataPipelinePackagesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/oat/dataPipelines/%s/packages"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "workbench",
    "registered_as": "write",
    "name": "oat_data_pipeline_update",
+   "source_file": "internal/v1mcp/tools/workbench.go",
    "declared": [
     "id",
     "ifMatch",
@@ -2816,100 +5590,200 @@
     "description"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "OatDataPipelineUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/oat/dataPipelines/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "workbench",
    "registered_as": "write",
    "name": "oat_data_pipelines_create",
+   "source_file": "internal/v1mcp/tools/workbench.go",
    "declared": [
     "riskLevels",
     "hasDetail",
     "description"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "OatDataPipelinesCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/oat/dataPipelines"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "workbench",
    "registered_as": "write",
    "name": "oat_data_pipelines_delete",
+   "source_file": "internal/v1mcp/tools/workbench.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "OatDataPipelinesDelete"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/oat/dataPipelines/delete"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "workbench",
    "registered_as": "read",
    "name": "oat_data_pipelines_list",
+   "source_file": "internal/v1mcp/tools/workbench.go",
    "declared": [],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "OatDataPipelinesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/oat/dataPipelines"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_containers_isolate",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseContainersIsolate"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/containers/isolate"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_containers_restore",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseContainersRestore"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/containers/restore"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_containers_terminate",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseContainersTerminate"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/containers/terminate"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_custom_script_delete",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseCustomScriptDelete"
+   ],
+   "http_methods": [
+    "DELETE"
+   ],
+   "paths": [
+    "v3.0/response/customScripts/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "read",
    "name": "response_custom_script_get",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ResponseCustomScriptGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/response/customScripts/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_custom_script_update",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "id",
     "fileType",
@@ -2917,331 +5791,641 @@
     "file"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseCustomScriptUpdate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/customScripts/%s/update"
+   ],
+   "file_upload": true,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_custom_scripts_create",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "fileType",
     "description",
     "file"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseCustomScriptsCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/customScripts"
+   ],
+   "file_upload": true,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "read",
    "name": "response_custom_scripts_list",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ResponseCustomScriptsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/response/customScripts"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_domain_accounts_disable",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseDomainAccountsDisable"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/domainAccounts/disable"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_domain_accounts_enable",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseDomainAccountsEnable"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/domainAccounts/enable"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_domain_accounts_reset_password",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseDomainAccountsResetPassword"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/domainAccounts/resetPassword"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_domain_accounts_sign_out",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseDomainAccountsSignOut"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/domainAccounts/signOut"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_emails_delete",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseEmailsDelete"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/emails/delete"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_emails_quarantine",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseEmailsQuarantine"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/emails/quarantine"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_emails_restore",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseEmailsRestore"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/emails/restore"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "read",
    "name": "response_endpoint_action_exceptions_list",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ResponseEndpointActionExceptionsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/response/endpointActionExceptions"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_endpoint_action_exceptions_register",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseEndpointActionExceptionsRegister"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/endpointActionExceptions/register"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_endpoints_collect_file",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseEndpointsCollectFile"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/endpoints/collectFile"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_endpoints_isolate",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseEndpointsIsolate"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/endpoints/isolate"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_endpoints_restore",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseEndpointsRestore"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/endpoints/restore"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_endpoints_run_osquery",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseEndpointsRunOsquery"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/endpoints/runOsquery"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_endpoints_run_script",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseEndpointsRunScript"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/endpoints/runScript"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_endpoints_run_yara_rules_create",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseEndpointsRunYaraRulesCreate"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/endpoints/runYaraRules"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_endpoints_start_malware_scan",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "endpoints"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseEndpointsStartMalwareScan"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/endpoints/startMalwareScan"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_endpoints_terminate_process",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseEndpointsTerminateProcess"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/endpoints/terminateProcess"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "read",
    "name": "response_isolated_traffic_exceptions_list",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ResponseIsolatedTrafficExceptionsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/response/isolatedTrafficExceptions"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_isolated_traffic_exceptions_register",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseIsolatedTrafficExceptionsRegister"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/isolatedTrafficExceptions/register"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "read",
    "name": "response_osquery_statements_list",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ResponseOsqueryStatementsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/response/osqueryStatements"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "read",
    "name": "response_setting_status_get",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ResponseSettingStatusGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/response/settingStatus"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_setting_status_update",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "endpointActionException",
     "isolatedTrafficException"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseSettingStatusUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/response/settingStatus"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_suspicious_objects_create",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseSuspiciousObjectsCreate"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/suspiciousObjects"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_suspicious_objects_delete",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseSuspiciousObjectsDelete"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/suspiciousObjects/delete"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "read",
    "name": "response_task_get",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ResponseTaskGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/response/tasks/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "write",
    "name": "response_tasks_cancel",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "ResponseTasksCancel"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/response/tasks/cancel"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "read",
    "name": "response_tasks_list",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "startDateTime",
     "endDateTime",
@@ -3250,63 +6434,135 @@
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ResponseTasksList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/response/tasks"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "response",
    "registered_as": "read",
    "name": "response_yara_rule_files_list",
+   "source_file": "internal/v1mcp/tools/response.go",
    "declared": [
     "filter",
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ResponseYaraRuleFilesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/response/yaraRuleFiles"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "sandbox",
    "registered_as": "read",
    "name": "sandbox_analysis_result_get",
+   "source_file": "internal/v1mcp/tools/sandbox.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SandboxAnalysisResultGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/sandbox/analysisResults/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "sandbox",
    "registered_as": "read",
    "name": "sandbox_analysis_result_investigation_package_get",
+   "source_file": "internal/v1mcp/tools/sandbox.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SandboxAnalysisResultInvestigationPackageGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/sandbox/analysisResults/%s/investigationPackage"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "sandbox",
    "registered_as": "read",
    "name": "sandbox_analysis_result_report_get",
+   "source_file": "internal/v1mcp/tools/sandbox.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SandboxAnalysisResultReportGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/sandbox/analysisResults/%s/report"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "sandbox",
    "registered_as": "read",
    "name": "sandbox_analysis_result_suspicious_objects_list",
+   "source_file": "internal/v1mcp/tools/sandbox.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SandboxAnalysisResultSuspiciousObjectsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/sandbox/analysisResults/%s/suspiciousObjects"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "sandbox",
    "registered_as": "read",
    "name": "sandbox_analysis_results_list",
+   "source_file": "internal/v1mcp/tools/sandbox.go",
    "declared": [
     "startDateTime",
     "endDateTime",
@@ -3315,12 +6571,24 @@
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SandboxAnalysisResultsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/sandbox/analysisResults"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "sandbox",
    "registered_as": "write",
    "name": "sandbox_files_analyze",
+   "source_file": "internal/v1mcp/tools/sandbox.go",
    "declared": [
     "file",
     "documentPassword",
@@ -3328,30 +6596,66 @@
     "arguments"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "SandboxFilesAnalyze"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/sandbox/files/analyze"
+   ],
+   "file_upload": true,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "sandbox",
    "registered_as": "read",
    "name": "sandbox_submission_usage_get",
+   "source_file": "internal/v1mcp/tools/sandbox.go",
    "declared": [],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SandboxSubmissionUsageGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/sandbox/submissionUsage"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "sandbox",
    "registered_as": "read",
    "name": "sandbox_task_get",
+   "source_file": "internal/v1mcp/tools/sandbox.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SandboxTaskGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/sandbox/tasks/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "sandbox",
    "registered_as": "read",
    "name": "sandbox_tasks_list",
+   "source_file": "internal/v1mcp/tools/sandbox.go",
    "declared": [
     "startDateTime",
     "endDateTime",
@@ -3361,34 +6665,68 @@
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SandboxTasksList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/sandbox/tasks"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "sandbox",
    "registered_as": "write",
    "name": "sandbox_urls_analyze",
+   "source_file": "internal/v1mcp/tools/sandbox.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "SandboxUrlsAnalyze"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/sandbox/urls/analyze"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "search",
    "registered_as": "read",
    "name": "search_activity_statistics_get",
+   "source_file": "internal/v1mcp/tools/search.go",
    "declared": [
     "period"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SearchActivityStatisticsGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/search/activityStatistics"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "search",
    "registered_as": "read",
    "name": "search_cloud_activities_list",
+   "source_file": "internal/v1mcp/tools/search.go",
    "declared": [
     "startDateTime",
     "endDateTime",
@@ -3398,12 +6736,24 @@
     "query"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SearchCloudActivitiesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/search/cloudActivities"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "search",
    "registered_as": "read",
    "name": "search_container_activities_list",
+   "source_file": "internal/v1mcp/tools/search.go",
    "declared": [
     "startDateTime",
     "endDateTime",
@@ -3413,12 +6763,24 @@
     "query"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SearchContainerActivitiesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/search/containerActivities"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "search",
    "registered_as": "read",
    "name": "search_detections_list",
+   "source_file": "internal/v1mcp/tools/search.go",
    "declared": [
     "startDateTime",
     "endDateTime",
@@ -3428,12 +6790,24 @@
     "query"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SearchDetectionsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/search/detections"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "search",
    "registered_as": "read",
    "name": "search_email_activities_list",
+   "source_file": "internal/v1mcp/tools/search.go",
    "declared": [
     "top",
     "startDateTime",
@@ -3443,12 +6817,24 @@
     "query"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SearchEmailActivitiesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/search/emailActivities"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "search",
    "registered_as": "read",
    "name": "search_endpoint_activities_list",
+   "source_file": "internal/v1mcp/tools/search.go",
    "declared": [
     "startDateTime",
     "endDateTime",
@@ -3458,12 +6844,24 @@
     "query"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SearchEndpointActivitiesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/search/endpointActivities"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "search",
    "registered_as": "read",
    "name": "search_identity_activities_list",
+   "source_file": "internal/v1mcp/tools/search.go",
    "declared": [
     "top",
     "startDateTime",
@@ -3473,12 +6871,24 @@
     "query"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SearchIdentityActivitiesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/search/identityActivities"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "search",
    "registered_as": "read",
    "name": "search_mobile_activities_list",
+   "source_file": "internal/v1mcp/tools/search.go",
    "declared": [
     "startDateTime",
     "endDateTime",
@@ -3488,12 +6898,24 @@
     "query"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SearchMobileActivitiesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/search/mobileActivities"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "search",
    "registered_as": "read",
    "name": "search_network_activities_list",
+   "source_file": "internal/v1mcp/tools/search.go",
    "declared": [
     "startDateTime",
     "endDateTime",
@@ -3503,45 +6925,93 @@
     "query"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SearchNetworkActivitiesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/search/networkActivities"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "search",
    "registered_as": "read",
    "name": "search_sensor_statistics_get",
+   "source_file": "internal/v1mcp/tools/search.go",
    "declared": [
     "period"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SearchSensorStatisticsGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/search/sensorStatistics"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "awareness",
    "registered_as": "read",
    "name": "security_awareness_phishing_rate_trends_list",
+   "source_file": "internal/v1mcp/tools/securityawareness.go",
    "declared": [
     "period",
     "startDateTime",
     "endDateTime"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SecurityAwarenessPhishingRateTrendsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/securityAwareness/phishingSimulations/phishingRateTrends"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "awareness",
    "registered_as": "read",
    "name": "security_awareness_phishing_simulation_round_get",
+   "source_file": "internal/v1mcp/tools/securityawareness.go",
    "declared": [
     "id",
     "roundId"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SecurityAwarenessPhishingSimulationRoundGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/securityAwareness/phishingSimulations/%s/rounds/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "awareness",
    "registered_as": "read",
    "name": "security_awareness_phishing_simulation_round_recipients_list",
+   "source_file": "internal/v1mcp/tools/securityawareness.go",
    "declared": [
     "id",
     "roundId",
@@ -3550,45 +7020,93 @@
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SecurityAwarenessPhishingSimulationRoundRecipientsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/securityAwareness/phishingSimulations/%s/rounds/%s/recipients"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "awareness",
    "registered_as": "read",
    "name": "security_awareness_phishing_simulation_rounds_list",
+   "source_file": "internal/v1mcp/tools/securityawareness.go",
    "declared": [
     "id",
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SecurityAwarenessPhishingSimulationRoundsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/securityAwareness/phishingSimulations/%s/rounds"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "awareness",
    "registered_as": "read",
    "name": "security_awareness_phishing_simulations_list",
+   "source_file": "internal/v1mcp/tools/securityawareness.go",
    "declared": [
     "top",
     "filter",
     "orderBy"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SecurityAwarenessPhishingSimulationsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/securityAwareness/phishingSimulations"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "awareness",
    "registered_as": "read",
    "name": "security_awareness_training_campaign_get",
+   "source_file": "internal/v1mcp/tools/securityawareness.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SecurityAwarenessTrainingCampaignGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/securityAwareness/trainingCampaigns/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "awareness",
    "registered_as": "read",
    "name": "security_awareness_training_campaign_recipients_list",
+   "source_file": "internal/v1mcp/tools/securityawareness.go",
    "declared": [
     "id",
     "top",
@@ -3596,48 +7114,94 @@
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SecurityAwarenessTrainingCampaignRecipientsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/securityAwareness/trainingCampaigns/%s/recipients"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "awareness",
    "registered_as": "read",
    "name": "security_awareness_training_campaigns_list",
+   "source_file": "internal/v1mcp/tools/securityawareness.go",
    "declared": [
     "top",
     "filter",
     "orderBy"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SecurityAwarenessTrainingCampaignsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/securityAwareness/trainingCampaigns"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "playbooks",
    "registered_as": "read",
    "name": "security_playbooks_playbooks_list",
+   "source_file": "internal/v1mcp/tools/securityplaybooks.go",
    "declared": [
     "top",
     "orderBy",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SecurityPlaybooksPlaybooksList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/securityPlaybooks/playbooks"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "playbooks",
    "registered_as": "write",
    "name": "security_playbooks_playbooks_run",
+   "source_file": "internal/v1mcp/tools/securityplaybooks.go",
    "declared": [
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "SecurityPlaybooksPlaybooksRun"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/securityPlaybooks/playbooks/run"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "playbooks",
    "registered_as": "read",
    "name": "security_playbooks_task_actions_list",
+   "source_file": "internal/v1mcp/tools/securityplaybooks.go",
    "declared": [
     "id",
     "top",
@@ -3645,22 +7209,46 @@
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SecurityPlaybooksTaskActionsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/securityPlaybooks/tasks/%s/actions"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "playbooks",
    "registered_as": "read",
    "name": "security_playbooks_task_get",
+   "source_file": "internal/v1mcp/tools/securityplaybooks.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SecurityPlaybooksTaskGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/securityPlaybooks/tasks/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "playbooks",
    "registered_as": "read",
    "name": "security_playbooks_tasks_list",
+   "source_file": "internal/v1mcp/tools/securityplaybooks.go",
    "declared": [
     "startDateTime",
     "endDateTime",
@@ -3670,12 +7258,24 @@
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "SecurityPlaybooksTasksList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/securityPlaybooks/tasks"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "tags",
    "registered_as": "read",
    "name": "tag_management_custom_tag_assets_list",
+   "source_file": "internal/v1mcp/tools/tagmanagement.go",
    "declared": [
     "id",
     "assetType",
@@ -3683,64 +7283,136 @@
     "orderBy"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "TagManagementCustomTagAssetsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/tagManagement/customTags/%s/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "tags",
    "registered_as": "write",
    "name": "tag_management_custom_tags_assign",
+   "source_file": "internal/v1mcp/tools/tagmanagement.go",
    "declared": [
     "assignments"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "TagManagementCustomTagsAssign"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/tagManagement/customTags/assign"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "tags",
    "registered_as": "write",
    "name": "tag_management_custom_tags_create",
+   "source_file": "internal/v1mcp/tools/tagmanagement.go",
    "declared": [
     "tags"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "TagManagementCustomTagsCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/tagManagement/customTags"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "tags",
    "registered_as": "write",
    "name": "tag_management_custom_tags_delete",
+   "source_file": "internal/v1mcp/tools/tagmanagement.go",
    "declared": [
     "tags"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "TagManagementCustomTagsDelete"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/tagManagement/customTags/delete"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "tags",
    "registered_as": "read",
    "name": "tag_management_custom_tags_list",
+   "source_file": "internal/v1mcp/tools/tagmanagement.go",
    "declared": [
     "top",
     "orderBy",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "TagManagementCustomTagsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/tagManagement/customTags"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "tags",
    "registered_as": "write",
    "name": "tag_management_custom_tags_unassign",
+   "source_file": "internal/v1mcp/tools/tagmanagement.go",
    "declared": [
     "assignments"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "TagManagementCustomTagsUnassign"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/tagManagement/customTags/unassign"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "tags",
    "registered_as": "read",
    "name": "tag_management_customizable_tag_assets_list",
+   "source_file": "internal/v1mcp/tools/tagmanagement.go",
    "declared": [
     "id",
     "assetType",
@@ -3748,97 +7420,205 @@
     "orderBy"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "TagManagementCustomizableTagAssetsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/tagManagement/customizableTags/%s/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "tags",
    "registered_as": "write",
    "name": "tag_management_customizable_tags_assign",
+   "source_file": "internal/v1mcp/tools/tagmanagement.go",
    "declared": [
     "assignments"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "TagManagementCustomizableTagsAssign"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/tagManagement/customizableTags/assign"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "tags",
    "registered_as": "write",
    "name": "tag_management_customizable_tags_create",
+   "source_file": "internal/v1mcp/tools/tagmanagement.go",
    "declared": [
     "tags"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "TagManagementCustomizableTagsCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/tagManagement/customizableTags"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "tags",
    "registered_as": "write",
    "name": "tag_management_customizable_tags_delete",
+   "source_file": "internal/v1mcp/tools/tagmanagement.go",
    "declared": [
     "tags"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "TagManagementCustomizableTagsDelete"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/tagManagement/customizableTags/delete"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "tags",
    "registered_as": "read",
    "name": "tag_management_customizable_tags_list",
+   "source_file": "internal/v1mcp/tools/tagmanagement.go",
    "declared": [
     "top",
     "orderBy",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "TagManagementCustomizableTagsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/tagManagement/customizableTags"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "tags",
    "registered_as": "write",
    "name": "tag_management_customizable_tags_unassign",
+   "source_file": "internal/v1mcp/tools/tagmanagement.go",
    "declared": [
     "assignments"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "TagManagementCustomizableTagsUnassign"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/tagManagement/customizableTags/unassign"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "tags",
    "registered_as": "read",
    "name": "tag_management_task_get",
+   "source_file": "internal/v1mcp/tools/tagmanagement.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "TagManagementTaskGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/tagManagement/tasks/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "threatintel",
    "registered_as": "write",
    "name": "threatintel_exceptions_add",
+   "source_file": "internal/v1mcp/tools/threatintel.go",
    "declared": [
     "type",
     "value",
     "description"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ThreatIntelAddExceptions"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/threatintel/suspiciousObjectExceptions"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "threatintel",
    "registered_as": "write",
    "name": "threatintel_exceptions_delete",
+   "source_file": "internal/v1mcp/tools/threatintel.go",
    "declared": [
     "type",
     "value"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ThreatIntelDeleteExceptions"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/threatintel/suspiciousObjectExceptions/delete"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "threatintel",
    "registered_as": "read",
    "name": "threatintel_exceptions_list",
+   "source_file": "internal/v1mcp/tools/threatintel.go",
    "declared": [
     "filter",
     "orderBy",
@@ -3847,20 +7627,44 @@
     "endDateTime"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ThreatIntelListExceptions"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/threatintel/suspiciousObjectExceptions"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "threatintel",
    "registered_as": "read",
    "name": "threatintel_feed_filter_definition_get",
+   "source_file": "internal/v1mcp/tools/threatintel.go",
    "declared": [],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ThreatIntelGetFeedFilterDefinition"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/threatintel/feeds/filterDefinition"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "threatintel",
    "registered_as": "read",
    "name": "threatintel_feed_indicators_list",
+   "source_file": "internal/v1mcp/tools/threatintel.go",
    "declared": [
     "startDateTime",
     "endDateTime",
@@ -3868,12 +7672,24 @@
     "indicatorObjectFormat"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ThreatIntelListFeedIndicators"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/threatintel/feedIndicators"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "threatintel",
    "registered_as": "read",
    "name": "threatintel_feeds_list",
+   "source_file": "internal/v1mcp/tools/threatintel.go",
    "declared": [
     "contextualFilter",
     "startDateTime",
@@ -3882,43 +7698,91 @@
     "responseObjectFormat"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ThreatIntelListFeeds"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/threatintel/feeds"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "threatintel",
    "registered_as": "read",
    "name": "threatintel_intelligence_report_get",
+   "source_file": "internal/v1mcp/tools/threatintel.go",
    "declared": [
     "reportId"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ThreatIntelGetIntelligenceReport"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/threatintel/intelligenceReports/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "threatintel",
    "registered_as": "write",
    "name": "threatintel_intelligence_reports_create",
+   "source_file": "internal/v1mcp/tools/threatintel.go",
    "declared": [
     "file",
     "reportName"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ThreatintelIntelligenceReportsCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/threatintel/intelligenceReports"
+   ],
+   "file_upload": true,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "threatintel",
    "registered_as": "write",
    "name": "threatintel_intelligence_reports_delete",
+   "source_file": "internal/v1mcp/tools/threatintel.go",
    "declared": [
     "reportIds"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ThreatIntelDeleteIntelligenceReports"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/threatintel/intelligenceReports/delete"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "threatintel",
    "registered_as": "read",
    "name": "threatintel_intelligence_reports_list",
+   "source_file": "internal/v1mcp/tools/threatintel.go",
    "declared": [
     "filter",
     "orderBy",
@@ -3927,12 +7791,24 @@
     "endDateTime"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ThreatIntelListIntelligenceReports"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/threatintel/intelligenceReports"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "threatintel",
    "registered_as": "write",
    "name": "threatintel_suspicious_objects_add",
+   "source_file": "internal/v1mcp/tools/threatintel.go",
    "declared": [
     "type",
     "value",
@@ -3942,23 +7818,47 @@
     "daysToExpiration"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ThreatIntelAddSuspiciousObjects"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/threatintel/suspiciousObjects"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "threatintel",
    "registered_as": "write",
    "name": "threatintel_suspicious_objects_delete",
+   "source_file": "internal/v1mcp/tools/threatintel.go",
    "declared": [
     "type",
     "value"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ThreatIntelDeleteSuspiciousObjects"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/threatintel/suspiciousObjects/delete"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "threatintel",
    "registered_as": "read",
    "name": "threatintel_suspicious_objects_list",
+   "source_file": "internal/v1mcp/tools/threatintel.go",
    "declared": [
     "filter",
     "orderBy",
@@ -3967,34 +7867,70 @@
     "endDateTime"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ThreatIntelListSuspiciousObjects"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/threatintel/suspiciousObjects"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "threatintel",
    "registered_as": "write",
    "name": "threatintel_sweep_trigger",
+   "source_file": "internal/v1mcp/tools/threatintel.go",
    "declared": [
     "reportId",
     "sweepType",
     "description"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "ThreatIntelTriggerSweep"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/threatintel/intelligenceReports/sweep"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "threatintel",
    "registered_as": "read",
    "name": "threatintel_task_results_get",
+   "source_file": "internal/v1mcp/tools/threatintel.go",
    "declared": [
     "taskId"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ThreatIntelGetTaskResults"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/threatintel/tasks/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "threatintel",
    "registered_as": "read",
    "name": "threatintel_tasks_list",
+   "source_file": "internal/v1mcp/tools/threatintel.go",
    "declared": [
     "filter",
     "orderBy",
@@ -4003,33 +7939,69 @@
     "endDateTime"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ThreatIntelListTasks"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/threatintel/tasks"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "workbench",
    "registered_as": "read",
    "name": "workbench_alert_detail_get",
+   "source_file": "internal/v1mcp/tools/workbench.go",
    "declared": [
     "alertId"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "WorkbenchGetAlertDetails"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/workbench/alerts/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "workbench",
    "registered_as": "read",
    "name": "workbench_alert_note_get",
+   "source_file": "internal/v1mcp/tools/workbench.go",
    "declared": [
     "alertId",
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "WorkbenchAlertNoteGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/workbench/alerts/%s/notes/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "workbench",
    "registered_as": "write",
    "name": "workbench_alert_note_update",
+   "source_file": "internal/v1mcp/tools/workbench.go",
    "declared": [
     "alertId",
     "id",
@@ -4037,36 +8009,70 @@
     "content"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "WorkbenchAlertNoteUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/workbench/alerts/%s/notes/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "workbench",
    "registered_as": "write",
    "name": "workbench_alert_notes_create",
+   "source_file": "internal/v1mcp/tools/workbench.go",
    "declared": [
     "alertId",
     "content"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "WorkbenchAlertNotesCreate"
+   ],
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/workbench/alerts/%s/notes"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "workbench",
    "registered_as": "write",
    "name": "workbench_alert_notes_delete",
+   "source_file": "internal/v1mcp/tools/workbench.go",
    "declared": [
     "alertId",
     "items"
    ],
-   "not_forwarded": [
-    "items"
+   "not_forwarded": [],
+   "readonly_hint": false,
+   "client_calls": [
+    "WorkbenchAlertNotesDelete"
    ],
-   "readonly_hint": false
+   "http_methods": [
+    "POST"
+   ],
+   "paths": [
+    "v3.0/workbench/alerts/%s/notes/delete"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "workbench",
    "registered_as": "read",
    "name": "workbench_alert_notes_list",
+   "source_file": "internal/v1mcp/tools/workbench.go",
    "declared": [
     "alertId",
     "filter",
@@ -4077,12 +8083,24 @@
    "not_forwarded": [
     "skipToken"
    ],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "WorkbenchGetAlertNotes"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/workbench/alerts/%s/notes"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "workbench",
    "registered_as": "write",
    "name": "workbench_alert_update",
+   "source_file": "internal/v1mcp/tools/workbench.go",
    "declared": [
     "id",
     "ifMatch",
@@ -4091,12 +8109,24 @@
     "investigationResult"
    ],
    "not_forwarded": [],
-   "readonly_hint": false
+   "readonly_hint": false,
+   "client_calls": [
+    "WorkbenchAlertUpdate"
+   ],
+   "http_methods": [
+    "PATCH"
+   ],
+   "paths": [
+    "v3.0/workbench/alerts/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "workbench",
    "registered_as": "read",
    "name": "workbench_alerts_list",
+   "source_file": "internal/v1mcp/tools/workbench.go",
    "declared": [
     "filter",
     "orderBy",
@@ -4104,67 +8134,139 @@
     "endDateTime"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "WorkbenchAlertsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/workbench/alerts"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   },
   {
    "toolset": "workbench",
    "registered_as": "read",
    "name": "workbench_insight_get",
+   "source_file": "internal/v1mcp/tools/workbench.go",
    "declared": [
     "id"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "WorkbenchInsightGet"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/workbench/insights/%s"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "workbench",
    "registered_as": "read",
    "name": "workbench_insight_impact_scope_entities_list",
+   "source_file": "internal/v1mcp/tools/workbench.go",
    "declared": [
     "id",
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "WorkbenchInsightImpactScopeEntitiesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/workbench/insights/%s/impactScopeEntities"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "workbench",
    "registered_as": "read",
    "name": "workbench_insight_indicators_list",
+   "source_file": "internal/v1mcp/tools/workbench.go",
    "declared": [
     "id",
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "WorkbenchInsightIndicatorsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/workbench/insights/%s/indicators"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "workbench",
    "registered_as": "read",
    "name": "workbench_insight_matched_highlights_list",
+   "source_file": "internal/v1mcp/tools/workbench.go",
    "declared": [
     "id",
     "top"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "WorkbenchInsightMatchedHighlightsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/workbench/insights/%s/matchedHighlights"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "workbench",
    "registered_as": "read",
    "name": "workbench_insights_list",
+   "source_file": "internal/v1mcp/tools/workbench.go",
    "declared": [
     "orderBy",
     "top",
     "filter"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "WorkbenchInsightsList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/workbench/insights"
+   ],
+   "file_upload": false,
+   "response_handler": "handleResponse"
   },
   {
    "toolset": "workbench",
    "registered_as": "read",
    "name": "workbench_observed_attack_techniques_list",
+   "source_file": "internal/v1mcp/tools/workbench.go",
    "declared": [
     "filter",
     "top",
@@ -4175,7 +8277,18 @@
     "nextBatchToken"
    ],
    "not_forwarded": [],
-   "readonly_hint": true
+   "readonly_hint": true,
+   "client_calls": [
+    "ObservedAttackTechniquesList"
+   ],
+   "http_methods": [
+    "GET"
+   ],
+   "paths": [
+    "v3.0/oat/detections"
+   ],
+   "file_upload": false,
+   "response_handler": "handleStatusResponse"
   }
  ]
 }
