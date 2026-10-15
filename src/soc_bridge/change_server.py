@@ -34,7 +34,9 @@ async def change_operations(platform: str = "", query: str = "", effect: str = "
                                       openWorldHint=False))
 async def change_request(platform: str, tool: str, arguments: dict[str, Any] | None, justification: str) -> dict:
     """Propose one change with validated arguments and a justification. Writes a local request only;
-    it does not run anything. A person must approve it in a terminal with
+    it does not run anything. For upload tools, `file` is an absolute path to a local regular file
+    (no links, at most 64 MiB); it is copied to a private staging folder and its SHA-256 becomes
+    part of what the human approves. A person must approve it in a terminal with
     `soc-bridge change approve <id>`; nothing in the conversation approves it."""
     from .change_control import propose
     from .upstream_access import Refused
@@ -60,7 +62,11 @@ async def change_request_status(request_id: str) -> dict:
 async def change_execute(request_id: str, timeout_seconds: int = 120) -> dict:
     """Execute an approved change request once. Refused unless changes are enabled for this server,
     the policy file lists the tool, a person approved this exact request in a terminal and the
-    approval is valid and unexpired. A timeout leaves the outcome uncertain; it is never retried."""
+    approval is valid and unexpired (for uploads, the staged file must still match the approved
+    SHA-256). request_status is executed, rejected_by_upstream (explicit 4xx answer), not_sent, or
+    outcome_uncertain: sent without a valid answer (timeout, cancellation, broken connection,
+    invalid response, 5xx), so the change may have been applied and must be reconciled in the
+    product before a new proposal. A request is never retried."""
     from .change_control import execute
     from .upstream_access import Refused
     if isinstance(timeout_seconds, bool) or not isinstance(timeout_seconds, int) or not 5 <= timeout_seconds <= 300:

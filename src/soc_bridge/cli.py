@@ -104,6 +104,7 @@ def _change(args: argparse.Namespace) -> int:
         if args.action == "policy":
             print(json.dumps(change_control.policy(), indent=1))
         elif args.action == "list":
+            change_control.sweep_expired()
             root = change_control.change_dir()
             requests = [change_control.summary(json.loads(p.read_text(encoding="utf-8")))
                         for p in sorted(root.glob("*.json"))] if root.is_dir() else []
