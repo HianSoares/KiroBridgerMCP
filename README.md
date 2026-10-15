@@ -74,11 +74,15 @@ Linux records now receive a census of sudo actors, targets and commands across a
 
 Ask Kiro: "Investigue a offense 12345". `investigate_offense_case` collects offense-linked records, resumes known Ariel jobs from their saved cursors instead of recreating them, deepens related Trend alerts when Vision One is available, separates observed behavior from rule names, builds competing hypotheses, plans the next pivots (hypothesis, motivation, cost, stop criterion) and evaluates each disposition and live closing reason with explicit contradictions. Analyst records count only within their scope: each observed instance is checked by entity, process/chain and a window with an explicit timezone. Authorizations name a behavior (exact command, script, artifact, instance, sudo command or an explicitly declared breadth), never just an executable or account. A related Trend True Positive confirms malicious activity only when the offense-linked process is the malicious Trend execution or its demonstrated parent/child; a shared hash, IP or time stays a candidate. Trend facts are kept per alert: an inconclusive or failed re-collection never erases them, and only cited evidence refutes them. The result is a decision with justified confidence (no numeric score), decisive evidence with query/row references and a Portuguese note for human review. The case is stored locally in `reports/cases` (ignored by Git) under an inter-process lock, with checkpoints during collection; it belongs to one offense, can be continued with the same `case_id` after an interruption and re-evaluated with `reassess_case` from the stored QRadar and Trend results without new queries; earlier report revisions are kept. `soc-bridge doctor` / `bridge_diagnostics` show versions, connection stages and paginated tool discovery without secrets. See [professional investigation](docs/professional-investigation.md) and [case store](docs/case-store.md).
 
-## Reach any upstream tool
+## Route any audited upstream tool
 
-Five `upstream_*` tools on `soc-bridge-readonly` reach every query tool of the audited official MCPs: 53 of 83 QRadar tools and 202 of 349 Vision One tools. Kiro searches an audited registry by objective, reads the exact contract, then calls a tool with schema-validated arguments. No offense or Workbench ID is needed.
+All 432 tools of the audited official MCPs have a route; a route does not prove a tool works.
 
-The remaining 167 tools change state or send data out. They run only from a separate `soc-bridge-change` server, which is disabled by default and needs a human approval typed in a terminal for each call. Ten Vision One file-upload tools are unsupported, so coverage is not total. No `upstream_*` call has been validated against a real tenant yet. See [upstream access](docs/upstream-access.md) and the [coverage matrix](docs/coverage-matrix.md).
+- **Read tools (255):** 53 QRadar and 202 Vision One tools are callable through five `upstream_*` tools on `soc-bridge-readonly`. Kiro searches an audited registry by objective, reads the exact contract, then calls a tool with schema-validated arguments. No offense or Workbench ID is needed.
+- **Change tools (177):** these change state, send data out or upload files (the ten Vision One uploads use an approved, hash-checked staged copy). They run only from a separate `soc-bridge-change` server, which is disabled by default and needs a human approval typed in a terminal for each call.
+- **Evidence:** all tools pass schema and route checks. Only 15 were tested end to end, against synthetic servers. None has been executed against a real tenant yet.
+
+See [upstream access](docs/upstream-access.md) and the [coverage matrix](docs/coverage-matrix.md).
 
 ## Investigative coverage and closure decisions
 

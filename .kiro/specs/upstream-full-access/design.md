@@ -24,3 +24,11 @@ For each call it walks the paginated tools/list, checks the contract, then makes
 `change_server.py` exposes four FastMCP tools. soc-bridge-readonly never imports it.
 
 Tests use `tests/fake_upstream_mcp.py`. It announces the audited contracts and reproduces each product's response format, over memory streams and stdio.
+
+Review fixes:
+
+- **Calls are blocked** on incomplete discovery or on any recursive contract difference.
+- **`data` stays within `max_output_chars`.** Continuation, total and ID fields are kept. Locally cut pages offer `skip_items` recovery before the next page, and empty pages with continuation are partial.
+- **Vision One runs a pinned image**, by index digest. Its labels and provenance name the audited commit.
+- **Change outcomes after sending are uncertain** unless the upstream answered explicitly.
+- **Uploads** use a staged copy that is hash-bound to the approval and mounted read-only as a single file.

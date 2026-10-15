@@ -41,7 +41,7 @@ def problems(reg: dict) -> list[str]:
             t = index.get((platform, name))
             if t is None or not callable_for_query(t):
                 found.append(f"{platform}/{name}: curated workflow tool is not a query tool in the registry")
-    for key in coverage.CONTRACT_TESTED:
+    for key in coverage.END_TO_END_TESTED:
         if key not in index:
             found.append(f"{key[0]}/{key[1]}: contract-tested tool is not in the registry")
     for t in reg["tools"]:
@@ -63,10 +63,10 @@ def access(t: dict) -> str:
 
 def enabled(t: dict) -> str:
     if callable_for_query(t):
-        return "yes"
+        return "enabled (read path)"
     if callable_for_change(t):
-        return "no (opt-in + human approval)"
-    return "no"
+        return "blocked by policy (opt-in + human approval per call)"
+    return "not callable"
 
 
 def pagination(t: dict) -> str:
@@ -84,7 +84,8 @@ def summary(reg: dict, platform: str) -> list[str]:
     rows: dict[str, Counter] = {}
     for t in tools:
         rows.setdefault(t["category"], Counter())[access(t).split(":")[0]] += 1
-    out = ["| Category | Tools | Query | Change | Unsupported | Pending review |", "|---|---|---|---|---|---|"]
+    out = ["| Category | Catalogued | Query (enabled) | Change (blocked by policy) | Unsupported | Pending review |",
+           "|---|---|---|---|---|---|"]
     total = Counter()
     for category in sorted(rows):
         c = rows[category]
@@ -98,19 +99,23 @@ def summary(reg: dict, platform: str) -> list[str]:
 
 def table(reg: dict, platform: str) -> list[str]:
     allowed, described = CURATED[platform]
-    out = ["| Tool | Category | Effect | Bridge access | Policy-enabled | Curated workflow | Contract-tested | "
-           "Pagination | Dependencies and limits |", "|---|---|---|---|---|---|---|---|---|"]
+    out = ["| Tool | Category | Effect | Route | Policy | Curated workflow | Contract checks | End-to-end (synthetic) | "
+           "Real product | Pagination | Dependencies and limits |", "|---|---|---|---|---|---|---|---|---|---|---|"]
     for t in sorted((t for t in reg["tools"] if t["platform"] == platform), key=lambda t: (t["category"], t["name"])):
         name = t["name"]
         curated = described[name][1] if name in allowed else ""
-        tested = coverage.CONTRACT_TESTED.get((platform, name), "")
+        tested = coverage.END_TO_END_TESTED.get((platform, name), "no")
+        routable = callable_for_query(t) or callable_for_change(t)
         limits = t["dependencies"]
         if t["support"] == "unsupported":
             limits = f"{limits}. Unsupported: {t['unsupported_reason']}"
         elif name in allowed:
             limits = f"{limits}. Workflow: {described[name][3]}"
+        if t.get("upload"):
+            limits = f"{limits}. Upload: {t['upload']['bridge']}"
         out.append("| " + " | ".join(cell(c) for c in (
-            name, t["category"], t["effect"], access(t), enabled(t), curated, tested, pagination(t), limits)) + " |")
+            name, t["category"], t["effect"], access(t), enabled(t), curated,
+            "schema, route, gate" if routable else "no", tested, "not executed", pagination(t), limits)) + " |")
     return out
 
 
@@ -133,19 +138,21 @@ def build() -> str:
         "",
         "Coverage levels, kept separate:",
         "",
-        "- **Catalogued** and **announced**: every row. Each tool is in the audited handler catalog and in the "
-        "complete `tools/list` of that version (Vision One write tools are announced only without `-readonly`). "
-        "A given installation may not announce a tool (feature toggles, toolsets, version); `upstream_inventory` "
-        "reports that at run time.",
-        "- **Bridge access**: `query` tools run through `upstream_query` on soc-bridge-readonly; `change` tools only "
-        "through the separate soc-bridge-change server; `unsupported` tools have a stated reason.",
-        "- **Policy-enabled**: query tools are enabled. Change tools are disabled by default and need "
+        "- **Catalogued**: every row. The tool is in the audited handler catalog and in the complete `tools/list` "
+        "of that version (Vision One write tools are announced only without `-readonly`). A given installation "
+        "may not announce it (feature toggles, toolsets, version); `upstream_inventory` reports that at run time.",
+        "- **Route** (supported and routable): `query` tools run through `upstream_query` on soc-bridge-readonly; "
+        "`change` tools only through the separate soc-bridge-change server; `unsupported` tools have a reason.",
+        "- **Policy**: query tools are enabled. Change tools are blocked by policy by default: they need "
         "`SOC_BRIDGE_ENABLE_CHANGES=1`, the tool in the policy file and a human approval typed in a terminal per call.",
         "- **Curated workflow**: tools the investigation workflows call automatically when their trigger applies.",
-        "- **Contract-tested**: end-to-end test through the bridge against the synthetic upstream in the product's "
-        "response format. Every other tool is covered by registry, routing, gate and schema-validation tests only.",
-        "- **Real-executed**: none recorded for the upstream_* tools in this version. Validation against real "
-        "QRadar and Vision One tenants is pending and requires customer credentials.",
+        "- **Contract checks**: the audited schema is a valid JSON Schema, matches the audited announced contract, and the "
+        "tool has exactly one route enforced by the gate. This does not execute the tool.",
+        "- **End-to-end (synthetic)**: called through the bridge against a synthetic MCP server that reproduces the "
+        "product's response format. All other tools are not exercised end to end, so their functional behavior is "
+        "not proven by tests.",
+        "- **Real product**: no upstream_* call has been executed against a real QRadar or Vision One by this work. "
+        "That validation needs customer credentials.",
         "",
     ]
     for platform, label in PLATFORM_NAMES.items():

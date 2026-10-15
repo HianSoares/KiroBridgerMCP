@@ -125,7 +125,7 @@ Consultas obrigatórias ausentes também impedem confirmar a coleta, mesmo que a
 
 ## Atualização
 
-A ponte agora carrega o toolset `eiqs` da Trend. Uma imagem Docker antiga em cache que não conheça esse toolset falha ao iniciar com o erro `unknown toolset`. Nesse caso, rode `docker pull ghcr.io/trendmicro/vision-one-mcp-server`.
+A ponte agora carrega o toolset `eiqs` da Trend. Uma imagem Docker antiga em cache que não conheça esse toolset falha ao iniciar com o erro `unknown toolset`. A ponte usa a imagem fixada pelo digest (`ghcr.io/trendmicro/vision-one-mcp-server@sha256:91e8a673c94a5612f145d6a23f14c9a1b712ec8eb2345202b5e8310661408b67`), que inclui esse toolset. Se o Docker não conseguir baixá-la, verifique o acesso ao registro ou ao espelho.
 
 Depois de atualizar o código e o pacote, reconecte `soc-bridge-readonly` no Kiro e abra um chat novo, para carregar as 33 tools e as instruções atualizadas.
 

@@ -65,13 +65,17 @@ Descoberta por descrição e investigação em lotes: [guia](offense-batch-inves
 
 ## Cobertura dos catálogos upstream
 
-A [matriz de cobertura](coverage-matrix.md) lista todas as tools das versões auditadas dos MCPs oficiais com efeito, caminho de acesso, habilitação, fluxo curado, teste de contrato, paginação e dependências. Os números atuais são:
+A [matriz de cobertura](coverage-matrix.md) lista todas as tools das versões auditadas dos MCPs oficiais. Para cada uma, ela mostra efeito, rota, política, fluxo curado, verificação de contrato, teste ponta a ponta sintético, execução real, paginação e dependências.
 
-- 255 tools de consulta acessíveis por `upstream_query`;
-- 167 tools de alteração, somente pelo `soc-bridge-change`, desabilitado por padrão;
-- 10 uploads de arquivo do Vision One sem suporte, porque leem um caminho local dentro do contêiner.
+Números atuais:
 
-A cobertura **não é total**. Nenhuma chamada `upstream_*` foi validada ainda em tenant real. Presença no catálogo não garante disponibilidade na instalação: use `upstream_inventory`. Veja [acesso às ferramentas upstream](upstream-access.md). Filtros server-side não confirmados em ambiente real (assets por IP, `createdDateTime` de insights, `userDisplayName` de identidade) têm o resultado conferido localmente e, se rejeitados, aparecem como `request_rejected`. Detalhes em [cobertura investigativa](investigative-coverage.md).
+- 255 tools de consulta acessíveis por `upstream_query`.
+- 177 tools de alteração, somente pelo `soc-bridge-change`, desabilitado por padrão. Entre elas estão os 10 uploads do Vision One, feitos a partir de uma cópia aprovada por SHA-256 e montada somente leitura.
+- Todas as 432 passam por verificação de schema e rota.
+- Apenas 15 foram testadas ponta a ponta, contra servidores sintéticos.
+- Nenhuma chamada `upstream_*` foi validada ainda em tenant real.
+
+Ter rota não comprova que a tool funcione na sua instalação. Presença no catálogo não garante disponibilidade na instalação: use `upstream_inventory`. Veja [acesso às ferramentas upstream](upstream-access.md). Filtros server-side não confirmados em ambiente real (assets por IP, `createdDateTime` de insights, `userDisplayName` de identidade) têm o resultado conferido localmente e, se rejeitados, aparecem como `request_rejected`. Detalhes em [cobertura investigativa](investigative-coverage.md).
 
 ## Execução e recuperação
 

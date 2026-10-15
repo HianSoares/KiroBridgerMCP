@@ -25,7 +25,11 @@ Além das investigações curadas, `soc-bridge-readonly` alcança qualquer ferra
 
 ## Paginação, limites e falhas
 
-- Continue somente com `pagination.next_arguments`.
+- Continue somente com `pagination.next_arguments`. Quando houver `pagination.recover`, a ponte entregou só parte da página. Antes de qualquer `next_page_arguments`, chame de novo com os mesmos argumentos e `skip_items`; pular essa etapa omite registros.
+- `max_output_chars` limita o campo `data`. Leia `items_returned`, `items_delivered`, `items_omitted` e `fields_omitted` antes de concluir.
+- Página vazia com continuação é `partial`, não ausência de dados.
+- `discovery_incomplete` e `contract_changed` bloqueiam a chamada, e nenhuma consulta foi feita. Não trate esses resultados como vazios.
+- `version_binding` mostra a versão vinculada. A versão do QRadar não é verificada pela ponte.
 - `continuation_supported: false` significa que o handler não encaminha o cursor: estreite o filtro ou a janela em vez de repetir a chamada.
 - `partial` significa que há mais dados ou que a saída foi truncada (`output_truncated`). Nunca descreva esse resultado como completo.
 - `empty` só vale para a consulta, o filtro e a janela usados.
@@ -33,7 +37,8 @@ Além das investigações curadas, `soc-bridge-readonly` alcança qualquer ferra
   - `tool_absent`, `discovery_incomplete`, `contract_changed`, `policy_blocked`;
   - `invalid_arguments`, `authentication`;
   - `permission` (403 sem menção a licença), `permission_or_license` (403 que menciona licença; confirmar com o administrador);
-  - `rate_limited`, `timeout`, `upstream_unavailable`.
+  - `rate_limited`, `timeout`, `upstream_unavailable`, `connection_lost_or_invalid_response`.
+- `result_state: unknown`: o pedido foi enviado e não houve resposta válida. Para um `create_ariel_search`, confira as buscas recentes antes de criar outra.
 - Não atribua uma falha a licença sem essa evidência. Uma falha em uma fonte não apaga a evidência coletada em outra.
 
 ## Evidência
@@ -49,5 +54,5 @@ Além das investigações curadas, `soc-bridge-readonly` alcança qualquer ferra
 ## Alterações nunca fazem parte da investigação
 
 - `upstream_query` recusa toda ferramenta com `access=change` (`policy_blocked`, sem chamada ao produto). Entre elas: fechar offense, notas, conjuntos de referência, bloqueio, isolamento, exclusão, implantação, geradores, credenciais e DNS/WHOIS externos.
-- Essas ferramentas existem apenas no servidor separado `soc-bridge-change`, desabilitado por padrão. Ele exige aprovação humana digitada em terminal para cada pedido. Argumentos como `confirm=true` nunca equivalem a aprovação.
+- Essas ferramentas existem apenas no servidor separado `soc-bridge-change`, desabilitado por padrão. Os uploads de arquivo também ficam nele. Ele exige aprovação humana digitada em terminal para cada pedido. Argumentos como `confirm=true` nunca equivalem a aprovação.
 - Se o analista quiser uma alteração, descreva a recomendação e diga que ela depende desse fluxo humano; não a execute.

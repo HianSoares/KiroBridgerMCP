@@ -99,15 +99,18 @@ TREND = {
 }
 
 # Tools with an end-to-end test through upstream_query/upstream_download/soc-bridge-change against the
-# synthetic upstream, reproducing the product's response format (tests/test_upstream_access.py).
-CONTRACT_TESTED = {
+# synthetic upstream, reproducing the product's response format (tests/test_upstream_access.py and
+# tests/test_upstream_regressions.py). Every other routable tool has contract checks only (schema,
+# route and gate); none has been executed against a real product by these tests.
+END_TO_END_TESTED = {
     ("qradar", "list_offenses"): "range pagination forwarded (offset/limit), arguments forwarded unchanged",
     ("qradar", "get_offense"): "HTTP 404 classified, upstream body not copied",
     ("qradar", "list_users"): "HTTP 403 classified as permission, not license",
     ("qradar", "geolocate_ip"): "formatted text over stdio, UTF-8 preserved",
     ("qradar", "get_system_info"): "timeout during the call and cancellation",
     ("qradar", "list_rules"): "absent from tools/list: tool_absent, no call",
-    ("qradar", "add_offense_note"): "change path: human approval, policy, single use",
+    ("qradar", "add_offense_note"): "change path: approval, policy, single use; uncertain outcome after send "
+                                    "(broken connection, timeout, cancellation, 5xx); explicit 409 rejection",
     ("vision_one", "endpoint_security_endpoints_list"): "skipToken continuation and ETag headers block",
     ("vision_one", "workbench_alert_notes_list"): "skipToken not forwarded: continuation refused; untrusted text",
     ("vision_one", "audit_logs_list"): "HTTP 403 with entitlement text: permission_or_license",
@@ -115,6 +118,7 @@ CONTRACT_TESTED = {
     ("vision_one", "sandbox_analysis_result_report_get"): "binary embedded resource, saved by upstream_download",
     ("vision_one", "workbench_alert_notes_create"): "change path in a container started without -readonly",
     ("vision_one", "container_security_generate_service_gateway_password"): "generated credential returned once, not stored",
+    ("vision_one", "sandbox_files_analyze"): "staged upload: approved SHA-256, single read-only file mount, cleanup",
 }
 
 

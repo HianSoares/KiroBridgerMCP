@@ -138,11 +138,10 @@ Test-NetConnection 127.0.0.1 -Port 5001 -InformationLevel Quiet
 
 **Não é necessário clonar nem iniciar manualmente** o repositório da Trend para usar esta ponte. O código de `soc_bridge.transports` chama `docker run -i --rm -e TREND_VISION_ONE_API_KEY ghcr.io/trendmicro/vision-one-mcp-server -region <REGIÃO> -readonly=true ...` por stdio quando recebe uma investigação real. Os toolsets variam conforme o tipo de investigação (`workbench`, `search`, `endpoint`). Kiro enxerga apenas `soc-bridge-readonly`.
 
-Com Docker já funcionando, opcionalmente faça o download da imagem antecipadamente:
+A ponte usa sempre a imagem auditada (`v0.9.0`), fixada pelo digest. Com Docker já funcionando, você pode baixá-la antecipadamente:
 
 ```powershell
-docker pull ghcr.io/trendmicro/vision-one-mcp-server
-docker image inspect ghcr.io/trendmicro/vision-one-mcp-server --format '{{.Id}}'
+docker pull ghcr.io/trendmicro/vision-one-mcp-server@sha256:91e8a673c94a5612f145d6a23f14c9a1b712ec8eb2345202b5e8310661408b67
 ```
 
 **Esperado:** a imagem está disponível localmente. `docker ps` pode continuar sem contêiner Trend: ele é temporário e aparece somente durante chamadas da ponte. A chave da Trend não vai no `docker pull`; ela é transmitida ao contêiner apenas na execução da investigação. Para desenvolver ou auditar esse componente, veja as instruções e o código do [repositório upstream da Trend](https://github.com/trendmicro/vision-one-mcp-server). O README upstream informa o modo somente leitura e a lista de regiões suportadas.
@@ -171,7 +170,10 @@ Para um alerta Trend, substitua a referência por `"<ID_WORKBENCH_AUTORIZADO>"`.
 
 As tools `upstream_tools`, `upstream_tool_details`, `upstream_query`, `upstream_download` e `upstream_inventory` alcançam todas as ferramentas de consulta das versões auditadas: 53 do QRadar MCP e 202 do Vision One MCP. Elas usam as mesmas credenciais e o mesmo `mcp.json` dos passos anteriores. Não há configuração adicional para leitura.
 
-- **Versões.** Para o Vision One, fixe a imagem na versão auditada (`ghcr.io/trendmicro/vision-one-mcp-server:v0.9.0`) ou rode `upstream_inventory` depois de atualizar. Ferramentas novas ou alteradas ficam `pending_review` ou `contract_changed` até a auditoria ser refeita.
+- **Versões.**
+  - **Vision One:** a ponte sempre inicia a imagem auditada, fixada pelo digest (`version_binding` nas respostas). Atualizar exige refazer a auditoria ([guia](upstream-access.md#refreshing-the-audit)).
+  - **QRadar:** a versão em execução não é verificada pela ponte. Mantenha o QRadar MCP no commit auditado.
+  - Ferramentas novas ou alteradas ficam `pending_review` ou `contract_changed` até a auditoria ser refeita.
 - **Licenças e permissões.** Variam por ferramenta: veja a coluna de dependências da [matriz de cobertura](coverage-matrix.md).
 - **Ferramentas de alteração.** Ficam em um servidor separado, `soc-bridge-change`, desabilitado por padrão, com aprovação humana por terminal. Veja [acesso às ferramentas upstream](upstream-access.md#soc-bridge-change-disabled-by-default). Não o habilite em produção sem decisão explícita da sua organização.
 
