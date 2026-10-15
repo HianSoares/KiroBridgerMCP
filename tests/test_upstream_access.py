@@ -54,8 +54,12 @@ class FakeUpstream:
         self.env = {"FAKE_UPSTREAM_LOG": str(self.log), "FAKE_UPSTREAM_HIDE": "", "FAKE_UPSTREAM_DRIFT": "",
                     "FAKE_UPSTREAM_EXTRA": "", **env}
 
-    async def open(self, stack, platform, toolset="", readonly=True, settings=None):
-        self.opened.append({"platform": platform, "toolset": toolset, "readonly": readonly})
+    async def open(self, stack, platform, toolset="", readonly=True, settings=None, mounts=None):
+        self.opened.append({"platform": platform, "toolset": toolset, "readonly": readonly,
+                            **({"mounts": mounts} if mounts else {})})
+        if mounts:  # emulate the container's read-only single-file mounts
+            os.environ["FAKE_UPSTREAM_MOUNTS"] = json.dumps({target: host for host, target in mounts})
+            self.env["FAKE_UPSTREAM_MOUNTS"] = os.environ["FAKE_UPSTREAM_MOUNTS"]
         if self.transport == "memory":
             return await stack.enter(fake_upstream_mcp.connect(platform), platform, "fake memory session")
         from mcp import ClientSession, StdioServerParameters
@@ -74,7 +78,8 @@ class FakeUpstream:
 
     @contextlib.contextmanager
     def patch(self):
-        with mock.patch.dict(os.environ, self.env),                 mock.patch.multiple(live, open_session=self.open, _open_all_toolsets=self.open_all):
+        with mock.patch.dict(os.environ, self.env), \
+                mock.patch.multiple(live, open_session=self.open, _open_all_toolsets=self.open_all):
             yield
 
 
@@ -96,7 +101,7 @@ class RegistryTests(unittest.TestCase):
         self.assertEqual((totals["qradar"]["total"], totals["vision_one"]["total"]), (83, 349))
         self.assertEqual((totals["qradar"]["query"], totals["qradar"]["change"]), (53, 30))
         self.assertEqual((totals["vision_one"]["query"], totals["vision_one"]["change"],
-                          totals["vision_one"]["unsupported"]), (202, 137, 10))
+                          totals["vision_one"]["unsupported"]), (202, 147, 0))
         self.assertEqual(totals["qradar"]["pending_review"] + totals["vision_one"]["pending_review"], 0)
 
     def test_every_tool_has_a_route_or_a_precise_reason(self):
@@ -129,7 +134,8 @@ class RegistryTests(unittest.TestCase):
         self.assertEqual(e("vision_one", "endpoint_security_endpoints_list")["effect"], "read")
         self.assertEqual(e("qradar", "create_ariel_search")["effect"], "query_job")
         self.assertEqual(e("qradar", "dns_lookup")["access"], "change")
-        self.assertEqual(e("vision_one", "sandbox_files_analyze")["support"], "unsupported")
+        upload = e("vision_one", "sandbox_files_analyze")
+        self.assertEqual((upload["access"], upload["support"], upload["upload"]["field"]), ("change", "supported", "file"))
 
     def test_generated_registry_and_matrix_are_current(self):
         for script in ("scripts/build_upstream_registry.py", "scripts/build_coverage_matrix.py"):
@@ -140,15 +146,17 @@ class RegistryTests(unittest.TestCase):
 
     def test_contract_tested_list_matches_the_fake_upstream_behaviors(self):
         import re
-        from soc_bridge.coverage import CONTRACT_TESTED
+        from soc_bridge.coverage import END_TO_END_TESTED as CONTRACT_TESTED
         source = FAKE.read_text(encoding="utf-8")
         behaviors = set()
         for platform, function in (("qradar", "async def qradar"), ("vision_one", "async def vision_one")):
             body = source.split(function, 1)[1].split("\nasync def ", 1)[0].split("\ndef ", 1)[0]
             behaviors |= {(platform, n) for n in re.findall(r'if name == "([a-z0-9_]+)"', body)}
+            for group in re.findall(r"if name in \(([^)]*)\)", body):
+                behaviors |= {(platform, n) for n in re.findall(r'"([a-z0-9_]+)"', group)}
         behaviors.add(("qradar", "list_rules"))  # exercised by hiding it from tools/list
         self.assertEqual(set(CONTRACT_TESTED), behaviors)
-        test_source = Path(__file__).read_text(encoding="utf-8")
+        test_source = Path(__file__).read_text(encoding="utf-8") +             (Path(__file__).parent / "test_upstream_regressions.py").read_text(encoding="utf-8")
         for platform, tool in CONTRACT_TESTED:
             self.assertIn(f'"{tool}"', test_source)
 
@@ -414,7 +422,7 @@ class ChangeControlTests(unittest.TestCase):
 
     def test_proposal_rules(self):
         for platform, tool, args, why in [("qradar", "list_offenses", {}, "query tools are not changes here"),
-                                          ("vision_one", "sandbox_files_analyze", {}, "upload is unsupported"),
+                                          ("vision_one", "sandbox_files_analyze", {}, "upload without a file"),
                                           ("qradar", "add_offense_note", {"offense_id": 1}, "missing note_text"),
                                           ("qradar", "add_offense_note", {"offense_id": 1, "note_text": "x"}, "short")]:
             with self.subTest(why=why), self.assertRaises(change_control.Refused):

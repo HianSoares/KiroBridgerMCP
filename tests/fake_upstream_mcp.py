@@ -7,15 +7,23 @@ tools/list in pages of 40. Only a few tools have behavior, reproducing the real 
 each upstream (IBM: JSON text, ToolError text with httpx status; Trend handleResponse: JSON text, a
 headers block, base64 embedded resources, "(HTTP nnn)" errors). Any other call returns an error, so a
 passing test cannot come from a generic success. Every call is appended to $FAKE_UPSTREAM_LOG.
-Environment switches: FAKE_UPSTREAM_DRIFT=<tool> removes a parameter from that tool's schema;
-FAKE_UPSTREAM_HIDE=<tool> omits a tool from tools/list;
-FAKE_UPSTREAM_EXTRA=<name> announces an additional, unaudited tool.
+Environment switches:
+- FAKE_UPSTREAM_DRIFT=<tool> removes a parameter from that tool's schema;
+- FAKE_UPSTREAM_SCHEMA_PATCH={"tool": t, "path": [...], "value": v} sets one value inside a schema;
+- FAKE_UPSTREAM_HIDE=<tool> omits a tool from tools/list;
+- FAKE_UPSTREAM_EXTRA=<name> announces an additional, unaudited tool;
+- FAKE_UPSTREAM_FAIL_PAGE=<n> makes tools/list page n (0-based) fail;
+- FAKE_UPSTREAM_SLOW=<tool> logs the call (applied) and then does not answer for 60 s;
+- FAKE_UPSTREAM_INTERRUPT=<tool> logs the call (applied) and kills the server before answering (stdio only);
+- FAKE_UPSTREAM_ERROR=<tool>:<status> answers that tool with the product's HTTP error text;
+- FAKE_UPSTREAM_MOUNTS={"/approved/name": "<host path>"} emulates the container's read-only file mounts.
 """
 
 from __future__ import annotations
 
 import asyncio
 import base64
+import hashlib
 import json
 import logging
 import os
@@ -47,6 +55,12 @@ def announced(platform: str) -> list[types.Tool]:
         schema = json.loads(json.dumps(item["inputSchema"]))
         if item["name"] == drift and schema.get("properties"):
             schema["properties"].pop(sorted(schema["properties"])[0])
+        patch = json.loads(os.environ.get("FAKE_UPSTREAM_SCHEMA_PATCH") or "{}")
+        if patch.get("tool") == item["name"]:
+            node = schema
+            for step in patch["path"][:-1]:
+                node = node[step]
+            node[patch["path"][-1]] = patch["value"]
         tools.append(types.Tool(name=item["name"], description=item.get("description", ""), inputSchema=schema,
                                 annotations=types.ToolAnnotations(**item["annotations"]) if item.get("annotations") else None))
     extra = os.environ.get("FAKE_UPSTREAM_EXTRA", "")
@@ -111,6 +125,16 @@ async def vision_one(name: str, args: dict) -> list[types.Content]:
         # handleResponse with an empty 201 body: success text, then the headers block.
         return [*text("Request succeeded (HTTP 201)."), types.TextContent(
             type="text", text=f"Location: https://api.xdr.trendmicro.com/v3.0/workbench/alerts/{args['alertId']}/notes/9")]
+    if name in ("sandbox_files_analyze",):
+        # The real handler opens the path inside the container and uploads basename and bytes.
+        mounts = json.loads(os.environ.get("FAKE_UPSTREAM_MOUNTS") or "{}")
+        host = mounts.get(args["file"])
+        if host is None:
+            raise RuntimeError(f"could not open file file: open {args['file']}: no such file or directory")
+        data = Path(host).read_bytes()
+        return [*text({"id": "synthetic-task-1", "uploadedName": Path(args["file"]).name,
+                       "sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)}),
+                types.TextContent(type="text", text="Operation-Location: https://api.example.test/v3.0/tasks/1")]
     if name == "search_detections_list":
         return text({"items": [], "totalCount": 0})
     raise RuntimeError(f"synthetic server has no behavior for {name} (HTTP 501)")
@@ -125,6 +149,9 @@ def build(platform: str) -> Server:
         tools = announced(platform)
         cursor = request.params.cursor if request.params else None
         start = int(cursor) if cursor else 0
+        failing = os.environ.get("FAKE_UPSTREAM_FAIL_PAGE", "")
+        if failing and start == int(failing) * PAGE:
+            raise RuntimeError("synthetic tools/list page failure")
         nxt = str(start + PAGE) if start + PAGE < len(tools) else None
         return types.ListToolsResult(tools=tools[start:start + PAGE], nextCursor=nxt)
 
@@ -134,6 +161,16 @@ def build(platform: str) -> Server:
         if log:
             with open(log, "a", encoding="utf-8") as stream:
                 stream.write(json.dumps({"tool": name, "arguments": arguments}) + "\n")
+        if name == os.environ.get("FAKE_UPSTREAM_INTERRUPT"):
+            os._exit(3)  # the change was "applied" (logged) and the answer never arrives
+        if name == os.environ.get("FAKE_UPSTREAM_SLOW"):
+            await asyncio.sleep(60)
+        failing, _, status = os.environ.get("FAKE_UPSTREAM_ERROR", "").partition(":")
+        if name == failing:
+            kind = "Client" if status.startswith("4") else "Server"
+            raise RuntimeError(f"Error executing {name}: {kind} error '{status} Synthetic' for url "
+                               "'https://product.example.test/api' synthetic-secret-in-body"
+                               if platform == "qradar" else f"failed to run {name} (HTTP {status}): synthetic")
         handler = qradar if platform == "qradar" else vision_one
         return await handler(name, arguments)
 
