@@ -269,7 +269,9 @@ Com o Kiro iniciado pela seção 7, peça `investigate_demo` de novo e depois:
 
 > Chame `investigate_case` com `reference="<ID_AUTORIZADO>"`. Separe evidências, buscas executadas, janelas, limites e lacunas.
 
-Leia o restante do [guia geral](guia-instalacao.md#7-passe-as-credenciais-ao-kiro-e-teste-um-caso-real) para região Trend, `QRADAR_AQL_UTC_OFFSET_HOURS` e interpretação dos resultados. Para mudar a região ou a URL, edite o `env` de `soc-bridge-readonly` no `mcp.json` (as variáveis já estão no `WSLENV`).
+Leia o restante do [guia geral](guia-instalacao.md#7-passe-as-credenciais-ao-kiro-e-teste-um-caso-real) para região Trend, `QRADAR_AQL_UTC_OFFSET_HOURS` e interpretação dos resultados. Para mudar a região ou a URL, edite o `env` de `soc-bridge-readonly` no `mcp.json` (as variáveis já estão no `WSLENV`). As tools `upstream_*` usam a mesma entrada e não exigem configuração extra.
+
+O servidor separado de alterações `soc-bridge-change` não é criado por `configure_kiro_wsl.py` e fica desabilitado por padrão. Se a sua organização decidir habilitá-lo, copie o `command`/`args` de `soc-bridge-readonly` trocando o módulo por `soc_bridge.change_server`, mantenha `"disabled": true` até a decisão e nunca use `autoApprove`. A aprovação é feita em um terminal WSL interativo com `soc-bridge change approve <id>` ([guia](upstream-access.md#soc-bridge-change-disabled-by-default)).
 
 ## 11. Problemas frequentes
 

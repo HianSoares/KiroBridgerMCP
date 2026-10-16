@@ -15,7 +15,8 @@ from typing import Any, Callable
 MAX_PAGES = 20
 STATES = {
     "available_allowed": "advertised by the upstream and allowed by the bridge allowlist",
-    "advertised_blocked": "advertised by the upstream but not allowed by the bridge (mutation or not integrated)",
+    "advertised_blocked": "advertised by the upstream but outside this workflow's allowlist (query tools remain "
+                          "reachable through upstream_query; change tools only through soc-bridge-change)",
     "absent": "not advertised after a complete tools/list discovery",
     "unknown": "tools/list discovery was incomplete; availability cannot be stated",
 }
@@ -152,7 +153,7 @@ class Ledger:
 
 
 # Bridge tools that write only the local case store (never an upstream object).
-LOCAL_WRITE_TOOLS = frozenset({"investigate_offense_case", "reassess_case"})
+LOCAL_WRITE_TOOLS = frozenset({"investigate_offense_case", "reassess_case", "upstream_download"})
 
 # Outcomes observed by this bridge process since it started (shown by diagnostics).
 GLOBAL_LEDGER = Ledger()

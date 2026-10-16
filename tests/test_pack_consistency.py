@@ -8,14 +8,16 @@ from pathlib import Path
 from soc_bridge.capabilities import LOCAL_WRITE_TOOLS, public_tools
 
 ROOT = Path(__file__).resolve().parents[1]
-TOOL_LIKE = re.compile(r"`((?:investigate|qradar|trend|bridge)_[a-z_]+|list_cases|get_case|reassess_case)\b")
+TOOL_LIKE = re.compile(r"`((?:investigate|qradar|trend|bridge|upstream)_[a-z_]+|list_cases|get_case|reassess_case)\b")
 # Identifiers with a tool-like prefix that are report fields, parameters or pivot actions.
 NOT_TOOLS = {"qradar_correlation", "qradar_utc_offset_hours", "investigate_related_alert", "bridge_findings",
              "trend_link", "trend_state", "trend_search", "trend_finding_refuted",
              "qradar_link", "trend_finding_reinstated", "trend_hash_states",
-             "qradar_instance_key"}  # functions, modules and record types
+             "qradar_instance_key", "upstream_tool_error", "upstream_pages_read", "upstream_client",
+             "upstream_total_count", "upstream_rows_scanned", "upstream_call_attempted", "upstream_error",
+             "upstream_unavailable", "upstream_access", "upstream_live", "upstream_policy", "upstream_registry"}  # functions, modules and record types
 SPECS = ["capability-discovery-diagnostics", "case-persistence-resume", "investigation-orchestration-pivots",
-         "evidence-decisions-closure", "kiro-pack-quality", "trend-direct-search"]
+         "evidence-decisions-closure", "kiro-pack-quality", "trend-direct-search", "upstream-full-access"]
 
 
 def texts():
@@ -73,6 +75,13 @@ class PackConsistencyTests(unittest.TestCase):
         self.assertTrue(LOCAL_WRITE_TOOLS <= tools_of("case-investigator"))
         for name in agents:
             self.assertNotIn("toolsSettings", agents[name])  # only the documented tools-list syntax
+        for name in ("case-investigator", "threat-hunter"):
+            self.assertTrue({"upstream_tools", "upstream_tool_details", "upstream_query"} <= tools_of(name))
+        for path, text in texts().items():  # change tools live only in the separate, disabled server
+            self.assertNotIn("@soc-bridge-change", text, path.name)
+            if ".kiro" in path.parts:
+                self.assertNotIn("change_execute", text, path.name)
+                self.assertNotIn("change_request", text, path.name)
 
     def test_specs_are_complete_and_tasks_verified(self):
         for spec in SPECS:

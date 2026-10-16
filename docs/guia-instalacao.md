@@ -5,7 +5,7 @@ Este guia tem dois marcos independentes:
 1. **Demo:** instala a ponte e comprova que o Kiro consegue chamar `soc-bridge-readonly`. Não requer Docker nem acesso a QRadar ou Trend.
 2. **Caso real:** conecta a ponte ao [IBM QRadar MCP](https://github.com/IBM/qradar-mcp) e ao [Trend Vision One MCP](https://github.com/trendmicro/vision-one-mcp-server). Requer acesso autorizado aos dois produtos.
 
-Arquitetura: `Kiro → soc-bridge-readonly (Python/stdio) → QRadar MCP (HTTP local) + Vision One MCP (Docker/stdio)`. **Configure apenas `soc-bridge-readonly` no Kiro.** A própria ponte inicia o contêiner Trend quando você chama uma investigação com Trend; o contêiner QRadar deve estar em execução antes disso. As sete tools de investigação são `investigate_case`, `investigate_offense`, `investigate_vision_alert`, `investigate_vision_event`, `investigate_epm_uac`, `investigate_web_reputation` e `investigate_demo`. Além delas, seis tools `qradar_*` expõem AQL personalizada, resources, status e paginação de eventos/flows/payload, e `qradar_verify_offense`/`qradar_get_rule` fazem a verificação de offense e leitura de metadados das regras. São 28 tools, incluindo as tools de caso (`investigate_offense_case`, `reassess_case`, `list_cases`, `get_case`) e o diagnóstico `bridge_diagnostics`, listagem da fila por status/prioridade (`qradar_list_offenses`), descoberta/lotes de offenses, contexto QRadar (`qradar_read_context`), avaliação de fechamento (`qradar_assess_closure`) e `trend_find_alerts`, que lista Workbench sem ID e sem conexão QRadar, além de `trend_read_search_resource`/`trend_search_data` para busca direta de logs Trend. Veja o [guia Search](trend-direct-search.md). Veja [AQL](dynamic-aql.md) e [verificação de evidências](offense-verification.md). As tools qradar_* usam somente QRadar, sem iniciar o Trend.
+Arquitetura: `Kiro → soc-bridge-readonly (Python/stdio) → QRadar MCP (HTTP local) + Vision One MCP (Docker/stdio)`. **Configure apenas `soc-bridge-readonly` no Kiro.** A própria ponte inicia o contêiner Trend quando você chama uma investigação com Trend; o contêiner QRadar deve estar em execução antes disso. As sete tools de investigação são `investigate_case`, `investigate_offense`, `investigate_vision_alert`, `investigate_vision_event`, `investigate_epm_uac`, `investigate_web_reputation` e `investigate_demo`. Além delas, seis tools `qradar_*` expõem AQL personalizada, resources, status e paginação de eventos/flows/payload, e `qradar_verify_offense`/`qradar_get_rule` fazem a verificação de offense e leitura de metadados das regras. São 33 tools, incluindo as cinco `upstream_*` de acesso ao registro auditado dos MCPs oficiais ([acesso às ferramentas upstream](upstream-access.md)), as tools de caso (`investigate_offense_case`, `reassess_case`, `list_cases`, `get_case`) e o diagnóstico `bridge_diagnostics`, listagem da fila por status/prioridade (`qradar_list_offenses`), descoberta/lotes de offenses, contexto QRadar (`qradar_read_context`), avaliação de fechamento (`qradar_assess_closure`) e `trend_find_alerts`, que lista Workbench sem ID e sem conexão QRadar, além de `trend_read_search_resource`/`trend_search_data` para busca direta de logs Trend. Veja o [guia Search](trend-direct-search.md). Veja [AQL](dynamic-aql.md) e [verificação de evidências](offense-verification.md). As tools qradar_* usam somente QRadar, sem iniciar o Trend.
 
 > **Usa WSL?** Se o Kiro roda no Windows e a ponte Python no WSL 2, siga o [guia WSL](guia-wsl.md). Nesse caso `configure_kiro.py` executado dentro do WSL gera um caminho Linux que o Kiro do Windows não consegue iniciar.
 
@@ -138,11 +138,10 @@ Test-NetConnection 127.0.0.1 -Port 5001 -InformationLevel Quiet
 
 **Não é necessário clonar nem iniciar manualmente** o repositório da Trend para usar esta ponte. O código de `soc_bridge.transports` chama `docker run -i --rm -e TREND_VISION_ONE_API_KEY ghcr.io/trendmicro/vision-one-mcp-server -region <REGIÃO> -readonly=true ...` por stdio quando recebe uma investigação real. Os toolsets variam conforme o tipo de investigação (`workbench`, `search`, `endpoint`). Kiro enxerga apenas `soc-bridge-readonly`.
 
-Com Docker já funcionando, opcionalmente faça o download da imagem antecipadamente:
+A ponte usa sempre a imagem auditada (`v0.9.0`), fixada pelo digest. Com Docker já funcionando, você pode baixá-la antecipadamente:
 
 ```powershell
-docker pull ghcr.io/trendmicro/vision-one-mcp-server
-docker image inspect ghcr.io/trendmicro/vision-one-mcp-server --format '{{.Id}}'
+docker pull ghcr.io/trendmicro/vision-one-mcp-server@sha256:91e8a673c94a5612f145d6a23f14c9a1b712ec8eb2345202b5e8310661408b67
 ```
 
 **Esperado:** a imagem está disponível localmente. `docker ps` pode continuar sem contêiner Trend: ele é temporário e aparece somente durante chamadas da ponte. A chave da Trend não vai no `docker pull`; ela é transmitida ao contêiner apenas na execução da investigação. Para desenvolver ou auditar esse componente, veja as instruções e o código do [repositório upstream da Trend](https://github.com/trendmicro/vision-one-mcp-server). O README upstream informa o modo somente leitura e a lista de regiões suportadas.
@@ -166,6 +165,19 @@ Em **MCP Servers**, confirme `soc-bridge-readonly` conectado. Execute novamente 
 > Chame `investigate_case` com `reference="<ID_DA_OFFENSE_AUTORIZADA>"`. Separe evidências de QRadar, Workbench e Search, indique as buscas executadas, janelas, limites e lacunas.
 
 Para um alerta Trend, substitua a referência por `"<ID_WORKBENCH_AUTORIZADO>"`. **Esperado:** relatório que distingue resultados efetivamente consultados, candidatos e dados faltantes. Um resultado vazio na primeira página não significa ausência de atividade. Se a ferramenta reportar falha de coleta, não interprete como “nenhuma offense/alerta”. A primeira chamada pode demorar mais porque precisa obter a imagem da Trend.
+
+### 7.1 Acesso a qualquer ferramenta de consulta dos MCPs oficiais
+
+As tools `upstream_tools`, `upstream_tool_details`, `upstream_query`, `upstream_download` e `upstream_inventory` alcançam todas as ferramentas de consulta das versões auditadas: 53 do QRadar MCP e 202 do Vision One MCP. Elas usam as mesmas credenciais e o mesmo `mcp.json` dos passos anteriores. Não há configuração adicional para leitura.
+
+- **Versões.**
+  - **Vision One:** a ponte sempre inicia a imagem auditada, fixada pelo digest (`version_binding` nas respostas). Atualizar exige refazer a auditoria ([guia](upstream-access.md#refreshing-the-audit)).
+  - **QRadar:** a versão em execução não é verificada pela ponte. Mantenha o QRadar MCP no commit auditado.
+  - Ferramentas novas ou alteradas ficam `pending_review` ou `contract_changed` até a auditoria ser refeita.
+- **Licenças e permissões.** Variam por ferramenta: veja a coluna de dependências da [matriz de cobertura](coverage-matrix.md).
+- **Ferramentas de alteração.** Ficam em um servidor separado, `soc-bridge-change`, desabilitado por padrão, com aprovação humana por terminal. Veja [acesso às ferramentas upstream](upstream-access.md#soc-bridge-change-disabled-by-default). Não o habilite em produção sem decisão explícita da sua organização.
+
+Teste rápido no Kiro: “Chame `upstream_inventory` para `qradar` e depois para `vision_one`.” **Esperado:** `discovery.complete: true`, contagens anunciadas e auditadas, e listas `absent`, `announced_but_pending_review` e `schema_drift`. As ferramentas ausentes dependem de toggles, toolsets e versão da sua instalação.
 
 ## 8. Problemas frequentes
 
@@ -201,4 +213,4 @@ Veja [README](../README.md) e [limitações conhecidas](bridge-known-limitations
 
 Descoberta por descrição e investigação em lotes: [guia](offense-batch-investigation.md). As duas novas tools são `qradar_find_offenses` e `qradar_investigate_offenses`.
 
-Para listar a fila OPEN inteira sem descrição e ordenar sua triagem, use `qradar_list_offenses(status="OPEN")`. Siga as continuações e ordene os IDs acumulados pelos critérios retornados; a posição de uma página não é prioridade global. São 28 tools após reconectar a ponte e abrir um chat novo.
+Para listar a fila OPEN inteira sem descrição e ordenar sua triagem, use `qradar_list_offenses(status="OPEN")`. Siga as continuações e ordene os IDs acumulados pelos critérios retornados; a posição de uma página não é prioridade global. São 33 tools após reconectar a ponte e abrir um chat novo.

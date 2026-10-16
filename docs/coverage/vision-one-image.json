@@ -1,0 +1,14 @@
+{
+ "repository": "ghcr.io/trendmicro/vision-one-mcp-server",
+ "tag": "v0.9.0",
+ "index_digest": "sha256:91e8a673c94a5612f145d6a23f14c9a1b712ec8eb2345202b5e8310661408b67",
+ "platform_digests": {
+  "linux/amd64": "sha256:e5ddc28d01557363bd7e90d51c4392c1350c6ac22eade54c214804987b125516",
+  "linux/arm64": "sha256:95ab75d77cec044a0e7f4119935f18b6ae4d122edad7b7f7bf39e82ee6da7d6a"
+ },
+ "label_revision": "2d137401c26e7c50345d448ea1c662746cb2e7a9",
+ "provenance_revision": "2d137401c26e7c50345d448ea1c662746cb2e7a9",
+ "label_version": "0.9.0",
+ "inspected_at": "2026-10-15",
+ "method": "docker buildx imagetools inspect ghcr.io/trendmicro/vision-one-mcp-server:v0.9.0 (index digest, OCI labels org.opencontainers.image.revision/version of both platform images, BuildKit SLSA provenance vcs:revision). Registry metadata only: the image was not rebuilt from source to compare binaries."
+}

@@ -1,0 +1,4435 @@
+{
+ "source": {
+  "repository": "https://github.com/IBM/qradar-mcp.git",
+  "commit": "60ca119ecc0553946c44ac1702d574109a80f603",
+  "commit_date": "2026-10-05",
+  "tags": []
+ },
+ "server": "IBM QRadar MCP stdio_server.py",
+ "listed_from": {
+  "name": "qradar-mcp",
+  "title": null,
+  "version": "1.0.0",
+  "websiteUrl": null,
+  "icons": null
+ },
+ "pages": 1,
+ "readonly_flag": null,
+ "tools": [
+  {
+   "name": "add_offense_note",
+   "title": "Add Offense Note",
+   "description": "Add investigation notes to an offense in QRadar SIEM.",
+   "inputSchema": {
+    "properties": {
+     "offense_id": {
+      "type": "integer"
+     },
+     "note_text": {
+      "type": "string"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "offense_id",
+     "note_text"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "add_staged_network",
+   "title": "Add Staged Network",
+   "description": "Add a single new network entry to the staged network hierarchy.\n\nFetches the current staged hierarchy, appends the new entry, and writes the\ncomplete updated list back. Only the fields you provide are set on the new\nentry; a server-assigned id will be returned after the change is deployed.",
+   "inputSchema": {
+    "properties": {
+     "group": {
+      "type": "string"
+     },
+     "name": {
+      "type": "string"
+     },
+     "cidr": {
+      "type": "string"
+     },
+     "description": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "domain_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "country_code": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "group",
+     "name",
+     "cidr"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "add_to_reference_map",
+   "title": "Add To Reference Map",
+   "description": "Add or update a key-value pair in a reference data map.",
+   "inputSchema": {
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "key": {
+      "type": "string"
+     },
+     "value": {
+      "type": "string"
+     },
+     "namespace": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "domain_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "source": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "name",
+     "key",
+     "value"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "add_to_reference_set",
+   "title": "Add To Reference Set",
+   "description": "Add IOC entries (IPs, domains, hashes, etc.) to a QRadar reference data set.",
+   "inputSchema": {
+    "properties": {
+     "set_name": {
+      "type": "string"
+     },
+     "value": {
+      "type": "string"
+     },
+     "source": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "notes": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "set_name",
+     "value"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "add_to_reference_table",
+   "title": "Add To Reference Table",
+   "description": "Add or update a cell in a reference data table.",
+   "inputSchema": {
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "outer_key": {
+      "type": "string"
+     },
+     "inner_key": {
+      "type": "string"
+     },
+     "value": {
+      "type": "string"
+     },
+     "namespace": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "domain_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "source": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "name",
+     "outer_key",
+     "inner_key",
+     "value"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "assign_offense",
+   "title": "Assign Offense",
+   "description": "Assign a QRadar offense to a user. Use this tool to change offense ownership for triage and investigation.",
+   "inputSchema": {
+    "properties": {
+     "offense_id": {
+      "type": "integer"
+     },
+     "assigned_to": {
+      "type": "string"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "offense_id",
+     "assigned_to"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "create_ariel_search",
+   "title": "Create Ariel Search",
+   "description": "Create a new asynchronous Ariel search using an AQL query expression or a saved search ID. Returns a UUID search_id string used to monitor status and retrieve results via get_ariel_search_status and get_ariel_search_results.\n\nNOTE: saved_search_id is an INTEGER from list_saved_searches — it is NOT the UUID search_id string returned by this tool or get_ariel_search_status.\n\nIMPORTANT: Before using this tool with a query_expression:\n1. Read qradar://aql/fields/events or qradar://aql/fields/flows to get valid field names\n2. Read qradar://aql/functions to discover available functions\n3. Read qradar://aql/guide for syntax rules and patterns\n4. Use validate_aql tool to check query syntax before execution\n\nThis workflow prevents errors and ensures queries use correct field names for this QRadar deployment.",
+   "inputSchema": {
+    "properties": {
+     "query_expression": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "saved_search_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "create_dsm_event_mapping",
+   "title": "Create Dsm Event Mapping",
+   "description": "Create a new custom DSM event mapping in QRadar.\n\nDSM event mappings link raw log source event identifiers to QID records so that\nQRadar can classify incoming events. This creates a user-provided (custom) mapping.",
+   "inputSchema": {
+    "properties": {
+     "log_source_type_id": {
+      "type": "integer"
+     },
+     "log_source_event_id": {
+      "type": "string"
+     },
+     "log_source_event_category": {
+      "type": "string"
+     },
+     "qid_record_id": {
+      "type": "integer"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "log_source_type_id",
+     "log_source_event_id",
+     "log_source_event_category",
+     "qid_record_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "create_qid_record",
+   "title": "Create Qid Record",
+   "description": "Create a new QID record in QRadar.\n\nQID records define custom event types in QRadar. Creating a QID record allows custom\nevents from log sources to be classified with a specific name, category, and severity.",
+   "inputSchema": {
+    "properties": {
+     "log_source_type_id": {
+      "type": "integer"
+     },
+     "name": {
+      "type": "string"
+     },
+     "low_level_category_id": {
+      "type": "integer"
+     },
+     "description": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "severity": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "log_source_type_id",
+     "name",
+     "low_level_category_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "create_reference_map",
+   "title": "Create Reference Map",
+   "description": "Create a new reference data map in QRadar SIEM.",
+   "inputSchema": {
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "element_type": {
+      "type": "string"
+     },
+     "key_label": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "value_label": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "description": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "timeout_type": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "time_to_live": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "name",
+     "element_type"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "create_reference_set",
+   "title": "Create Reference Set",
+   "description": "Create a new reference data set in QRadar SIEM.",
+   "inputSchema": {
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "entry_type": {
+      "type": "string"
+     },
+     "description": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "namespace": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "time_to_live": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "expiry_type": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "expired_log_option": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "tenant_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "name",
+     "entry_type"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "create_reference_table",
+   "title": "Create Reference Table",
+   "description": "Create a new reference data table in QRadar SIEM.",
+   "inputSchema": {
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "element_type": {
+      "type": "string"
+     },
+     "outer_key_label": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "key_name_types": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "description": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "timeout_type": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "time_to_live": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "name",
+     "element_type"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "delete_ariel_search",
+   "title": "Delete Ariel Search",
+   "description": "Delete an Ariel search and its associated results. This discards any collected results and stops the search if it is still in progress. The search is deleted regardless of whether results were saved.",
+   "inputSchema": {
+    "properties": {
+     "search_id": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "search_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "delete_reference_map",
+   "title": "Delete Reference Map",
+   "description": "Delete a reference data map or purge its contents.",
+   "inputSchema": {
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "purge_only": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "namespace": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "delete_reference_set",
+   "title": "Delete Reference Set",
+   "description": "Delete a reference data set from QRadar SIEM.",
+   "inputSchema": {
+    "properties": {
+     "set_id": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "set_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "delete_reference_table",
+   "title": "Delete Reference Table",
+   "description": "Delete a reference data table or purge its contents.",
+   "inputSchema": {
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "purge_only": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "namespace": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "delete_saved_search",
+   "title": "Delete Saved Search",
+   "description": "Delete an Ariel saved search with dependency checking.\n\nDeletion fails with CONFLICT if the search is still referenced by dashboards,\nreports, rules, or other searches.\n\nReturns an async task status. The user must own the search or have admin\nrights.",
+   "inputSchema": {
+    "properties": {
+     "search_id": {
+      "type": "integer"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "search_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "delete_staged_network",
+   "title": "Delete Staged Network",
+   "description": "Remove a single entry from the staged network hierarchy by its id.\n\nFetches the current staged hierarchy, removes the entry with the matching id,\nand writes the reduced list back. Returns an error if the id is not found.",
+   "inputSchema": {
+    "properties": {
+     "network_id": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "network_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "deploy_qradar_config",
+   "title": "Deploy Qradar Config",
+   "description": "Execute a QRadar staged configuration deploy.\n\nBefore calling this tool, use get_deploy_status to verify there is not already\nan active deployment in progress. After starting the deploy, use\nget_deploy_status to monitor progress until completion.",
+   "inputSchema": {
+    "properties": {
+     "type": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "type"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "dns_lookup",
+   "title": "Dns Lookup",
+   "description": "Initiate DNS resolution for an IP address (reverse lookup).\n\nReturns a task ID for an asynchronous lookup.",
+   "inputSchema": {
+    "properties": {
+     "ip_address": {
+      "type": "string"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "ip_address"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "geolocate_ip",
+   "title": "Geolocate Ip",
+   "description": "Get geographic location data for an IP address using MaxMind GeoIP.\n\nIMPORTANT: Only PUBLIC IP addresses can be geolocated. Private/RFC1918 addresses will fail:",
+   "inputSchema": {
+    "properties": {
+     "ip_address": {
+      "type": "string"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "ip_address"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "get_ariel_search_results",
+   "title": "Get Ariel Search Results",
+   "description": "Retrieve the results of a completed Ariel search. The search must be in COMPLETED status before results can be retrieved. Supports pagination via start and limit parameters to retrieve subsets of large result sets.",
+   "inputSchema": {
+    "properties": {
+     "search_id": {
+      "type": "string"
+     },
+     "start": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "search_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "get_ariel_search_status",
+   "title": "Get Ariel Search Status",
+   "description": "Retrieve status and metadata for an Ariel search by search ID. Returns search progress, status (WAIT, EXECUTE, SORTING, COMPLETED, CANCELED, ERROR), record count, and other metadata.",
+   "inputSchema": {
+    "properties": {
+     "search_id": {
+      "type": "string"
+     },
+     "wait_seconds": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "search_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "get_building_block",
+   "title": "Get Building Block",
+   "description": "Get building block rule details by ID from QRadar SIEM.\n\nBuilding blocks are reusable rule components that can be referenced by other rules and building blocks.",
+   "inputSchema": {
+    "properties": {
+     "building_block_id": {
+      "type": "integer"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "building_block_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "get_case",
+   "title": "Get Case",
+   "description": "Get detailed information about a forensic case.",
+   "inputSchema": {
+    "properties": {
+     "case_id": {
+      "type": "integer"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "case_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "get_custom_action",
+   "title": "Get Custom Action",
+   "description": "Retrieve detailed information about a specific custom action.",
+   "inputSchema": {
+    "properties": {
+     "action_id": {
+      "type": "integer"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "action_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "get_deploy_status",
+   "title": "Get Deploy Status",
+   "description": "Retrieve the current QRadar staged configuration deploy status.\n\nUse this before deploy_qradar_config to check whether a deployment is already\nrunning and after deploy_qradar_config to monitor progress.",
+   "inputSchema": {
+    "properties": {},
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "get_dns_result",
+   "title": "Get Dns Result",
+   "description": "Retrieve DNS lookup results by task ID.\n\nUse this after dns_lookup to check lookup status and retrieve results.",
+   "inputSchema": {
+    "properties": {
+     "task_id": {
+      "type": "integer"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "task_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "get_dsm_event_mapping",
+   "title": "Get Dsm Event Mapping",
+   "description": "Retrieve a DSM event mapping by ID from QRadar.\n\nA DSM event mapping links a raw log source event identifier to a QID record,\nenabling QRadar to classify and categorize the incoming event.",
+   "inputSchema": {
+    "properties": {
+     "dsm_event_mapping_id": {
+      "type": "integer"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "dsm_event_mapping_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "get_high_level_category",
+   "title": "Get High Level Category",
+   "description": "Retrieve a high level event category by ID from QRadar.\n\nHigh level categories are top-level groupings used to classify events in QRadar.\nEach low level category belongs to a high level category.",
+   "inputSchema": {
+    "properties": {
+     "high_level_category_id": {
+      "type": "integer"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "high_level_category_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "get_log_source",
+   "title": "Get Log Source",
+   "description": "Get log source details by ID from QRadar SIEM.\n\nReturns configuration, type and protocol details, health and status\nfields, event collection statistics, and deployment information.",
+   "inputSchema": {
+    "properties": {
+     "log_source_id": {
+      "type": "integer"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "log_source_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "get_low_level_category",
+   "title": "Get Low Level Category",
+   "description": "Retrieve a low level event category by ID from QRadar.\n\nLow level categories are specific event sub-types that belong to a high level category.\nThey are used to classify events at a granular level in QRadar.",
+   "inputSchema": {
+    "properties": {
+     "low_level_category_id": {
+      "type": "integer"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "low_level_category_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "get_network_hierarchy",
+   "title": "Get Network Hierarchy",
+   "description": "Retrieve the deployed network hierarchy.\n\nReturns the active QRadar network hierarchy including network groups, names,\nCIDR ranges, descriptions, domain assignments, and optional geographic\nlocation data.",
+   "inputSchema": {
+    "properties": {
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "get_offense",
+   "title": "Get Offense",
+   "description": "Get offense data by ID from QRadar SIEM",
+   "inputSchema": {
+    "properties": {
+     "offense_id": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "offense_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "get_offense_notes",
+   "title": "Get Offense Notes",
+   "description": "Retrieve investigation notes for an offense in QRadar SIEM.",
+   "inputSchema": {
+    "properties": {
+     "offense_id": {
+      "type": "integer"
+     },
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "start": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": 0
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": 50
+     }
+    },
+    "required": [
+     "offense_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "get_qid_record",
+   "title": "Get Qid Record",
+   "description": "Retrieve a QID record by ID from QRadar.\n\nQID (QRadar Identifier) records define event types in QRadar, mapping to categories\nand severity levels. Each event received by QRadar is resolved to a QID record.",
+   "inputSchema": {
+    "properties": {
+     "qid_record_id": {
+      "type": "integer"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "qid_record_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "get_qid_record_by_qid",
+   "title": "Get Qid Record By Qid",
+   "description": "Retrieve a QID record by its numeric QID value from QRadar.",
+   "inputSchema": {
+    "properties": {
+     "qid": {
+      "type": "integer"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "qid"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "get_reference_map",
+   "title": "Get Reference Map",
+   "description": "Get reference map metadata and data by name from QRadar SIEM.\n\nReturns map configuration, element type, key and value labels, element\ncount, expiry settings, and stored key-value entries.",
+   "inputSchema": {
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "namespace": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "get_reference_set",
+   "title": "Get Reference Set",
+   "description": "Get reference set metadata by ID from QRadar SIEM.\n\nReturns the set name, description, entry type, entry count, TTL and\nexpiry settings, and namespace details.",
+   "inputSchema": {
+    "properties": {
+     "set_id": {
+      "type": "integer"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "set_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "get_reference_table",
+   "title": "Get Reference Table",
+   "description": "Get reference table metadata and 2D data by name from QRadar SIEM.\n\nReturns table configuration, element and key types, element count,\nexpiry settings, and stored outer-key and inner-key data.",
+   "inputSchema": {
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "namespace": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "get_rule",
+   "title": "Get Rule",
+   "description": "Get analytics rule details by ID from QRadar SIEM.\n\nReturns rule metadata, type and origin, enabled state, owner,\ncapacity metrics, identifiers, and timestamps.",
+   "inputSchema": {
+    "properties": {
+     "rule_id": {
+      "type": "integer"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "rule_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "get_saved_search",
+   "title": "Get Saved Search",
+   "description": "Retrieve detailed information about a specific Ariel saved search.\n\nUse this to inspect the saved AQL before execution or modification. Execute\nit by ID with create_ariel_search.\n\nReturns 404 if the search does not exist or the user lacks permission.",
+   "inputSchema": {
+    "properties": {
+     "search_id": {
+      "type": "integer"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "search_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "get_staged_network_hierarchy",
+   "title": "Get Staged Network Hierarchy",
+   "description": "Retrieve the staged network hierarchy.\n\nReturns the pending QRadar network hierarchy changes before deployment,\nincluding network groups, names, CIDR ranges, descriptions, domain\nassignments, and optional geographic location data.\n\nChanges in the staged hierarchy do not take effect until QRadar deployment is\nrun. Use get_deploy_status to check deployment state and deploy_qradar_config\nwhen you are ready to apply staged changes.",
+   "inputSchema": {
+    "properties": {
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "get_system_info",
+   "title": "Get System Info",
+   "description": "Get QRadar system version and configuration information.\n\nReturns metadata such as build version, external version, release name, and\nFIPS enablement status.",
+   "inputSchema": {
+    "properties": {
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "get_whois_result",
+   "title": "Get Whois Result",
+   "description": "Retrieve WHOIS lookup results by task ID.\n\nUse this after whois_lookup to check status and retrieve results.",
+   "inputSchema": {
+    "properties": {
+     "task_id": {
+      "type": "integer"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "task_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_asset_properties",
+   "title": "List Asset Properties",
+   "description": "List available asset property types in QRadar.\n\nReturns property types that can be used with assets, including:\n  - Standard QRadar properties\n  - Custom properties defined by administrators\n  - Property data types and display settings",
+   "inputSchema": {
+    "properties": {
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_assets",
+   "title": "List Assets",
+   "description": "List assets from QRadar asset model with optional filtering, sorting, and pagination. Use this tool to fetch asset details from the QRadar asset database.\n\n=== FIELDS REFERENCE ===\n\ndomain_id: Number\nhostnames: Array<Object>\n  hostnames(created): Number\n  hostnames(first_seen_profiler): Number\n  hostnames(first_seen_scanner): Number\n  hostnames(id): Number\n  hostnames(last_seen_profiler): Number\n  hostnames(last_seen_scanner): Number\n  hostnames(name): String\n  hostnames(type): String\nid: Number\ninterfaces: Array<Object>\n  interfaces(created): Number\n  interfaces(first_seen_profiler): Number\n  interfaces(first_seen_scanner): Number\n  interfaces(id): Number\n  interfaces(ip_addresses): Array<Object>\n    interfaces(ip_addresses)(created): Number\n    interfaces(ip_addresses)(first_seen_profiler): Number\n    interfaces(ip_addresses)(first_seen_scanner): Number\n    interfaces(ip_addresses)(id): Number\n    interfaces(ip_addresses)(last_seen_profiler): Number\n    interfaces(ip_addresses)(last_seen_scanner): Number\n    interfaces(ip_addresses)(network_id): Number\n    interfaces(ip_addresses)(type): String\n    interfaces(ip_addresses)(value): String\n  interfaces(last_seen_profiler): Number\n  interfaces(last_seen_scanner): Number\n  interfaces(mac_address): String\nproducts: Array<Object>\n  products(first_seen_profiler): Number\n  products(first_seen_scanner): Number\n  products(id): Number\n  products(last_scanned_for): Number\n  products(last_seen_profiler): Number\n  products(last_seen_scanner): Number\n  products(name): String\n  products(product_variant_id): Number\n  products(vendor): String\n  products(version): String\nproperties: Array<Object>\n  properties(id): Number\n  properties(last_reported): Number\n  properties(last_reported_by): String\n  properties(name): String\n  properties(type_id): Number\n  properties(value): String\nrisk_score_sum: Number\nusers: Array<Object>\n  users(first_seen_profiler): Number\n  users(first_seen_scanner): Number\n  users(id): Number\n  users(last_seen_profiler): Number\n  users(last_seen_scanner): Number\n  users(username): String\nvulnerability_count: Number",
+   "inputSchema": {
+    "properties": {
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "sort": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "format_output": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": false
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_building_blocks",
+   "title": "List Building Blocks",
+   "description": "List building block rules from QRadar SIEM with optional filtering and pagination.\n\nBuilding blocks are reusable rule components that can be referenced by other rules and building blocks.",
+   "inputSchema": {
+    "properties": {
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": 10
+     },
+     "offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": 0
+     },
+     "format_output": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": false
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_cases",
+   "title": "List Cases",
+   "description": "List forensic investigation cases in QRadar.\n\nReturns cases created for formal forensic investigations, including:\n  - Case ID and name\n  - Assigned users (FORENSICS role required)\n  - Case status and metadata",
+   "inputSchema": {
+    "properties": {
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_custom_actions",
+   "title": "List Custom Actions",
+   "description": "List all custom actions available in the QRadar deployment.\n\nCustom actions enable automated responses to security events.",
+   "inputSchema": {
+    "properties": {
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_dsm_event_mappings",
+   "title": "List Dsm Event Mappings",
+   "description": "Retrieve a list of DSM event mappings from QRadar.\n\nDSM event mappings link raw log source event identifiers to QID records, enabling\nQRadar to classify and categorize incoming events.\n\n=== FIELDS REFERENCE ===\n\ncustom_event: Boolean\nid: Number\nlog_source_event_category: String\nlog_source_event_id: String\nlog_source_type_id: Number\nqid_record_id: Number\nuuid: String",
+   "inputSchema": {
+    "properties": {
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": 10
+     },
+     "offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": 0
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_high_level_categories",
+   "title": "List High Level Categories",
+   "description": "Retrieve a list of high level event categories from QRadar.\n\nHigh level categories are the top-level groupings used to classify events in QRadar.\nEach low level category belongs to a high level category.\n\n=== FIELDS REFERENCE ===\n\nid: Number\nname: String\ndescription: String",
+   "inputSchema": {
+    "properties": {
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "sort": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": 10
+     },
+     "offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": 0
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_local_destination_addresses",
+   "title": "List Local Destination Addresses",
+   "description": "Retrieve local destination IP addresses that are associated with offenses in QRadar SIEM.",
+   "inputSchema": {
+    "properties": {
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": 10
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_log_source_types",
+   "title": "List Log Source Types",
+   "description": "List available log source types in QRadar.\n\nReturns log source types that can be configured, including:\n  - Type ID and name\n  - Internal vs. external types\n  - Supported languages\n  - Protocol types\n  - Version information",
+   "inputSchema": {
+    "properties": {
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": 10
+     },
+     "offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_log_sources",
+   "title": "List Log Sources",
+   "description": "List log sources from QRadar SIEM with optional filtering, sorting, and pagination.\n        Log sources are the systems that send event data to QRadar for processing and analysis.\n\n=== FIELDS REFERENCE ===\n\nsending_ip: String\ninternal: Boolean\nlegacy_bulk_group_name: String\nprotocol_parameters: Array<Object>\n  protocol_parameters(name): String\n  protocol_parameters(id): Number\n  protocol_parameters(value): String\ndescription: String\ncoalesce_events: Boolean\nenabled: Boolean\nparsing_order: Number\naverage_eps: Number\ngroup_ids: Array<Number>\ncredibility: Number\nid: Number\nstore_event_payload: Boolean\ntarget_event_collector_id: Number\nprotocol_type_id: Number\nlanguage_id: Number\ncreation_date: Number\nwincollect_external_destination_ids: Array<Number>\nlog_source_extension_id: Number\nsyslog_event_timeout: Number\nname: String\nmodified_date: Number\nauto_discovered: Boolean\ntype_id: Number\nlast_event_time: Number\nrequires_deploy: Boolean\ngateway: Boolean\nwincollect_internal_destination_id: Number\nstatus: Object\n  status(last_updated): Number\n  status(messages): Array<Object>\n    status(messages(severity): String\n    status(messages(text): String\n    status(messages(timestamp): Number\n  status(status): String — valid values: SUCCESS, WARN, ERROR, NA, DISABLED\ndisconnected_log_collector_id: Number",
+   "inputSchema": {
+    "properties": {
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "sort": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": 10
+     },
+     "offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": 0
+     },
+     "format_output": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": false
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_low_level_categories",
+   "title": "List Low Level Categories",
+   "description": "Retrieve a list of low level event categories from QRadar.\n\nLow level categories are specific event sub-types that belong to a high level category.\nThey are used to classify events at a granular level in QRadar.\n\n=== FIELDS REFERENCE ===\n\nid: Number\nname: String\ndescription: String\nhigh_level_category_id: Number\nseverity: Number",
+   "inputSchema": {
+    "properties": {
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "sort": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": 10
+     },
+     "offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": 0
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_offense_closing_reasons",
+   "title": "List Offense Closing Reasons",
+   "description": "List valid offense closing reasons.\n\nBy default, excludes deleted and reserved closing reasons (most common use case).\nUse include_deleted=true or include_reserved=true to see all reasons.\n\nNote: Deleted and reserved closing reasons cannot be used to close offenses.\n\n=== FIELDS REFERENCE ===\n\nid: Number\nis_deleted: Boolean\nis_reserved: Boolean\ntext: String",
+   "inputSchema": {
+    "properties": {
+     "include_reserved": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "include_deleted": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": 10
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_offense_types",
+   "title": "List Offense Types",
+   "description": "List all offense type categories.",
+   "inputSchema": {
+    "properties": {
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "sort": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": 10
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_offenses",
+   "title": "List Offenses",
+   "description": "List offenses from QRadar SIEM with optional filtering, sorting, and pagination.\n\nAn offense is a correlated security incident created when one or more rules fire.\nUse this tool to triage active threats, review recent activity, or scope an investigation.",
+   "inputSchema": {
+    "properties": {
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "sort": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": 10
+     },
+     "offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": 0
+     },
+     "format_output": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": false
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_qid_records",
+   "title": "List Qid Records",
+   "description": "Retrieve a list of QID records from QRadar.\n\nQID (QRadar Identifier) records define event types in QRadar, mapping to categories\nand severity levels. Each event received by QRadar is resolved to a QID record.",
+   "inputSchema": {
+    "properties": {
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": 10
+     },
+     "offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": 0
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_qvm_assets",
+   "title": "List Qvm Assets",
+   "description": "List assets with vulnerability information from QVM.",
+   "inputSchema": {
+    "properties": {
+     "saved_search_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "saved_search_name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "filters": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_reference_maps",
+   "title": "List Reference Maps",
+   "description": "List reference data maps from QRadar SIEM with optional filtering, sorting, and pagination.\n\nReference maps store key-value data such as IP-to-country mappings, threat actor attributes, or IOC enrichment values.\n\n=== FIELDS REFERENCE ===\n\ncollection_id: Number\ncreation_time: Number\ndescription: String\nelement_type: String\nkey_label: String\nname: String\nnamespace: String\nnumber_of_elements: Number\ntime_to_live: String\ntimeout_type: String\nvalue_label: String",
+   "inputSchema": {
+    "properties": {
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "sort": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "format_output": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": false
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_reference_sets",
+   "title": "List Reference Sets",
+   "description": "List reference data sets from QRadar SIEM with optional filtering, sorting, and pagination.\n\nReference sets store collections of unique values such as IPs, domains, or hashes.\n\n=== FIELDS REFERENCE ===\n\ncreation_time: Number\ndelete_entries: Boolean\ndescription: String\nentry_type: String\nexpired_log_option: String\nexpiry_type: String\nglobal_id: String\nid: Number\nname: String\nnamespace: String\nnumber_of_entries: Number\ntenant_id: Number\ntime_to_live: Number",
+   "inputSchema": {
+    "properties": {
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "sort": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "format_output": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": false
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_reference_tables",
+   "title": "List Reference Tables",
+   "description": "List reference data tables from QRadar SIEM with optional filtering, sorting, and pagination.\n\nReference tables store two-dimensional data such as IP-to-port service mappings, user-to-asset access matrices, or other multi-key enrichment data.\n\n=== FIELDS REFERENCE ===\n\ncollection_id: Number\ncreation_time: Number\ndescription: String\nelement_type: String\nkey_label: String\nkey_name_types: Object\n  key_name_types(String): String\nname: String\nnamespace: String\nnumber_of_elements: Number\ntime_to_live: String\ntimeout_type: String",
+   "inputSchema": {
+    "properties": {
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "sort": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "format_output": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": false
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_rules",
+   "title": "List Rules",
+   "description": "List analytics rules from QRadar SIEM with optional filtering and pagination.\n\nAnalytics rules are the core detection logic in QRadar that generate offenses and events.",
+   "inputSchema": {
+    "properties": {
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": 10
+     },
+     "offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": 0
+     },
+     "format_output": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": false
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_saved_searches",
+   "title": "List Saved Searches",
+   "description": "List Ariel saved searches you can access.\n\nUse this to discover reusable searches. Inspect one with get_saved_search,\nthen run it by ID with create_ariel_search.\n\nReturns searches the user has permission to view (owned and shared).\n\n=== FIELDS REFERENCE ===\n\naql: String\ncreation_date: Number\ndatabase: String\ndescription: String\nid: Number\nis_aggregate: Boolean\nis_dashboard: Boolean\nis_default: Boolean\nis_quick_search: Boolean\nis_shared: Boolean\nmodified_date: Number\nname: String\nowner: String\nuid: String",
+   "inputSchema": {
+    "properties": {
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_servers",
+   "title": "List Servers",
+   "description": "List all QRadar server hosts in the deployment.\n\nUse this to review deployment topology and server health. In distributed\ndeployments, this includes the console, processors, and other appliances.\n\n=== FIELDS REFERENCE ===\n\nhostname: String\nmanaged_host_id: Number\nprivate_ip: String\nserver_id: Number\nstatus: String",
+   "inputSchema": {
+    "properties": {
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_source_addresses",
+   "title": "List Source Addresses",
+   "description": "Retrieve source IP addresses that are associated with offenses in QRadar SIEM.",
+   "inputSchema": {
+    "properties": {
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": 10
+     },
+     "offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_user_roles",
+   "title": "List User Roles",
+   "description": "List available QRadar user roles and their capabilities.\n\nUse this to review role names, IDs, and capabilities. Access control is\napplied: ADMIN users see all roles, SAASADMIN users see non-admin roles, and\nother users see only their own role unless current_user_role is used.\n\n=== FIELDS REFERENCE ===",
+   "inputSchema": {
+    "properties": {
+     "current_user_role": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "contains": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_users",
+   "title": "List Users",
+   "description": "List QRadar users with access control information.\n\nUse this to review user accounts, roles, tenants, and authentication settings.\nAccess control is applied: ADMIN users see all users, SAASADMIN users see\nnon-admin users, and other users see only themselves.\n\nSensitive fields such as passwords are always returned as null.\n\n=== FIELDS REFERENCE ===\n\nallow_system_authentication_fallback: Boolean\ndescription: String\ndisplay_theme: String\nemail: String\nenable_popup_notifications: Boolean\nid: Number\ninactivity_timeout: Number\nlocal_only_account: Boolean\nlocale_id: String\nnotification_flag: String\nold_password: String\npassword: String\npassword_creation_time: Number\nsecurity_profile_id: Number\nshow_awf_default_dashboard: String\ntenant_id: Number\nuser_role_id: Number\nusername: String",
+   "inputSchema": {
+    "properties": {
+     "current_user": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "filter": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "sort": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "offset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "list_vulnerabilities",
+   "title": "List Vulnerabilities",
+   "description": "List vulnerabilities discovered by QRadar Vulnerability Manager (QVM).\n\nReturns vulnerability data from QVM scans, including:\n  - Vulnerability details and severity\n  - Affected assets\n  - CVE information\n  - Risk scores",
+   "inputSchema": {
+    "properties": {
+     "saved_search_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "saved_search_name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "filters": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": false,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "remove_from_reference_map",
+   "title": "Remove From Reference Map",
+   "description": "Remove a specific key-value pair from a reference data map.",
+   "inputSchema": {
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "key": {
+      "type": "string"
+     },
+     "value": {
+      "type": "string"
+     },
+     "namespace": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "domain_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "name",
+     "key",
+     "value"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "remove_from_reference_set",
+   "title": "Remove From Reference Set",
+   "description": "Remove an entry from a QRadar reference data set by entry ID.",
+   "inputSchema": {
+    "properties": {
+     "entry_id": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "entry_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "remove_from_reference_table",
+   "title": "Remove From Reference Table",
+   "description": "Remove a specific cell from a reference data table.",
+   "inputSchema": {
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "outer_key": {
+      "type": "string"
+     },
+     "inner_key": {
+      "type": "string"
+     },
+     "value": {
+      "type": "string"
+     },
+     "namespace": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "domain_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "name",
+     "outer_key",
+     "inner_key",
+     "value"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "set_offense_follow_up",
+   "title": "Set Offense Follow Up",
+   "description": "Set the follow-up flag on a QRadar offense.",
+   "inputSchema": {
+    "properties": {
+     "offense_id": {
+      "type": "integer"
+     },
+     "follow_up": {
+      "type": "boolean"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "offense_id",
+     "follow_up"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "set_offense_protected",
+   "title": "Set Offense Protected",
+   "description": "Set the protected flag on a QRadar offense.",
+   "inputSchema": {
+    "properties": {
+     "offense_id": {
+      "type": "integer"
+     },
+     "protected": {
+      "type": "boolean"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "offense_id",
+     "protected"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "set_offense_status",
+   "title": "Set Offense Status",
+   "description": "Set the status of a QRadar offense.\n\nUse this to reopen, hide, or close an offense. When setting status to\nCLOSED, provide a closing_reason_id from list_offense_closing_reasons.",
+   "inputSchema": {
+    "properties": {
+     "offense_id": {
+      "type": "integer"
+     },
+     "status": {
+      "type": "string"
+     },
+     "closing_reason_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "offense_id",
+     "status"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "update_dsm_event_mapping",
+   "title": "Update Dsm Event Mapping",
+   "description": "Update an existing custom DSM event mapping in QRadar.\n\nOnly user-provided (custom_event=true) DSM event mappings can be updated.\nCurrently only the qid_record_id field can be updated.",
+   "inputSchema": {
+    "properties": {
+     "dsm_event_mapping_id": {
+      "type": "integer"
+     },
+     "qid_record_id": {
+      "type": "integer"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "dsm_event_mapping_id",
+     "qid_record_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "update_qid_record",
+   "title": "Update Qid Record",
+   "description": "Update an existing QID record in QRadar.\n\nOnly user-created QID records can be updated. System-provided QIDs will return a 409 error.",
+   "inputSchema": {
+    "properties": {
+     "qid_record_id": {
+      "type": "integer"
+     },
+     "name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "description": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "severity": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "low_level_category_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "qid_record_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "update_reference_set",
+   "title": "Update Reference Set",
+   "description": "Update properties of an existing reference data set in QRadar SIEM.",
+   "inputSchema": {
+    "properties": {
+     "set_id": {
+      "type": "integer"
+     },
+     "description": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "time_to_live": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "expiry_type": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "expired_log_option": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "delete_entries": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "set_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "update_staged_network",
+   "title": "Update Staged Network",
+   "description": "Update fields on a single existing entry in the staged network hierarchy.\n\nFetches the current staged hierarchy, finds the entry by its numeric id,\nmerges only the fields you provide over the existing values, and writes\nthe complete updated list back. Fields you do not supply are preserved\nunchanged.",
+   "inputSchema": {
+    "properties": {
+     "network_id": {
+      "type": "integer"
+     },
+     "group": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "cidr": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "description": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "domain_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     },
+     "country_code": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "network_id"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "validate_aql",
+   "title": "Validate Aql",
+   "description": "Validate AQL (Ariel Query Language) query syntax before execution.\n\nREQUIRED WORKFLOW: Always use this tool to validate AQL queries BEFORE using create_ariel_search.",
+   "inputSchema": {
+    "properties": {
+     "query_expression": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "query_expression"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  },
+  {
+   "name": "whois_lookup",
+   "title": "Whois Lookup",
+   "description": "Initiate WHOIS query for an IP address.\n\nReturns a task ID for an asynchronous query.",
+   "inputSchema": {
+    "properties": {
+     "ip_address": {
+      "type": "string"
+     },
+     "fields": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null
+     }
+    },
+    "required": [
+     "ip_address"
+    ],
+    "type": "object",
+    "additionalProperties": false
+   },
+   "meta": {
+    "approval_required": true,
+    "fastmcp": {
+     "tags": []
+    }
+   }
+  }
+ ]
+}

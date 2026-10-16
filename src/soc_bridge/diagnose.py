@@ -19,6 +19,7 @@ from typing import Any
 
 from .capabilities import GLOBAL_LEDGER, discover
 from .diagnostics import failure_reason
+from .upstream_access import trend_image
 from .wsl_setup import BRIDGE_ENV, env_state
 
 QRADAR_URL_DEFAULT = "http://127.0.0.1:5001/mcp"
@@ -122,7 +123,7 @@ async def _trend(api_key: str, region: str, timeout: float) -> dict:
     try:
         async with AsyncExitStack() as stack:
             params = StdioServerParameters(command="docker", args=[
-                "run", "-i", "--rm", "-e", "TREND_VISION_ONE_API_KEY", "ghcr.io/trendmicro/vision-one-mcp-server",
+                "run", "-i", "--rm", "-e", "TREND_VISION_ONE_API_KEY", trend_image(),
                 "-region", region, "-readonly=true", f"-toolsets={ALERT_TOOLSETS}"],
                 env={**os.environ, "TREND_VISION_ONE_API_KEY": api_key})
             streams = await stack.enter_async_context(stdio_client(params))
@@ -139,7 +140,7 @@ async def _trend(api_key: str, region: str, timeout: float) -> dict:
                                   "reason": found.stop_reason})
     except Exception as exc:
         out["stages"].append({"stage": stage, "state": "failed", "category": failure_reason(exc)})
-        out["remediation"] = ("If the log shows 'unknown toolset', run docker pull ghcr.io/trendmicro/vision-one-mcp-server; "
+        out["remediation"] = ("If the log shows 'unknown toolset', run docker pull " + trend_image() + "; "
                               "otherwise check Docker and the region")
     return out
 
@@ -155,6 +156,12 @@ async def diagnose(check_trend: bool = False, timeout: float = 20.0) -> dict:
     else:
         report["trend"] = {"stages": [{"stage": "not_requested", "state": "skipped"}],
                            "note": "Run with check_trend to start the local Vision One container and list its tools"}
+    from .upstream_access import counts, registry
+    report["upstream_registry"] = {
+        "policy_version": registry()["policy_version"],
+        "sources": {p: {"commit": s["commit"][:12], "tags": s["tags"]} for p, s in registry()["sources"].items()},
+        "counts": {p: {k: v for k, v in c.items() if k != "by_effect"} for p, c in counts().items()},
+        "change_server": "separate soc-bridge-change process, disabled by default; not reachable from this server"}
     report["call_outcomes"] = GLOBAL_LEDGER.describe()
     report["call_outcomes"]["scope"] = "all upstream calls since this bridge process started; not one investigation"
     report["handling"] = ("States and categories only: no token, header, credential URL or upstream message is shown. "
@@ -168,6 +175,11 @@ def render(report: dict) -> str:
     lines.append("Environment: " + ", ".join(f"{k}={v}" for k, v in report["environment"].items()))
     lines.append(f"Kiro pack: {report['pack']['state']} ({report['pack']['tools']} tools)" +
                  (f"; {report['pack']['problems']}" if report["pack"]["problems"] else ""))
+    if report.get("upstream_registry"):
+        reg = report["upstream_registry"]
+        lines.append("Upstream registry: " + "; ".join(
+            f"{p} {reg['sources'][p]['commit']}: {c['total']} tools, {c['query']} query, {c['change']} change, "
+            f"{c['unsupported']} unsupported, {c['pending_review']} pending review" for p, c in reg["counts"].items()))
     for source in ("qradar", "trend"):
         section = report[source]
         stages = ", ".join(f"{s['stage']}={s['state']}" + (f" ({s['category']})" if s.get("category") else "")

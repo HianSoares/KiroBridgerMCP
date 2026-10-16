@@ -65,7 +65,17 @@ Descoberta por descrição e investigação em lotes: [guia](offense-batch-inves
 
 ## Cobertura dos catálogos upstream
 
-A [matriz de cobertura](coverage-matrix.md) lista todas as tools dos MCPs oficiais com suporte, gatilho, limites, paginação e justificativa de exclusão. Presença no catálogo não garante disponibilidade na instalação. Filtros server-side não confirmados em ambiente real (assets por IP, `createdDateTime` de insights, `userDisplayName` de identidade) têm o resultado conferido localmente e, se rejeitados, aparecem como `request_rejected`. Detalhes em [cobertura investigativa](investigative-coverage.md).
+A [matriz de cobertura](coverage-matrix.md) lista todas as tools das versões auditadas dos MCPs oficiais. Para cada uma, ela mostra efeito, rota, política, fluxo curado, verificação de contrato, teste ponta a ponta sintético, execução real, paginação e dependências.
+
+Números atuais:
+
+- 255 tools de consulta acessíveis por `upstream_query`.
+- 177 tools de alteração, somente pelo `soc-bridge-change`, desabilitado por padrão. Entre elas estão os 10 uploads do Vision One, feitos a partir de uma cópia aprovada por SHA-256 e montada somente leitura.
+- Todas as 432 passam por verificação de schema e rota.
+- Apenas 15 foram testadas ponta a ponta, contra servidores sintéticos.
+- Nenhuma chamada `upstream_*` foi validada ainda em tenant real.
+
+Ter rota não comprova que a tool funcione na sua instalação. Presença no catálogo não garante disponibilidade na instalação: use `upstream_inventory`. Veja [acesso às ferramentas upstream](upstream-access.md). Filtros server-side não confirmados em ambiente real (assets por IP, `createdDateTime` de insights, `userDisplayName` de identidade) têm o resultado conferido localmente e, se rejeitados, aparecem como `request_rejected`. Detalhes em [cobertura investigativa](investigative-coverage.md).
 
 ## Execução e recuperação
 
@@ -73,4 +83,4 @@ Falha de encerramento preserva o relatório; falhas secundárias preservam evid�
 
 ## Search direta Trend
 
-`trend_read_search_resource` e `trend_search_data` expõem oito fontes Search sem WB/offense nem QRadar. A ponte integra 40 leituras Trend; cloud é leitura explícita, sem associação automática a entidades de alertas. Consulte o [guia](trend-direct-search.md): campos nativos/cortes, fonte/filtro/janela, partições sem cursor, limites e distinção entre logs e countOnly. Não há paridade garantida com todas as fontes do console, incorporação automática ao caso ou veredito por consulta.
+`trend_read_search_resource` e `trend_search_data` expõem oito fontes Search sem WB/offense nem QRadar. Os fluxos curados integram 40 leituras Trend; cloud é leitura explícita, sem associação automática a entidades de alertas. Consulte o [guia](trend-direct-search.md): campos nativos/cortes, fonte/filtro/janela, partições sem cursor, limites e distinção entre logs e countOnly. Não há paridade garantida com todas as fontes do console, incorporação automática ao caso ou veredito por consulta.

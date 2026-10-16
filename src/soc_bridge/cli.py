@@ -30,11 +30,17 @@ def main() -> None:
     cases = sub.add_parser("cases", help="List, show, delete or purge local investigation cases")
     cases.add_argument("action", choices=["list", "show", "delete", "purge"])
     cases.add_argument("case_id", nargs="?")
+    change = sub.add_parser("change", help="Review, approve or reject change requests of soc-bridge-change "
+                                           "(approval requires an interactive terminal)")
+    change.add_argument("action", choices=["list", "show", "approve", "reject", "policy"])
+    change.add_argument("request_id", nargs="?")
     args = parser.parse_args()
     if args.mode == "doctor":
         raise SystemExit(_doctor(args))
     if args.mode == "cases":
         raise SystemExit(_cases(args))
+    if args.mode == "change":
+        raise SystemExit(_change(args))
     try:
         if args.mode == "demo":
             report = asyncio.run(investigate(DemoQRadar(), DemoVision(), 1842))
@@ -87,6 +93,39 @@ def _cases(args: argparse.Namespace) -> int:
         print(json.dumps(case_summary(case), indent=1, default=str))
     else:
         print(json.dumps({"deleted": store.delete(args.case_id)}))
+    return 0
+
+
+def _change(args: argparse.Namespace) -> int:
+    import json
+    from . import change_control
+    from .upstream_access import Refused
+    try:
+        if args.action == "policy":
+            print(json.dumps(change_control.policy(), indent=1))
+        elif args.action == "list":
+            change_control.sweep_expired()
+            root = change_control.change_dir()
+            requests = [change_control.summary(json.loads(p.read_text(encoding="utf-8")))
+                        for p in sorted(root.glob("*.json"))] if root.is_dir() else []
+            print(json.dumps([{k: r.get(k) for k in ("id", "platform", "tool", "status", "created_at")}
+                              for r in requests], indent=1))
+        elif not args.request_id:
+            print("request_id is required", file=sys.stderr)
+            return 2
+        elif args.action == "show":
+            print(json.dumps(change_control.summary(change_control.load(args.request_id)), indent=1,
+                             ensure_ascii=False))
+        elif args.action == "approve":
+            result = change_control.approve_interactively(args.request_id)
+            print(f"Approved {result['platform']}/{result['tool']} until {result.get('status')}; "
+                  "it can now be executed once by soc-bridge-change if changes are enabled and the policy lists it.")
+        else:
+            change_control.reject(args.request_id)
+            print("Rejected.")
+    except Refused as refused:
+        print(f"{refused.category}: {refused}", file=sys.stderr)
+        return 1
     return 0
 
 
