@@ -143,25 +143,40 @@ def describe(platform: str, tool: str) -> dict[str, Any]:
 DESCRIPTIVE = {"description", "title", "examples", "$comment", "markdownDescription"}
 UNORDERED = {"required", "enum", "type"}
 ALTERNATIVES = {"anyOf", "oneOf", "allOf"}
+# Keywords whose value maps literal names (parameters, definitions) to subschemas.
+NAMED_SCHEMAS = {"properties", "patternProperties", "$defs", "definitions", "dependentSchemas"}
+# Keywords whose value is one subschema, or (items, legacy) a list of subschemas.
+SUBSCHEMA = {"items", "additionalItems", "additionalProperties", "unevaluatedItems", "unevaluatedProperties",
+             "contains", "propertyNames", "not", "if", "then", "else"}
+ORDERED_SCHEMAS = {"prefixItems"}
 
 
 def _canonical(schema: Any) -> Any:
-    """Schema without descriptive keywords, with order-insensitive lists sorted."""
-    if isinstance(schema, dict):
-        out = {}
-        for key, value in schema.items():
-            if key in DESCRIPTIVE or key.startswith("x-"):
-                continue
-            if key in UNORDERED and isinstance(value, list):
-                out[key] = sorted(value, key=lambda v: json.dumps(v, sort_keys=True))
-            elif key in ALTERNATIVES and isinstance(value, list):
-                out[key] = sorted((_canonical(v) for v in value), key=lambda v: json.dumps(v, sort_keys=True))
-            else:
-                out[key] = _canonical(value)
-        return out
-    if isinstance(schema, list):
-        return [_canonical(v) for v in schema]
-    return schema
+    """Canonical schema node: descriptive annotations of this node dropped, order-insensitive lists sorted.
+
+    Only keyword positions are interpreted. Names under properties/patternProperties/$defs/definitions
+    are literal (a parameter called "description" is kept), and data values (default, const, enum,
+    required, unknown keywords) are kept verbatim, even when they contain annotation-like keys.
+    """
+    if not isinstance(schema, dict):
+        return schema  # boolean schema or a malformed node: compared as is
+    out: dict[str, Any] = {}
+    for key, value in schema.items():
+        if key in DESCRIPTIVE or key.startswith("x-"):
+            continue
+        if key in NAMED_SCHEMAS and isinstance(value, dict):
+            out[key] = {name: _canonical(sub) for name, sub in value.items()}
+        elif key in SUBSCHEMA:
+            out[key] = [_canonical(v) for v in value] if isinstance(value, list) else _canonical(value)
+        elif key in ALTERNATIVES and isinstance(value, list):
+            out[key] = sorted((_canonical(v) for v in value), key=lambda v: json.dumps(v, sort_keys=True))
+        elif key in ORDERED_SCHEMAS and isinstance(value, list):
+            out[key] = [_canonical(v) for v in value]
+        elif key in UNORDERED and isinstance(value, list):
+            out[key] = sorted(value, key=lambda v: json.dumps(v, sort_keys=True))
+        else:
+            out[key] = value  # data: default, const, dependentRequired, bounds, pattern, unknown keywords
+    return out
 
 
 def _differences(audited: Any, live: Any, path: str, out: list[str]) -> None:

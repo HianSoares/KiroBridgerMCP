@@ -120,7 +120,7 @@ Vision One:
    - `pattern`/`format`, nested `properties`/`items`/`additionalProperties`;
    - `anyOf`/`oneOf`/`allOf` (order-insensitive), `$ref`/`$defs` and `default`.
 
-   Only descriptive keywords are ignored: `description`, `title`, `examples`, `$comment` and `x-*`. Any
+   Only descriptive keywords of a schema node are ignored: `description`, `title`, `examples`, `$comment` and `x-*`. Names under `properties`, `patternProperties`, `$defs` and `definitions` (a parameter called `description`, for example) and data values (`default`, `const`, `enum`) are compared literally. Any
    difference returns `contract_changed` with the paths, and no call is made. An equal schema still does not
    prove that the handler's effect is unchanged.
 6. **Call.** Exactly one `tools/call` is made, followed by output normalization (next section).

@@ -76,6 +76,72 @@ class ContractTests(unittest.TestCase):
         swapped = list(reversed(offenses["announced_schema"]["properties"]["limit"]["anyOf"]))
         self.assertEqual(self.patched(offenses, ["properties", "limit", "anyOf"], swapped), [])
 
+    def test_parameter_named_description_is_a_real_parameter(self):
+        t = access.entry("qradar", "create_reference_set")
+        self.assertIn("description", t["announced_schema"]["properties"])
+        removed = copy.deepcopy(t["announced_schema"])
+        removed["properties"].pop("description")
+        self.assertIn("properties.description: removed", access.contract_drift(t, {"inputSchema": removed}))
+        self.assertTrue(self.patched(t, ["properties", "description", "anyOf"], [{"type": "integer"}]))
+        # The documentation of that parameter is still only documentation.
+        reworded = self.patched(t, ["properties", "description", "description"], "reworded")
+        self.assertEqual(reworded, [])
+
+    def synthetic(self, schema):
+        return {"platform": "qradar", "name": "synthetic", "input_schema": schema, "announced_schema": schema}
+
+    def test_parameters_named_like_annotations_are_compared(self):
+        base = {"type": "object", "description": "doc", "title": "Doc", "properties": {
+            "title": {"type": "string"}, "examples": {"type": "array", "items": {"type": "string"}},
+            "x-custom": {"type": "integer", "minimum": 1}}, "required": ["title"],
+            "$defs": {"description": {"type": "string"}}, "patternProperties": {"^x-": {"type": "string"}}}
+        t = self.synthetic(base)
+        for path, value in [(["properties", "title", "type"], "integer"),
+                            (["properties", "examples", "items", "type"], "number"),
+                            (["properties", "x-custom", "minimum"], 5),
+                            (["$defs", "description", "type"], "integer"),
+                            (["patternProperties", "^x-", "type"], "integer"),
+                            (["required"], ["examples"])]:
+            with self.subTest(path=path):
+                self.assertTrue(self.patched(t, path, value))
+        for name in ("title", "examples", "x-custom"):
+            with self.subTest(removed=name):
+                changed = copy.deepcopy(base)
+                changed["properties"].pop(name)
+                self.assertIn(f"properties.{name}: removed", access.contract_drift(t, {"inputSchema": changed}))
+
+    def test_data_values_with_annotation_like_keys_are_kept(self):
+        base = {"type": "object", "properties": {
+            "filter": {"type": "object", "default": {"description": "a", "x-mode": 1, "title": "t"}},
+            "kind": {"const": {"examples": [1], "$comment": "c"}},
+            "choice": {"enum": [{"title": "a"}, {"title": "b"}]}}}
+        t = self.synthetic(base)
+        for path, value in [(["properties", "filter", "default", "description"], "b"),
+                            (["properties", "filter", "default", "x-mode"], 2),
+                            (["properties", "kind", "const", "examples"], [2]),
+                            (["properties", "kind", "const", "$comment"], "other"),
+                            (["properties", "choice", "enum"], [{"title": "a"}, {"title": "c"}])]:
+            with self.subTest(path=path):
+                self.assertTrue(self.patched(t, path, value))
+        self.assertEqual(self.patched(t, ["properties", "choice", "enum"], [{"title": "b"}, {"title": "a"}]), [])
+
+    def test_schema_documentation_alone_is_still_ignored(self):
+        base = {"type": "object", "description": "doc", "properties": {
+            "description": {"type": "string", "description": "the free text", "title": "Description",
+                            "examples": ["x"], "x-ui": "textarea"},
+            "items": {"type": "array", "items": {"type": "object", "description": "item doc",
+                                                 "properties": {"id": {"type": "string", "$comment": "c"}}}}}}
+        t = self.synthetic(base)
+        for path, value in [(["description"], "new doc"), (["properties", "description", "description"], "changed"),
+                            (["properties", "description", "title"], "Text"),
+                            (["properties", "description", "examples"], ["y"]),
+                            (["properties", "description", "x-ui"], "input"),
+                            (["properties", "items", "items", "description"], "changed"),
+                            (["properties", "items", "items", "properties", "id", "$comment"], "d")]:
+            with self.subTest(path=path):
+                self.assertEqual(self.patched(t, path, value), [])
+        self.assertTrue(self.patched(t, ["properties", "items", "items", "properties", "id", "type"], "integer"))
+
     def test_anyof_change_in_a_running_server_blocks_the_call(self):
         patch = {"tool": "list_offenses", "path": ["properties", "limit", "anyOf", 0, "type"], "value": "string"}
         fake = FakeUpstream(FAKE_UPSTREAM_SCHEMA_PATCH=json.dumps(patch))
