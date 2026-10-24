@@ -22,7 +22,7 @@ O analista quer testar uma hipótese de comportamento adversário, com uma offen
    | Varredura externa (T1595) | Ariel: muitos `destinationport`/`destinationip` distintos para a mesma `sourceip` na amostra; nomes de evento deny/accept | se um `accept` virou sessão de aplicação |
    | Brute force/spraying (T1110.00x) | Ariel: `username` e evento de falha/sucesso por origem, na amostra | identidade/autoridade das contas, dados ausentes na retenção |
    | Escalação local (T1078.003/T1548.003) | Ariel: sequência PAM e payload selecionado por AQL, origem/alvo quando registrados | autorização da sessão, campos não armazenados |
-   | Exfiltração (T1567.002/T1048) | Trend: `processCmd`, `dst`/`dpt` se a busca por hash de processo retornar | bytes, sucesso, destino resolvido (proxy/DNS) |
+   | Exfiltração (T1567.002/T1048) | Trend Search: `processCmd`, instância, conexões atribuídas (`evidence_digest`) e contadores de bytes só quando retornados; QRadar flows por tupla e janela (exfiltration-assessment) | resultado no destino, autorização, destino resolvido (proxy/DNS) |
    | Web/C2 (T1071.001, T1189, T1566.002) | FortiGate `action`/`subtype`/`policyid`; Trend `blocking`/`act` | conteúdo entregue, processo requisitante, origem do link |
 
    Use apenas campos retornados; dados insuficientes deixam hipótese `não verificada`.
@@ -30,7 +30,10 @@ O analista quer testar uma hipótese de comportamento adversário, com uma offen
 
 ## Tools permitidas
 
-`investigate_case`, `investigate_offense`, `investigate_vision_alert`, `investigate_epm_uac`, `investigate_web_reputation` conforme referência e campos disponíveis; `investigate_demo` só para demonstração. As seis tools qradar_* do front matter do threat-hunter permitem ler resources, validar/executar SELECTs limitados, acompanhar search IDs e paginar eventos/flows/payload conforme qradar-aql-conventions.
+- **Investigação:** `investigate_case`, `investigate_offense`, `investigate_vision_alert`, `investigate_epm_uac` e `investigate_web_reputation`, conforme a referência e os campos disponíveis. `investigate_demo` serve só para demonstração.
+- **Search direta (XDR Data Explorer):** `trend_read_search_resource` e `trend_search_data`.
+- **QRadar:** as seis tools `qradar_*` do front matter do threat-hunter leem resources, validam e executam SELECTs limitados, acompanham search IDs e paginam eventos, flows e payload conforme qradar-aql-conventions.
+- **Outras leituras dos MCPs oficiais:** `upstream_tools`, `upstream_tool_details` e `upstream_query`.
 
 A correlação por IP e timestamp exatos copiados de um View event (`investigate_vision_event`) é escopo do `case-investigator`, não do hunting. Quando a hipótese depender desse pivô, registre-o como próximo passo e indique que o analista o execute no `case-investigator` com `alert_id`, IP exato e horário com fuso explícito; não simule o resultado.
 

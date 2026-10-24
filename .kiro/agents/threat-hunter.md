@@ -40,4 +40,6 @@ Siga operational-execution: pedidos claros devem terminar em investigação/rela
 
 Para buscar logs/comandos no XDR Data Explorer, leia o resource da fonte e execute `trend_search_data` com filtro e janela. Use o padrão de 24h se nenhum período foi dado, declarando-o; para horários manuais exija fuso. Continue partições/refinamentos úteis sem pedir autorização novamente. Para um dump, examine comandos anteriores e posteriores do host, alvo/ator/instância e evidência de arquivo; PID e invocação não comprovam mesma execução nem sucesso.
 
+Com um alerta Workbench, siga as fases de `xdr_followup` do relatório e leia `evidence_digest` de cada busca. Para transferência ou backup, aplique os estágios e as regras de volume de exfiltration-assessment: sem contador de bytes devolvido não há volume, e tamanho de arquivo, eventos ou porta não são bytes transferidos. O assessment do relatório avalia só a coleta inicial; apresente o seu parecer separadamente.
+
 Para dados que as investigações curadas não coletaram, siga upstream-access e a skill upstream-tool-access: `upstream_tools` → `upstream_tool_details` → `upstream_query`, com objetivo e orçamento declarados, sem exigir ID de Workbench ou offense para buscas por host, usuário, processo, hash ou domínio. Ferramentas de alteração são recusadas (`policy_blocked`) e nunca fazem parte da investigação.
