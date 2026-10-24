@@ -191,8 +191,42 @@ def render(report: dict[str, Any]) -> str:
     if tl["truncated"]:
         lines.append(f"- Timeline capped at {len(tl['entries'])} of {tl['total_sampled_entries']} collected entries.")
     lines.append(f"- {tl['note']}")
+    follow = report.get("xdr_followup")
+    if follow:
+        found = follow["seeds"]
+        lines += ["", "## XDR Data Explorer follow-up (planned here, run with trend_search_data)", "",
+                  f"- State: {follow['state']}. Seeds already known (do not ask the analyst for them):"]
+        for endpoint in found["endpoints"][:8]:
+            lines.append(f"  - endpoint name={endpoint.get('name')} guid={endpoint.get('guid')} ips={endpoint.get('ips')} "
+                         f"sources={endpoint['sources'][:3]}")
+        for kind in ("users", "hashes", "instances", "commands"):
+            for item in found[kind][:8]:
+                value = item.get("value") or item.get("id")
+                extra = (f" image={_clip(item.get('image'), 160)} pid={item.get('pid')} launch={item.get('launch_time')}"
+                         if kind == "instances" else f" role={item.get('role')}" if item.get("role") else "")
+                lines.append(f"  - {kind[:-1]}: {_clip(value, 300)}{extra} sources={item['sources'][:2]}")
+        lines.append(f"  - times: {found['times']}")
+        lines.append(f"- Seed identifiers (compare with evidence_digest.identifiers): "
+                     f"`{json.dumps(found['identifiers'], ensure_ascii=False)}`")
+        for phase in follow["phases"]:
+            lines.append(f"- {phase['id']} [{phase['kind']}{'/' + phase['hypothesis'] if phase['hypothesis'] else ''}] "
+                         f"{phase['purpose']}; answers {phase['answers']}; parameters "
+                         f"`{json.dumps(phase['parameters'], ensure_ascii=False)}`")
+        if follow.get("transfer"):
+            tr = follow["transfer"]
+            lines.append(f"- Transfer/backup hypothesis: {tr['applies_because']}. {tr['rule']}")
+            lines += [f"  - {s['stage']}: established by {s['established_by']}; does not establish {s['does_not_establish']}"
+                      for s in tr["stages"]]
+        for source in follow["volume_sources"]:
+            lines.append(f"- Volume source {source['source']}: {source['how']}; proves {source['proves']}; "
+                         f"limit {source['limit']}" + (f"; host IPs {source['host_ips']}" if source.get("host_ips") else "")
+                         + (f"; {source['note']}" if source.get("note") else ""))
+        lines += [f"- {step}" for step in follow["procedure"]]
     asm = report["assessment"]
-    lines += ["", "## Assessment (recommendation for human review)", "",
+    lines += ["", "## Assessment of the initial collection (recommendation for human review)", "",
+              f"- Scope: {asm['scope']['basis']} at {asm['scope']['generated_at']}; phases "
+              f"{asm['scope']['completed_phases']}; excludes {asm['scope']['excludes']}. {asm['scope']['rule']}",
+              f"- Authorization: {asm['authorization']['status']} — {asm['authorization']['effect']}",
               f"- Recommended classification: {asm['classification']} (confidence {asm['confidence']})",
               f"- Justification: {asm['justification']}", f"- Facts: {asm['facts']}",
               f"- Malicious discriminators: {asm['malicious_discriminators']}",
