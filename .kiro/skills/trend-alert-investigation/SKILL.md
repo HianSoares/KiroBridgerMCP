@@ -15,19 +15,50 @@ O analista informa um ID exato de alerta Workbench ou copia campos de um único 
 2. Leia `extraction`: endpoints (nome, GUID, IPs, inclusive listas e IPv6), indicadores com `id`/`type`/`field` e relações, `matched_rules` e `field_states`. Diferencie campo ausente, vazio, formato não reconhecido e corte da ponte; com entidade vazia, use `shape` antes de qualquer conclusão sobre a API.
 3. Leia `anchor` e `clocks`: cite a base da âncora e se é provisória. Evento, correspondência, ingestão, criação/atualização e coleta são relógios distintos.
 4. Leia `auto_pivots`: pivôs por GUID/host/IP de cada endpoint, hashes por papel e nomes de arquivo; OAT; seguimento de instâncias (`processHashId`); relações `linked`, `identifier_match`, `context` com motivos. Relate estados das consultas (`complete_in_window`, `partial`, `limited`, `empty`, `unavailable`, `not_started`) e `continuation`.
-5. Se houver `dump_analysis`, separe intenção, execução, arquivo `.dmp` e alvo; leia atividade posterior do dump e conexões atribuíveis; mantenha as hipóteses operacional e maliciosa e peça a fonte de autorização/diagnóstico.
+5. Se houver `dump_analysis`, separe intenção, execução, arquivo `.dmp` e alvo; leia atividade posterior do dump e conexões atribuíveis; mantenha as hipóteses operacional e maliciosa. Registre a fonte de autorização ou diagnóstico como pendência externa, sem interromper a coleta nem omitir os fatos técnicos.
 6. Leia `enrichment` com gatilho e estado; enriquecimento indisponível é lacuna secundária, não falha da coleta.
 7. Em QRadar, separe leads de offense (índice de endereço), eventos, flows e pista textual de hostname; cite search ID, AQL, cláusula temporal e `relations` com seus critérios. Histórico sem fuso verificado aparece como plano (`run_with_verified_timezone`).
 8. Continue as pesquisas read-only autorizadas que possam mudar a conclusão (partições pendentes, refinamentos, mesmo search ID, View event) sem perguntar qual pivô o analista prefere. Pare quando a próxima evidência depender de fonte inacessível e diga qual.
 9. Se o analista fornecer campos do **mesmo** View event, confirme timezone explícito e IP exato; chame `investigate_vision_event` com `{"alert_id":"WB-EXEMPLO-0001","endpoint_ip":"192.0.2.10","event_time":"2026-01-15T12:00:00Z","endpoint_host":"HOST-DEMO","qradar_utc_offset_hours":-3}` somente após verificar o offset do console. Os campos continuam `não verificados` pela ponte. Omita campos opcionais sem valor.
 
+## Workbench + XDR Data Explorer
+
+Quando o pedido citar XDR Data Explorer, logs, comandos ou Search, ou quando o Workbench trouxer poucos dados, execute a fase XDR automaticamente:
+
+1. **Investigação inicial uma vez.** Rode `investigate_vision_alert`. Não a repita para obter campos que ela não devolve.
+2. **Sementes.** Leia a seção "XDR Data Explorer follow-up" (`xdr_followup`): as sementes (host/GUID, IPs, usuários, hashes, instâncias, comandos, horários) com as suas fontes, e as fases planejadas. Não peça host ou IP ao analista quando as sementes ou os registros Search os trouxerem.
+3. **Schema vivo.** Para cada fonte, chame `trend_read_search_resource(source=...)` antes da primeira consulta e use somente campos do schema vivo e dos registros devolvidos.
+4. **Fases.** Execute cada fase com `trend_search_data` e os parâmetros indicados. Siga `continuation_plan`: `search_partition` com a janela devolvida, e `refine_filters` estreitando filtro, `select`, `top` ou `limit`. Não repita parâmetros idênticos que não possam trazer progresso. Mantenha o orçamento e um registro cumulativo das consultas.
+5. **O que o XDR acrescentou.** Leia `evidence_digest` de cada resultado: atores (uma execução só com `processHashId`; sem ele, cada registro é uma observação separada), `image_aggregates` (agregado, não execução), comandos com cada ocorrência, objetos de arquivo, conexões com a sua atribuição, contadores verificados, `unclassified_metrics` e volume. Compare `evidence_digest.identifiers` com `seeds.identifiers` para registrar o acréscimo.
+6. **Transferência.** Para hipótese de backup, RClone ou transferência, siga exfiltration-assessment: estágios separados e volume sem estimativa.
+
 ## Entrega
 
-Resumo do comportamento observado; cronologia com proveniência; relações Trend ↔ QRadar e critérios; hipóteses concorrentes e evidências discriminantes; cobertura, pendências e próximas fontes; classificação recomendada (True Positive, Benign True Positive, False Positive ou inconclusiva), confiança qualitativa e justificativa; nota sugerida em português para revisão humana (`assessment.note_pt`), sem publicá-la.
+Entregue, nesta ordem:
+
+1. O que aconteceu, sustentado pelas evidências, com cronologia e proveniência.
+2. O que o XDR acrescentou à coleta inicial.
+3. Correlações confirmadas e candidatas (Trend ↔ Trend e Trend ↔ QRadar), com critérios.
+4. Hipóteses testadas e evidências discriminantes.
+5. Conclusão técnica e confiança.
+6. Pendências externas e o impacto específico de cada uma.
+
+Separe as duas avaliações:
+
+- **Assessment da coleta inicial:** `assessment`, com classificação, confiança, `scope` e `note_pt`. Não o altere e não afirme que ele avaliou registros posteriores.
+- **Parecer do agente:** incorpora as evidências complementares, citadas uma a uma.
+
+A falta de registro de autorização não impede descrever os fatos técnicos confirmados e não sustenta Benign True Positive. Nenhuma nota é publicada.
 
 ## Tools permitidas
 
-`investigate_vision_alert(alert_id: string)`, `investigate_case(reference: string)` e, quando o analista trouxer campos obrigatórios exatos, `investigate_vision_event(alert_id: string, endpoint_ip: string, event_time: string, endpoint_host?: string, file_hash?: string, file_path?: string, process_path?: string, qradar_utc_offset_hours?: integer)`. AQL complementar pelas tools `qradar_*` conforme qradar-aql-conventions, no perfil que as expõe.
+- **Investigação do alerta:**
+  - `investigate_vision_alert(alert_id: string)`;
+  - `investigate_case(reference: string)`;
+  - `investigate_vision_event(alert_id: string, endpoint_ip: string, event_time: string, endpoint_host?: string, file_hash?: string, file_path?: string, process_path?: string, qradar_utc_offset_hours?: integer)`, somente quando o analista trouxer os campos obrigatórios exatos.
+- **Search direta (XDR Data Explorer):** `trend_read_search_resource(source: string)` e `trend_search_data(query, source, start_date_time, end_date_time, select, top, limit, max_calls, count_only)`.
+- **QRadar:** AQL complementar pelas tools `qradar_*` conforme qradar-aql-conventions, no perfil que as expõe.
+- **Outras leituras dos MCPs oficiais:** `upstream_tools`, `upstream_tool_details` e `upstream_query`, conforme upstream-access.
 
 ## Critério de conclusão
 
@@ -52,4 +83,12 @@ A Trend é a fonte primária da entrada WB: se a inicialização do QRadar falha
 
 ## Complementar o Workbench com logs diretos
 
-Se faltarem outros comandos, alvo de dump ou contexto no alerta, leia `trend_read_search_resource` e execute `trend_search_data` pela fonte apropriada. Host e janela bastam como ponto de partida; não exija outro ID WB. Consulte a série de comandos do host antes de restringir ao binário detectado. Preserve ator/objeto, instância/início, hashes completos e artefatos. Leia os cortes e siga as partições pendentes; correlação por PID ou tempo continua candidata. Invocação de dump não comprova arquivo gerado nem sucesso. Estas consultas devolvem evidência, não atualizam automaticamente assessment/caso; cite os registros na análise e não atribua autorização sem fonte correspondente.
+Se faltarem outros comandos, o alvo de um dump ou contexto no alerta, siga as fases do "XDR Data Explorer follow-up" com `trend_read_search_resource` e `trend_search_data` pela fonte apropriada.
+
+- Host e janela bastam como ponto de partida; não exija outro ID WB.
+- Consulte a série de comandos do host antes de restringir ao binário detectado.
+- Preserve ator e objeto, instância e início, hashes completos e artefatos.
+- Leia os cortes e siga as partições pendentes. Correlação por PID ou por horário continua candidata.
+- Invocação de dump não comprova arquivo gerado nem sucesso.
+
+Estas consultas devolvem evidência, mas não atualizam o assessment nem o caso. Cite os registros no parecer do agente, separado do assessment da coleta inicial, e não atribua autorização sem fonte correspondente.

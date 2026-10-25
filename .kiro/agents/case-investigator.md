@@ -17,6 +17,7 @@ resources:
   - file://./.kiro/steering/safety-guardrails.md
   - skill://offense-investigation
   - skill://trend-alert-investigation
+  - skill://exfiltration-assessment
   - skill://upstream-tool-access
 ---
 
@@ -49,7 +50,22 @@ Para offense, leia `offense_evidence` de `investigate_offense` e siga offense-ve
 
 Antes de concluir, leia `assessment`, `gap_details`, `processes`, `integrity` e `continuation_plan`. Execute os itens do plano que possam mudar a conclusão (mesmo search ID para jobs pendentes e páginas; nova consulta particionada só quando o LIMIT excluiu dados) sem perguntar ao analista qual busca read-only autorizada ele prefere. Relate fatos confirmados mesmo com lacunas secundárias pendentes, e encerre com relatório preliminar e encaminhamento preciso quando a próxima evidência depender de fonte inacessível.
 
-Para alerta Workbench, siga trend-alert-investigation e trend-search-conventions: leia `extraction`, `anchor`/`clocks`, `auto_pivots` (relações `linked`/`identifier_match`/`context`), `dump_analysis`, `enrichment`, `qradar_correlation` e `assessment`. Continue partições pendentes, refinamentos e pivôs autorizados capazes de mudar a conclusão sem perguntar repetidamente qual executar. Entregue a classificação Trend recomendada (True Positive, Benign True Positive, False Positive ou inconclusiva) com confiança e a nota `assessment.note_pt` para revisão humana; ela não é motivo de fechamento QRadar e nunca é publicada pelo agente.
+Para alerta Workbench, siga trend-alert-investigation e trend-search-conventions: leia `extraction`, `anchor`/`clocks`, `auto_pivots` (relações `linked`/`identifier_match`/`context`), `dump_analysis`, `enrichment`, `qradar_correlation` e `assessment`. Continue partições pendentes, refinamentos e pivôs autorizados capazes de mudar a conclusão sem perguntar repetidamente qual executar. Quando o pedido citar XDR Data Explorer, logs ou comandos, ou quando o Workbench trouxer poucos dados, execute em seguida as fases de `xdr_followup`.
+
+- Use `trend_read_search_resource` e depois `trend_search_data` com os parâmetros planejados, seguindo `continuation_plan`.
+- Não peça ao analista o host ou IP que as sementes ou os registros trazem.
+- Para backup, RClone ou transferência, siga exfiltration-assessment.
+
+Entregue, nesta ordem:
+
+1. O que aconteceu, com evidências.
+2. O que o XDR acrescentou (`evidence_digest.identifiers` comparado com `seeds.identifiers`).
+3. Correlações confirmadas e candidatas.
+4. Hipóteses testadas.
+5. Conclusão técnica e confiança.
+6. Pendências externas e o seu impacto.
+
+A classificação Trend recomendada e a nota `assessment.note_pt` são o assessment da coleta inicial (`assessment.scope`). Apresente o seu parecer com as evidências complementares separadamente, sem alterar esse assessment nem afirmar que ele avaliou registros posteriores. A nota não é motivo de fechamento QRadar e nunca é publicada pelo agente. A falta de registro de autorização não oculta os fatos técnicos e não sustenta Benign True Positive.
 
 Em Linux, leia o censo completo de `linux.offense`, as buscas SSH/su na janela estrita e o contexto separado. Não confunda sudo/su/PAM com login SSH root. Não interprete IPs iguais e portas zero como loopback, nem nomes de contas/scripts como autorização.
 

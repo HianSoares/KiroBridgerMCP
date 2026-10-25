@@ -275,7 +275,17 @@ def assess(report: dict) -> dict:
          "would_confirm": "linked records showing the behavior did not occur"},
         {"id": "attribution_error", "supported_by": [], "status": "unverified",
          "would_confirm": "identifiers showing the records belong to a different host/process"}]
-    return {"classification": classification, "confidence": confidence, "justification": why,
+    collection = report.get("collection") or {}
+    scope = {"basis": "initial collection by investigate_vision_alert", "generated_at": report.get("generated_at"),
+             "completed_phases": list(collection.get("completed_phases", [])),
+             "excludes": "records from trend_search_data, upstream_query or QRadar queries run after this report",
+             "rule": "Present later evidence as a separate agent opinion; this assessment is not re-evaluated by it."}
+    authorization_pending = req["authorization_source"]["status"] != "confirmed"
+    return {"scope": scope, "classification": classification, "confidence": confidence, "justification": why,
+            "authorization": {"status": req["authorization_source"]["status"], "pending": authorization_pending,
+                              "effect": ("the technical facts above stand as collected; a missing authorization record "
+                                         "neither hides them nor supports Benign True Positive") if authorization_pending
+                              else "authorization source cited"},
             "confidence_basis": ("No numeric score. Confidence follows the requirements: sustained + reliable anchor + "
                                  "complete relevant coverage = high; sustained with incomplete anchor/coverage = moderate; "
                                  "no sustained conclusion = low."),
@@ -288,10 +298,11 @@ def assess(report: dict) -> dict:
                         "False Positive": "the detected behavior did not occur as described (needs positive evidence)",
                         "Inconclusive": "decisive data missing; see blocking items"},
             "qradar_closure_note": "Trend classification is not a QRadar closing reason; QRadar closure keeps its own criteria.",
-            "note_pt": note_pt(report, classification, confidence, why, facts, blockers)}
+            "note_pt": note_pt(report, classification, confidence, why, facts, blockers, authorization_pending)}
 
 
-def note_pt(report: dict, classification: str, confidence: str, why: str, facts: list[str], blockers: list[str]) -> str:
+def note_pt(report: dict, classification: str, confidence: str, why: str, facts: list[str], blockers: list[str],
+            authorization_pending: bool = False) -> str:
     alert = report.get("alert", {})
     labels = {"True Positive": "Verdadeiro positivo", "Benign True Positive": "Verdadeiro positivo benigno",
               "False Positive": "Falso positivo", "Inconclusive": "Inconclusivo"}
@@ -300,12 +311,17 @@ def note_pt(report: dict, classification: str, confidence: str, why: str, facts:
     budget = report.get("budget") or {}
     lines = [f"Nota sugerida para revisão humana (não publicada) — alerta {report['alert_id']}"
              f" ({alert.get('model') or alert.get('name') or 'modelo não informado'}).",
+             f"Escopo: avaliação da coleta inicial gerada em {report.get('generated_at')}; consultas complementares "
+             "posteriores (Search direta, upstream_query, QRadar) não fazem parte desta avaliação.",
              f"Classificação recomendada: {labels[classification]} (confiança {conf}).",
              f"Fundamento: {why}.",
              f"Janela consultada (UTC): {window.get('start') or 'não definida'} até {window.get('end') or 'não definida'}"
              f"; chamadas usadas {budget.get('calls_made', '?')} de {budget.get('max_calls', '?')}."]
     if facts:
         lines.append("Fatos observados (com proveniência no relatório): " + " | ".join(facts[:6]) + ".")
+    if authorization_pending:
+        lines.append("Autorização externa pendente: não oculta os fatos técnicos acima e não sustenta, por si, "
+                     "Verdadeiro positivo benigno.")
     if blockers:
         lines.append(("Pendências que impedem as demais conclusões: " if classification != "Inconclusive" else
                       "Pendências por conclusão: ") + " | ".join(blockers[:8]) + ".")
