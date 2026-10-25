@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import re
+import traceback
 from typing import Any
 
 from .aql_errors import ResponseFormatError
@@ -249,7 +250,16 @@ async def collect(vision: Any, selection: dict, budget: Budget | None = None, re
         "counted" if selection["count_only"] else "complete_in_window" if out["records"] else "empty")
     if not selection["count_only"]:
         from .xdr_followup import digest
-        out["evidence_digest"] = digest(out["records"], tool, selection["query"], out["result_set_complete"],
-                                        len(out["continuation_plan"]))
+        try:
+            out["evidence_digest"] = digest(out["records"], tool, selection["query"], out["result_set_complete"],
+                                            len(out["continuation_plan"]))
+        except Exception as exc:
+            # The digest is local post-processing of records already collected: its failure does not change
+            # what was collected (records, partitions, completeness), and it is reported, not hidden.
+            frame = traceback.extract_tb(exc.__traceback__)[-1]
+            out["evidence_digest"] = {
+                "state": "failed", "stage": "evidence digest (local processing after collection)",
+                "error": {"type": type(exc).__name__, "where": f"{frame.name}:{frame.lineno}"},
+                "note": "Read records[].data directly; the digest summary is unavailable for this result."}
     out["budget"] = budget.describe()
     return out

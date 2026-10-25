@@ -21,6 +21,7 @@ native values. Nothing is summed. File size, event counts and ports are not byte
 
 from __future__ import annotations
 
+import json
 import re
 from datetime import timedelta
 from typing import Any
@@ -46,6 +47,33 @@ METRIC_LIKE = re.compile(r"(?i)(byte|octet|packet|size|count|rate|loss|duration|
 SCOPE_NOTE = ("This assessment covers the initial collection of investigate_vision_alert only (phases listed in "
               "completed_phases). Results of trend_search_data, upstream_query or QRadar queries made afterwards are "
               "not part of it: present them as a separate agent opinion and never as this assessment re-evaluated.")
+
+
+def instance_id(value: Any) -> str | None:
+    """Exact text of a process instance identifier (processHashId/objectProcessHashId).
+
+    Vision One returns these as JSON integers, often beyond 2**53; Python keeps them exact and the
+    decimal text is the identity used here and in the output, so no consumer has to parse a large
+    number. A float is refused: its digits may already be lost, and it must never prove equality.
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, str) and INSTANCE_ID.fullmatch(value):
+        return value
+    return None
+
+
+def user_values(value: Any) -> list[str]:
+    """Account names from a string or a list of strings (logonUser is a list in Endpoint Activity Data)."""
+    items = value if isinstance(value, list) else [value]
+    return [item for item in items if isinstance(item, str) and item]
+
+
+def _key(value: Any) -> Any:
+    """Hashable grouping key that keeps the native value distinct (lists/dicts by canonical JSON)."""
+    return value if isinstance(value, (str, int, float, bool, type(None))) else json.dumps(value, sort_keys=True)
 
 
 def _value(value: Any) -> Any:
@@ -95,9 +123,9 @@ def seeds(report: dict, records: list[dict]) -> dict:
             entry["ips"] = sorted(set(entry["ips"]) | set(record.get("endpoint_ips", [])))
             entry["name"] = entry.get("name") or record.get("endpoint_host")
             entry["guid"] = entry.get("guid") or record.get("endpoint_guid")
-        for user in (record.get("logon", {}).get("user"), record.get("process", {}).get("user"),
-                     record.get("object", {}).get("user")):
-            if isinstance(user, str) and user:
+        for value in (record.get("logon", {}).get("user"), record.get("process", {}).get("user"),
+                      record.get("object", {}).get("user")):
+            for user in user_values(value):
                 _add(users, user.lower(), {"value": user}, source)
         for role in ("process", "object", "parent"):
             group = record.get(role) or {}
@@ -108,10 +136,12 @@ def seeds(report: dict, records: list[dict]) -> dict:
                 _add(commands, cmd, {"value": cmd, "role": role}, source)
         for role, field in (("process", "hashId"), ("object", "processHashId")):
             group = record.get(role) or {}
-            hash_id = group.get(field)
-            if isinstance(hash_id, str) and INSTANCE_ID.fullmatch(hash_id) and ident:
+            native = group.get(field)
+            hash_id = instance_id(native)
+            if hash_id and ident:
                 _add(instances, (ident, hash_id), {
-                    "id": hash_id, "role": role, "endpoint": {"guid": record.get("endpoint_guid"),
+                    "id": hash_id, "id_native_type": type(native).__name__, "role": role,
+                    "endpoint": {"guid": record.get("endpoint_guid"),
                                                               "name": record.get("endpoint_host")},
                     "image": _value(group.get("filePath")), "pid": group.get("pid"),
                     "launch_time": group.get("launchTime"), "event_time": record.get("event_time_utc")}, source)
@@ -199,6 +229,13 @@ def phases(report: dict, found: dict) -> list[dict]:
         scope, _ = endpoint_clause({"guid": instance["endpoint"].get("guid"), "name": instance["endpoint"].get("name"),
                                     "ips": []})
         start = parse(instance.get("launch_time"))[0] or parse(instance.get("event_time"))[0] or when
+        if instance.get("id_native_type") == "int":
+            # The quoted form below is the one used for text identifiers; the query syntax for a numeric
+            # processHashId has not been verified, so no query is invented for it.
+            found.setdefault("instance_queries_not_planned", []).append(
+                {"id": instance["id"], "reason": "numeric processHashId: TMV1-Query syntax for numeric instance IDs "
+                                                 "not verified; read trend_read_search_resource before querying it"})
+            continue
         if scope:
             add("instance_activity", "endpoint", f"{scope} and {term('processHashId', instance['id'])}",
                 start - timedelta(minutes=1), start + timedelta(hours=6),
@@ -359,21 +396,24 @@ def digest(records: list[dict], tool: str, query: str, complete: bool, pending: 
             hosts.append(endpoint)
         process, parent, obj, net = (row.get(k) or {} for k in ("process", "parent", "object", "network"))
         logon_user = (row.get("logon") or {}).get("user")
-        for user in (logon_user, process.get("user"), obj.get("user")):
-            if isinstance(user, str) and user:
-                users.add(user)
-        if process.get("hashId") or process.get("filePath"):
-            observation = {"pid": process.get("pid"), "user": process.get("user") or logon_user,
+        for value in (logon_user, process.get("user"), obj.get("user")):
+            users.update(user_values(value))
+        actor_id = instance_id(process.get("hashId"))
+        object_id = instance_id(obj.get("processHashId"))
+        if actor_id or process.get("filePath"):
+            # The native user value is kept as returned (string or list); users lists its account names.
+            native_user = process.get("user") if process.get("user") else logon_user
+            observation = {"pid": process.get("pid"), "user": native_user, "users": user_values(native_user),
                            "launch_time": process.get("launchTime"), "cmd": process.get("cmd"),
                            "parent": {"image": parent.get("filePath"), "cmd": parent.get("cmd"),
                                       "pid": parent.get("pid")} if parent else None, **ref}
             scope = endpoint["guid"] or endpoint["host"]
-            if process.get("hashId") and scope:
-                # processHashId on an identified endpoint identifies one execution.
-                actor = instances.setdefault((scope, process["hashId"]), {
+            if actor_id and scope:
+                # processHashId on an identified endpoint identifies one execution; compared as exact text.
+                actor = instances.setdefault((_key(scope), actor_id), {
                     "identity": "process instance (processHashId on the same endpoint)", "endpoint": endpoint,
-                    "instance": process["hashId"], "image": process.get("filePath"), "hashes": full_hashes(process),
-                    "observations": []})
+                    "instance": actor_id, "instance_native_type": type(process.get("hashId")).__name__,
+                    "image": process.get("filePath"), "hashes": full_hashes(process), "observations": []})
                 actor["observations"].append(observation)
             else:
                 executions.append({"identity": "unidentified execution: no processHashId on an identified endpoint; "
@@ -381,37 +421,39 @@ def digest(records: list[dict], tool: str, query: str, complete: bool, pending: 
                                    "endpoint": endpoint, "instance": None, "image": process.get("filePath"),
                                    "hashes": full_hashes(process), "observations": [observation]})
             if process.get("filePath"):
-                group = aggregates.setdefault((scope, process["filePath"]), {
+                group = aggregates.setdefault((_key(scope), _key(process["filePath"])), {
                     "aggregate": "by image on one endpoint; not a single execution", "endpoint": endpoint,
                     "image": process["filePath"], "pids": [], "users": [], "instances": [], "records": []})
-                for key, value in (("pids", process.get("pid")), ("users", observation["user"]),
-                                   ("instances", process.get("hashId"))):
-                    if value is not None and value not in group[key]:
-                        group[key].append(value)
+                for key, values in (("pids", [process.get("pid")]), ("users", observation["users"]),
+                                    ("instances", [actor_id])):
+                    for value in values:
+                        if value is not None and value not in group[key]:
+                            group[key].append(value)
                 group["records"].append(ref)
         for role, group in (("process", process), ("parent", parent), ("object", obj)):
             cmd = group.get("cmd")
             if isinstance(cmd, str) and cmd:
                 entry = commands.setdefault(cmd, {"cmd": cmd, "occurrences": []})
                 entry["occurrences"].append({"endpoint": endpoint, "role": role,
-                                             "instance": group.get("hashId") or group.get("processHashId"),
+                                             "instance": instance_id(group.get("hashId")) or
+                                             instance_id(group.get("processHashId")),
                                              "pid": group.get("pid"), **ref})
         if obj.get("filePath"):
-            files.append({"actor_instance": process.get("hashId"), "actor": process.get("filePath"),
+            files.append({"actor_instance": actor_id, "object_instance": object_id, "actor": process.get("filePath"),
                           "actor_pid": process.get("pid"), "object": obj.get("filePath"), "endpoint": endpoint,
                           "event": (row.get("event") or {}).get("eventSubId") or (row.get("event") or {}).get("eventName"),
                           **ref})
         dst = net.get("dst") or net.get("serverIp") or obj.get("ip") or net.get("request")
         if dst:
-            attributed = bool(process.get("hashId"))
+            attributed = bool(actor_id)
             connections.append({"src": net.get("src") or net.get("clientIp"), "spt": net.get("spt") or net.get("clientPort"),
                                 "dst": dst, "dpt": net.get("dpt") or net.get("serverPort") or obj.get("port"),
-                                "request": net.get("request"), "actor_instance": process.get("hashId"),
+                                "request": net.get("request"), "actor_instance": actor_id,
                                 "actor": process.get("filePath"), "actor_pid": process.get("pid"), "endpoint": endpoint,
                                 "attribution": "same record: the process instance is the event actor" if attributed else
                                 "record without a process instance: not attributable to one execution", **ref})
-        session = (net.get("src") or net.get("clientIp"), net.get("spt") or net.get("clientPort"), dst,
-                   net.get("dpt") or net.get("serverPort"), data.get("flowId"))
+        session = tuple(_key(v) for v in (net.get("src") or net.get("clientIp"), net.get("spt") or net.get("clientPort"),
+                                          dst, net.get("dpt") or net.get("serverPort"), data.get("flowId")))
         for field, value in _flat(data):
             found = _metric(field, value, tool)
             if not found:
@@ -421,7 +463,7 @@ def digest(records: list[dict], tool: str, query: str, complete: bool, pending: 
                 sessions.setdefault((session, field), []).append(value)
                 counters.append({"field": field, "value": value, **semantics,
                                  "session": dict(zip(("src", "spt", "dst", "dpt", "flowId"), session)),
-                                 "actor_instance": process.get("hashId"), **ref})
+                                 "actor_instance": actor_id, **ref})
             else:
                 (not_volume if kind == "not_transfer_volume" else unclassified).append(
                     {"field": field, "value": value, **ref})
@@ -430,9 +472,9 @@ def digest(records: list[dict], tool: str, query: str, complete: bool, pending: 
     destinations = sorted({str(c["dst"]) for c in connections})
     actors = list(instances.values()) + executions
     for actor in actors:
-        pids = {o["pid"] for o in actor["observations"] if o["pid"] is not None}
+        pids = {_key(o["pid"]) for o in actor["observations"] if o["pid"] is not None}
         actor["pids"] = sorted(pids, key=str)
-        actor["users"] = sorted({o["user"] for o in actor["observations"] if o["user"]})
+        actor["users"] = sorted({u for o in actor["observations"] for u in o["users"]})
         if actor["instance"] and len(pids) > 1:
             actor["conflict"] = "one processHashId with different PIDs: verify before treating it as one execution"
     volume = {"total": None,
@@ -464,4 +506,6 @@ def digest(records: list[dict], tool: str, query: str, complete: bool, pending: 
                 [{"value": c} for c in commands], destinations),
             "note": "Derived from the returned records only, with record_index/uuid provenance per occurrence. Actors "
                     "are one execution only when processHashId identifies it; image_aggregates group observations "
-                    "and are not executions. Compare identifiers with xdr_followup.seeds.identifiers."}
+                    "and are not executions. Instance identifiers are the exact decimal text of the native value "
+                    "(records[].data keeps the native JSON number); quote them whole, never rounded or shortened. "
+                    "Compare identifiers with xdr_followup.seeds.identifiers."}

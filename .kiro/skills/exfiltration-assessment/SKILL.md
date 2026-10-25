@@ -41,6 +41,10 @@ Um alerta, offense ou hipótese envolve utilitário de nuvem, cópia, sync, back
    - **Não são bytes transferidos:** tamanho de arquivo, quantidade de eventos e porta de destino.
    - **Sem contador utilizável:** declare quais fontes e consultas foram feitas e qual campo falta. Não estime.
 9. **Hipóteses.** Configuração legítima, execução sem transferência, transferência autorizada (backup ou sync sancionado) e exfiltração. Cite o que confirma ou refuta cada uma.
+   - Finalidade compatível com backup (comando, destino, agendamento, conta de serviço) não prova autorização.
+   - Separe três afirmações: execução confirmada, finalidade compatível com backup e autorização pendente.
+   - Sem um registro de autorização validado (mudança, política de backup ou dono) **e** sem o comportamento esperado conferido (host, conta, comando, destino e horário), não classifique como Benign True Positive. Também não recomende exceção, exclusão, allowlist ou tuning, nem mesmo provisória ou temporária.
+   - A recomendação nesse caso é validar a autorização e o comportamento esperado, mantendo o caso pendente.
    - ATT&CK depende do estágio comprovado. Um artefato isolado sustenta no máximo Rclone (S1040) como ferramenta observada.
    - Com transferência demonstrada: armazenamento em nuvem → T1567.002; SFTP → T1048.002; FTP ou outro protocolo sem criptografia → T1048.003.
    - T1560.001, T1074 e T1030 exigem evidência própria.

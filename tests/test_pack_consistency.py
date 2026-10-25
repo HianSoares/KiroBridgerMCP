@@ -60,6 +60,15 @@ class PackConsistencyTests(unittest.TestCase):
         for path, text in {**{f"skill {k}": v for k, v in skills.items()}, **{f"agent {k}": v for k, v in agents.items()}}.items():
             self.assertNotRegex(text, r"(?i)assessment[^.\n]{0,60}(é atualizad|atualiza automaticamente)", path)
 
+    def test_partial_collection_backup_purpose_and_exceptions_are_not_overstated(self):
+        search = (ROOT / ".kiro/steering/trend-search-conventions.md").read_text(encoding="utf-8")
+        for phrase in ("cobertura esgotada", "result_set_complete=false", "não conexões, sessões ou execuções únicas",
+                       "Cite-os inteiros", "nunca só pelo PID", "evidence_digest.state=failed"):
+            self.assertIn(phrase, search)
+        exfil = (ROOT / ".kiro/skills/exfiltration-assessment/SKILL.md").read_text(encoding="utf-8")
+        for phrase in ("não prova autorização", "autorização pendente", "nem mesmo provisória ou temporária"):
+            self.assertIn(phrase, exfil)
+
     def test_operational_execution_and_recovery_rules_are_consistent(self):
         steering = (ROOT / ".kiro/steering/operational-execution.md").read_text(encoding="utf-8")
         self.assertIn("inclusion: always", steering)
