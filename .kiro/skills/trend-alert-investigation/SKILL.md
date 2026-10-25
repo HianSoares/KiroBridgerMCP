@@ -29,7 +29,7 @@ Quando o pedido citar XDR Data Explorer, logs, comandos ou Search, ou quando o W
 2. **Sementes.** Leia a seção "XDR Data Explorer follow-up" (`xdr_followup`): as sementes (host/GUID, IPs, usuários, hashes, instâncias, comandos, horários) com as suas fontes, e as fases planejadas. Não peça host ou IP ao analista quando as sementes ou os registros Search os trouxerem.
 3. **Schema vivo.** Para cada fonte, chame `trend_read_search_resource(source=...)` antes da primeira consulta e use somente campos do schema vivo e dos registros devolvidos.
 4. **Fases.** Execute cada fase com `trend_search_data` e os parâmetros indicados. Siga `continuation_plan`: `search_partition` com a janela devolvida, e `refine_filters` estreitando filtro, `select`, `top` ou `limit`. Não repita parâmetros idênticos que não possam trazer progresso. Mantenha o orçamento e um registro cumulativo das consultas.
-5. **O que o XDR acrescentou.** Leia `evidence_digest` de cada resultado: atores, comandos, instâncias, pais, objetos de arquivo, conexões com a sua atribuição, contadores e volume. Compare `evidence_digest.identifiers` com `seeds.identifiers` para registrar o acréscimo.
+5. **O que o XDR acrescentou.** Leia `evidence_digest` de cada resultado: atores (uma execução só com `processHashId`; sem ele, cada registro é uma observação separada), `image_aggregates` (agregado, não execução), comandos com cada ocorrência, objetos de arquivo, conexões com a sua atribuição, contadores verificados, `unclassified_metrics` e volume. Compare `evidence_digest.identifiers` com `seeds.identifiers` para registrar o acréscimo.
 6. **Transferência.** Para hipótese de backup, RClone ou transferência, siga exfiltration-assessment: estágios separados e volume sem estimativa.
 
 ## Entrega

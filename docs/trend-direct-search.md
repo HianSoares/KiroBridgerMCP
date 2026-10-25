@@ -65,7 +65,7 @@ Guarde os resultados anteriores e suas referências no contexto da investigaçã
 Cada busca não `count_only` devolve, além dos registros nativos, um `evidence_digest` derivado só dos registros retornados:
 
 - atores, comandos, instâncias, pais, objetos de arquivo e conexões, com `record_index`/uuid;
-- contadores de bytes e pacotes por registro e sessão;
+- contadores de rede só para campos com semântica verificada, por registro e sessão; outros campos numéricos ficam em `unclassified_metrics` com o valor nativo, sem unidade, direção ou total;
 - o estado do volume.
 
 Os campos de consulta documentados das fontes endpoint e network não incluem contador de bytes. Sem contador retornado, `volume.state` é `no_counter_fields_in_returned_records` e nenhuma estimativa é produzida. Com partições pendentes, a cobertura do digest é parcial.

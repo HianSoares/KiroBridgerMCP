@@ -77,13 +77,14 @@ O relatório de `investigate_vision_alert` traz a seção **XDR Data Explorer fo
   - detecções e Network Activity Data;
   - atividade e filhos de cada instância;
   - para backup/RClone/transferência, comando, launcher e acesso à configuração da ferramenta.
-- **Estágios de transferência:** binário, configuração, comando, conexão atribuída e transferência concluída, cada um com o que o estabelece e o que não estabelece.
-- **Fontes de volume:** contadores devolvidos pela Trend e flows do QRadar por tupla e janela, com o que cada fonte prova.
+- **Estágios de transferência:** binário, configuração, comando, conexão atribuída, tráfego observado e operação concluída, cada um com o que o estabelece e o que não estabelece. Contadores sustentam no máximo tráfego observado; a conclusão exige resultado do aplicativo vinculado à execução ou confirmação no destino.
+- **Fontes de volume:** flows do QRadar por tupla e janela e, na Trend, só campos com semântica de contador verificada (nenhum nos contratos auditados), com o que cada fonte prova.
 
 Cada resultado de `trend_search_data` traz `evidence_digest`:
 
-- atores com pai e usuário, comandos, objetos de arquivo e conexões com a sua atribuição (ator do registro ou registro de host);
-- contadores com campo, direção, unidade e sessão;
+- atores: uma execução só quando `processHashId` a identifica no mesmo endpoint; sem ele, cada registro fica como observação separada, com PID, usuário e referência; `image_aggregates` agrupa por imagem e é rotulado como agregado, não execução;
+- comandos com todas as ocorrências (endpoint, papel process/parent/object, instância e referência), objetos de arquivo e conexões com a sua atribuição;
+- contadores só para campos com semântica de rede verificada, com campo, direção, unidade e sessão; os demais campos numéricos (por exemplo `memoryBytes`, `fileBytesWritten`, `packetLossRate`) ficam em `unclassified_metrics` com o valor nativo;
 - `volume.total` sempre nulo. Não há soma; leituras repetidas da mesma sessão são sinalizadas, e tamanho de arquivo e porta ficam em `not_transfer_volume`.
 - `identifiers`, comparável com `seeds.identifiers`, para registrar o que o XDR acrescentou.
 

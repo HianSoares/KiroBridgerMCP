@@ -7,14 +7,16 @@ The Workbench investigation runs once. Its report then carries ``xdr_followup``:
 - phases: deduplicated ``trend_search_data`` parameter sets for the pertinent sources, built only from
   validated seeds and from fields the audited Search contract documents (read the live resource first);
 - transfer: for backup/sync/transfer tools, the questions and the evidence that answers each stage
-  (binary present, configuration accessed, command started, transfer completed are different stages);
+  (binary present, configuration accessed, command started, connection attributed, traffic observed and
+  operation completed are different stages);
 - volume_sources: where byte counters could exist and what each one can prove;
 - assessment_scope: the alert assessment covers the initial collection only.
 
-``digest`` summarizes the records ``trend_search_data`` returned: actors, commands, instances, parent
-links, file objects, connections and transfer counters, each with record provenance. Counters are kept
-per record with field, direction as named, unit and session identity; they are never summed. File
-size, event counts and ports are not bytes transferred.
+``digest`` summarizes the records ``trend_search_data`` returned, with provenance per occurrence: actors
+(one execution only when processHashId identifies it), image aggregates labelled as such, commands with
+each endpoint/role/instance occurrence, file objects, connections and metrics. Only fields with verified
+network-counter semantics for the source are counters; other numeric metrics stay unclassified with their
+native values. Nothing is summed. File size, event counts and ports are not bytes transferred.
 """
 
 from __future__ import annotations
@@ -34,9 +36,13 @@ TRANSFER_TOOLS = ("rclone", "restic", "robocopy", "azcopy", "rsync", "winscp", "
 TRANSFER_WORDS = re.compile(r"(?i)\b(rclone|restic|robocopy|azcopy|rsync|winscp|pscp|megacmd|megasync|gsutil|duplicati|"
                             r"veeam|backup|exfiltrat\w*|data transfer|cloud storage|sync)\b")
 TOOL_TOKEN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{1,63}$")
-COUNTER_FIELD = re.compile(r"(?i)(byte|octet|packet)")
-SIZE_OR_PORT = re.compile(r"(?i)(size|port$|^dpt$|^spt$)")
-OTHER_COUNT = re.compile(r"(?i)count$")
+# Network counters with verified semantics, by (Search tool, native field) -> unit and direction. The
+# audited Vision One Search contracts document no byte or packet field for any source, so this table is
+# empty: counter-like fields stay unclassified metrics until a field is verified (contract or product
+# documentation) and added here with its unit and direction.
+NETWORK_COUNTERS: dict[tuple[str, str], dict[str, str]] = {}
+NOT_VOLUME = re.compile(r"(?i)(filesize|size$|port$|^dpt$|^spt$|eventcount)")
+METRIC_LIKE = re.compile(r"(?i)(byte|octet|packet|size|count|rate|loss|duration|bandwidth|throughput)")
 SCOPE_NOTE = ("This assessment covers the initial collection of investigate_vision_alert only (phases listed in "
               "completed_phases). Results of trend_search_data, upstream_query or QRadar queries made afterwards are "
               "not part of it: present them as a separate agent opinion and never as this assessment re-evaluated.")
@@ -231,12 +237,16 @@ TRANSFER_STAGES = [
                                                           "with the actor instance",
      "does_not_establish": "a remote connection or transfer; the remote type is in the file content, which is not read"},
     {"stage": "command_started", "established_by": "process launch with command line, parent, user and instance",
-     "does_not_establish": "a successful connection or completed transfer"},
+     "does_not_establish": "a successful connection or any data moved"},
     {"stage": "connection_attributed", "established_by": "network event whose actor is the same process instance "
                                                          "(processHashId), with destination and port",
-     "does_not_establish": "bytes transferred or completion"},
-    {"stage": "transfer_completed", "established_by": "transfer counters or a tool log/result tied to the same session "
-                                                      "and instance, or the remote side's record",
+     "does_not_establish": "bytes moved or completion"},
+    {"stage": "traffic_observed", "established_by": "verified byte/packet counters of that attributed session (for "
+                                                    "example QRadar flows with the same tuple and time)",
+     "does_not_establish": "that the job finished, that every file arrived or that the destination kept the data"},
+    {"stage": "operation_completed", "established_by": "an application result tied to the same execution (tool log, "
+                                                       "exit status or completion message of that instance) or a "
+                                                       "confirmation at the destination",
      "does_not_establish": "authorization: that needs an external record (change, backup policy, owner)"}]
 
 
@@ -249,20 +259,23 @@ def transfer(report: dict, found: dict) -> dict | None:
                           "activity after the execution", "connections attributable to the process instance",
                           "remote destination, result and transfer indicators"],
             "stages": TRANSFER_STAGES,
-            "rule": "Binary present, configuration accessed, command started and transfer completed are different "
-                    "stages; report the last stage the evidence reaches and the source that would reach the next."}
+            "rule": "Binary present, configuration accessed, command started, connection attributed, traffic "
+                    "observed and operation completed are different stages; counters alone never reach "
+                    "operation_completed. Report the last stage the evidence reaches and the source for the next."}
 
 
 def volume_sources(found: dict) -> list[dict]:
     ips = sorted({ip for e in found["endpoints"] for ip in e.get("ips", []) if address(ip) and ":" not in ip})
     out = [{"source": "Vision One Search records (endpoint, network)",
-            "how": "trend_search_data evidence_digest.transfer_counters lists every counter field actually returned",
-            "proves": "bytes/packets only for the record and session named, in the direction its field name states",
-            "limit": "the audited query fields of these sources include no byte counter; returned records may still "
-                     "carry none"}]
+            "how": "trend_search_data evidence_digest: transfer_counters holds only fields with verified counter "
+                   "semantics; unclassified_metrics keeps every other numeric metric with its native value",
+            "proves": "for a verified counter, the bytes/packets of that record and session in its verified direction",
+            "limit": "no byte or packet field of these sources is verified in the audited contracts, so counter-like "
+                     "fields stay unclassified and do not establish transferred volume"}]
     qradar = {"source": "QRadar flows (Ariel)", "how": "qradar_read_aql_resource('flows') to confirm the byte/packet "
               "fields of this deployment, then qradar_run_aql over the host IP and window",
-              "proves": "per-flow byte counters with direction for the flow's IP/port tuple",
+              "proves": "traffic observed per flow (byte/packet counters with direction) for the flow's IP/port "
+                        "tuple; not that the operation completed",
               "limit": "a flow is attributed to the process only when its tuple matches a process connection record "
                        "(same source port and time); a shared/NAT IP and time alone keep it a candidate",
               "requires": "flow collection covering the host's network segment; verified QRadar timezone"}
@@ -304,113 +317,151 @@ def _flat(row: dict, prefix: str = "") -> list[tuple[str, Any]]:
     return out
 
 
-def _direction(field: str) -> str:
-    low = field.lower()
-    if any(w in low for w in ("sent", "out", "upload", "tx", "src", "source", "client")):
-        return f"as named by {field} (outbound/sent side)"
-    if any(w in low for w in ("received", "recv", "in", "download", "rx", "dst", "destination", "server")):
-        return f"as named by {field} (inbound/received side)"
-    return f"not stated by the field name {field}"
+def _metric(field: str, value: Any, tool: str) -> tuple[str, dict] | None:
+    """Classify one numeric field: verified network counter, known non-volume, or unclassified metric."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    leaf = field.rsplit(".", 1)[-1]
+    verified = NETWORK_COUNTERS.get((tool, leaf))
+    if verified:
+        return "counter", verified
+    if NOT_VOLUME.search(leaf):
+        return "not_transfer_volume", {}
+    if METRIC_LIKE.search(leaf):
+        return "unclassified", {}
+    return None
+
+
+def _ref(index: int, row: dict) -> dict:
+    return {"record_index": index, "uuid": row.get("uuid"), "time_utc": row.get("event_time_utc")}
 
 
 def digest(records: list[dict], tool: str, query: str, complete: bool, pending: int) -> dict:
-    """Actors, commands, instances, files, connections and transfer counters in returned records, with provenance."""
-    actors: dict = {}
+    """Actors, commands, files, connections and metrics in returned records, with provenance per occurrence."""
+    instances: dict = {}
+    executions: list[dict] = []
+    aggregates: dict = {}
     commands: dict = {}
     files: list[dict] = []
     connections: list[dict] = []
     counters: list[dict] = []
-    not_volume: set[str] = set()
+    unclassified: list[dict] = []
+    not_volume: list[dict] = []
     users: set[str] = set()
     hosts: list[dict] = []
     sessions: dict = {}
     for index, record in enumerate(records):
         data = record.get("data") if isinstance(record.get("data"), dict) else {}
         row = normalize(data, tool, query)
-        ref = {"record_index": index, "uuid": row.get("uuid"), "time_utc": row.get("event_time_utc")}
+        ref = _ref(index, row)
         endpoint = {"host": row.get("endpoint_host"), "guid": row.get("endpoint_guid"), "ips": row.get("endpoint_ips")}
         if endpoint["host"] or endpoint["guid"]:
             hosts.append(endpoint)
         process, parent, obj, net = (row.get(k) or {} for k in ("process", "parent", "object", "network"))
-        for user in ((row.get("logon") or {}).get("user"), process.get("user"), obj.get("user")):
+        logon_user = (row.get("logon") or {}).get("user")
+        for user in (logon_user, process.get("user"), obj.get("user")):
             if isinstance(user, str) and user:
                 users.add(user)
         if process.get("hashId") or process.get("filePath"):
-            key = (endpoint["guid"] or endpoint["host"], process.get("hashId") or process.get("filePath"))
-            actor = actors.setdefault(key, {"endpoint": endpoint, "instance": process.get("hashId"),
-                                            "image": process.get("filePath"), "pid": process.get("pid"),
-                                            "launch_time": process.get("launchTime"), "cmd": process.get("cmd"),
-                                            "user": process.get("user") or (row.get("logon") or {}).get("user"),
-                                            "parent": {"image": parent.get("filePath"), "cmd": parent.get("cmd"),
-                                                       "pid": parent.get("pid")} if parent else None,
-                                            "hashes": full_hashes(process), "records": []})
-            if len(actor["records"]) < 10:
-                actor["records"].append(ref)
+            observation = {"pid": process.get("pid"), "user": process.get("user") or logon_user,
+                           "launch_time": process.get("launchTime"), "cmd": process.get("cmd"),
+                           "parent": {"image": parent.get("filePath"), "cmd": parent.get("cmd"),
+                                      "pid": parent.get("pid")} if parent else None, **ref}
+            scope = endpoint["guid"] or endpoint["host"]
+            if process.get("hashId") and scope:
+                # processHashId on an identified endpoint identifies one execution.
+                actor = instances.setdefault((scope, process["hashId"]), {
+                    "identity": "process instance (processHashId on the same endpoint)", "endpoint": endpoint,
+                    "instance": process["hashId"], "image": process.get("filePath"), "hashes": full_hashes(process),
+                    "observations": []})
+                actor["observations"].append(observation)
+            else:
+                executions.append({"identity": "unidentified execution: no processHashId on an identified endpoint; "
+                                               "kept as a separate observation",
+                                   "endpoint": endpoint, "instance": None, "image": process.get("filePath"),
+                                   "hashes": full_hashes(process), "observations": [observation]})
+            if process.get("filePath"):
+                group = aggregates.setdefault((scope, process["filePath"]), {
+                    "aggregate": "by image on one endpoint; not a single execution", "endpoint": endpoint,
+                    "image": process["filePath"], "pids": [], "users": [], "instances": [], "records": []})
+                for key, value in (("pids", process.get("pid")), ("users", observation["user"]),
+                                   ("instances", process.get("hashId"))):
+                    if value is not None and value not in group[key]:
+                        group[key].append(value)
+                group["records"].append(ref)
         for role, group in (("process", process), ("parent", parent), ("object", obj)):
             cmd = group.get("cmd")
             if isinstance(cmd, str) and cmd:
-                entry = commands.setdefault(cmd, {"cmd": cmd, "role": role, "instance": group.get("hashId") or
-                                                  group.get("processHashId"), "records": []})
-                if len(entry["records"]) < 5:
-                    entry["records"].append(ref)
+                entry = commands.setdefault(cmd, {"cmd": cmd, "occurrences": []})
+                entry["occurrences"].append({"endpoint": endpoint, "role": role,
+                                             "instance": group.get("hashId") or group.get("processHashId"),
+                                             "pid": group.get("pid"), **ref})
         if obj.get("filePath"):
             files.append({"actor_instance": process.get("hashId"), "actor": process.get("filePath"),
-                          "object": obj.get("filePath"), "event": (row.get("event") or {}).get("eventSubId") or
-                          (row.get("event") or {}).get("eventName"), **ref})
+                          "actor_pid": process.get("pid"), "object": obj.get("filePath"), "endpoint": endpoint,
+                          "event": (row.get("event") or {}).get("eventSubId") or (row.get("event") or {}).get("eventName"),
+                          **ref})
         dst = net.get("dst") or net.get("serverIp") or obj.get("ip") or net.get("request")
         if dst:
             attributed = bool(process.get("hashId"))
             connections.append({"src": net.get("src") or net.get("clientIp"), "spt": net.get("spt") or net.get("clientPort"),
                                 "dst": dst, "dpt": net.get("dpt") or net.get("serverPort") or obj.get("port"),
                                 "request": net.get("request"), "actor_instance": process.get("hashId"),
-                                "actor": process.get("filePath"), "endpoint": endpoint,
+                                "actor": process.get("filePath"), "actor_pid": process.get("pid"), "endpoint": endpoint,
                                 "attribution": "same record: the process instance is the event actor" if attributed else
-                                "host-level record without a process actor: not attributable to a process", **ref})
+                                "record without a process instance: not attributable to one execution", **ref})
         session = (net.get("src") or net.get("clientIp"), net.get("spt") or net.get("clientPort"), dst,
                    net.get("dpt") or net.get("serverPort"), data.get("flowId"))
         for field, value in _flat(data):
-            leaf = field.rsplit(".", 1)[-1]
-            if value in (None, ""):
+            found = _metric(field, value, tool)
+            if not found:
                 continue
-            if SIZE_OR_PORT.search(leaf) or (OTHER_COUNT.search(leaf) and not COUNTER_FIELD.search(leaf)):
-                not_volume.add(field)  # file size, ports and event counts are not transferred volume
-            elif COUNTER_FIELD.search(leaf) and isinstance(value, (int, float)) and not isinstance(value, bool):
-                readings = sessions.setdefault((session, field), [])
-                readings.append(value)
-                counters.append({"field": field, "value": value,
-                                 "unit": "packets" if "packet" in leaf.lower() else "bytes",
-                                 "direction": _direction(leaf), "session": {"src": session[0], "spt": session[1],
-                                                                           "dst": session[2], "dpt": session[3],
-                                                                           "flowId": session[4]},
+            kind, semantics = found
+            if kind == "counter":
+                sessions.setdefault((session, field), []).append(value)
+                counters.append({"field": field, "value": value, **semantics,
+                                 "session": dict(zip(("src", "spt", "dst", "dpt", "flowId"), session)),
                                  "actor_instance": process.get("hashId"), **ref})
+            else:
+                (not_volume if kind == "not_transfer_volume" else unclassified).append(
+                    {"field": field, "value": value, **ref})
     repeated = [{"field": field, "session": dict(zip(("src", "spt", "dst", "dpt", "flowId"), session)),
                  "readings": len(values)} for (session, field), values in sessions.items() if len(values) > 1]
     destinations = sorted({str(c["dst"]) for c in connections})
-    actor_list = list(actors.values())
+    actors = list(instances.values()) + executions
+    for actor in actors:
+        pids = {o["pid"] for o in actor["observations"] if o["pid"] is not None}
+        actor["pids"] = sorted(pids, key=str)
+        actor["users"] = sorted({o["user"] for o in actor["observations"] if o["user"]})
+        if actor["instance"] and len(pids) > 1:
+            actor["conflict"] = "one processHashId with different PIDs: verify before treating it as one execution"
     volume = {"total": None,
-              "state": "counters_returned" if counters else "no_counter_fields_in_returned_records",
+              "state": "verified_counters_returned" if counters else "no_verified_counter_fields",
               "fields_checked": f"every field of {len(records)} returned record(s)",
               "coverage": ("complete in the queried window" if complete else
                            f"partial: {pending} window(s)/refinement(s) pending; counters may be missing"),
               "repeated_sessions": repeated[:MAX_LIST],
-              "not_transfer_volume": sorted(not_volume)[:MAX_LIST],
-              "rule": "No total is computed. Each counter belongs to its record, session and direction; repeated "
-                      "readings of one session may be cumulative and are never added. File size, event counts and "
-                      "ports are not bytes transferred. A host-level counter is not the process's traffic unless the "
-                      "session tuple matches a connection of that process."}
+              "rule": "No total is computed. Only fields with verified network-counter semantics for this source are "
+                      "counters, each kept with its record, session, unit and direction; repeated readings of one "
+                      "session may be cumulative and are never added. Other numeric metrics stay unclassified with "
+                      "their native values. Traffic observed for a session does not show the operation completed."}
     if not counters:
-        volume["missing"] = ("no byte/packet counter field in the returned records; transferred volume is not "
-                             "established by this query")
-    return {"actors": actor_list[:MAX_LIST], "actors_total": len(actor_list),
+        volume["missing"] = ("no field with verified network-counter semantics for this source in the returned "
+                             "records; transferred volume is not established by this query")
+    return {"actors": actors[:MAX_LIST], "actors_total": len(actors),
+            "image_aggregates": list(aggregates.values())[:MAX_LIST],
             "commands": list(commands.values())[:MAX_LIST], "commands_total": len(commands),
             "file_objects": files[:MAX_LIST], "file_objects_total": len(files),
             "connections": connections[:MAX_LIST], "connections_total": len(connections),
-            "transfer_counters": counters[:MAX_LIST], "transfer_counters_total": len(counters), "volume": volume,
+            "transfer_counters": counters[:MAX_LIST], "transfer_counters_total": len(counters),
+            "unclassified_metrics": unclassified[:MAX_LIST], "unclassified_metrics_total": len(unclassified),
+            "not_transfer_volume": not_volume[:MAX_LIST], "volume": volume,
             "identifiers": _identifiers(
                 [{"name": h["host"], "guid": h["guid"], "ips": h.get("ips") or []} for h in hosts],
                 [{"value": u} for u in users],
-                [{"value": v} for a in actor_list for v in a["hashes"].values()],
-                [{"id": a["instance"]} for a in actor_list if a.get("instance")],
+                [{"value": v} for a in actors for v in a["hashes"].values()],
+                [{"id": a["instance"]} for a in actors if a.get("instance")],
                 [{"value": c} for c in commands], destinations),
-            "note": "Derived from the returned records only, with record_index/uuid provenance. Compare identifiers "
-                    "with xdr_followup.seeds.identifiers of the alert report to state what this query added."}
+            "note": "Derived from the returned records only, with record_index/uuid provenance per occurrence. Actors "
+                    "are one execution only when processHashId identifies it; image_aggregates group observations "
+                    "and are not executions. Compare identifiers with xdr_followup.seeds.identifiers."}

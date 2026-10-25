@@ -15,14 +15,15 @@ No new public tool or parameter is added. The existing `investigate_vision_alert
   - per-instance activity and children;
   - for transfer or backup terms found in the alert or in collected commands, the tool's commands, its launchers and its configuration file.
 - **Transfer stages:** each stage with what establishes it and what it does not establish.
-- **Volume sources:** Trend counters and QRadar flows, each with what it proves and its limits.
+- **Volume sources:** QRadar flows and Trend fields with verified counter semantics (none in the audited contracts), each with what it proves and its limits.
 
 ## Search digest
 
 `trend_search.collect` attaches `evidence_digest` to every non-count result. The digest normalizes each returned record by role and lists, with record provenance:
 
-- actors, commands, file objects and connections, each connection labelled with its attribution;
-- byte and packet counters, kept per record and per session. Repeated readings of one session are flagged and nothing is summed.
+- file objects and connections, each connection labelled with its attribution;
+- actors that are one execution only when processHashId identifies them, separate observations otherwise, and image aggregates labelled as such; command occurrences with endpoint, role and instance;
+- network counters only from the verified-semantics table, kept per record and per session; every other numeric metric unclassified with its native value. Repeated readings are flagged and nothing is summed.
 
 ## Assessment scope
 

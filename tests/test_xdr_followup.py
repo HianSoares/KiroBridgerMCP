@@ -8,8 +8,12 @@ from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+from unittest import mock
+
+from soc_bridge import xdr_followup
 from soc_bridge.alert_investigation import investigate_vision_alert, render_alert_markdown
 from soc_bridge.trend_search import collect, parameters
+from soc_bridge.xdr_followup import digest
 
 from trend_fixtures import ALERT_ID, GUID, HOST, NOW, OAT_ITEM, T0, FakeVision, procdump_search, z
 
@@ -94,9 +98,9 @@ class SparseWorkbenchTests(unittest.TestCase):
         digest = result["evidence_digest"]
         self.assertIn(RC_CMD, [c["cmd"] for c in digest["commands"]])
         rclone = next(a for a in digest["actors"] if a["instance"] == "inst-rc")
-        self.assertEqual((rclone["user"], rclone["image"]), ("EXAMPLE\\backup.synth", RC))
+        self.assertEqual((rclone["users"], rclone["image"], rclone["pids"]), (["EXAMPLE\\backup.synth"], RC, [3200]))
         launcher = next(a for a in digest["actors"] if a["instance"] == "inst-cmd")
-        self.assertEqual(launcher["parent"]["image"], "C:\\Windows\\System32\\svchost.exe")
+        self.assertEqual(launcher["observations"][0]["parent"]["image"], "C:\\Windows\\System32\\svchost.exe")
         connection = digest["connections"][0]
         self.assertEqual((connection["dst"], connection["dpt"], connection["actor_instance"]),
                          ("198.51.100.77", 443, "inst-rc"))
@@ -114,24 +118,41 @@ class SparseWorkbenchTests(unittest.TestCase):
                              parameters(**self.follow["phases"][0]["parameters"])))
         volume = result["evidence_digest"]["volume"]
         self.assertIsNone(volume["total"])
-        self.assertEqual(volume["state"], "no_counter_fields_in_returned_records")
+        self.assertEqual(volume["state"], "no_verified_counter_fields")
         self.assertIn("not established", volume["missing"])
-        self.assertIn("objectFileSize", volume["not_transfer_volume"])  # file size is not transferred bytes
-        self.assertIn("dpt", volume["not_transfer_volume"])
+        not_volume = {m["field"]: m["value"] for m in result["evidence_digest"]["not_transfer_volume"]}
+        self.assertEqual(not_volume["objectFileSize"], 482133)  # file size is not transferred bytes
+        self.assertEqual(not_volume["dpt"], 443)
         self.assertEqual(result["evidence_digest"]["transfer_counters"], [])
 
-    def test_counters_keep_session_and_direction_and_are_never_summed(self):
+    def test_unverified_counter_names_stay_unclassified_and_are_never_summed(self):
         flow = dict(CONNECT, flowId="flow-9", bytesSent=1000, bytesReceived=200)
         later = dict(flow, uuid="ev-rc-net-2", bytesSent=5000)  # same session read again: possibly cumulative
         result = run(collect(client(lambda tool, args: [flow, later]), parameters(**self.follow["phases"][0]["parameters"])))
         digest = result["evidence_digest"]
-        self.assertEqual(sorted(c["value"] for c in digest["transfer_counters"]), [200, 200, 1000, 5000])
-        sent = [c for c in digest["transfer_counters"] if c["field"] == "bytesSent"]
-        self.assertIn("outbound", sent[0]["direction"])
-        self.assertEqual(sent[0]["session"]["flowId"], "flow-9")
+        self.assertEqual(digest["transfer_counters"], [])  # no verified semantics for these Trend fields
+        metrics = sorted((m["field"], m["value"], m["uuid"]) for m in digest["unclassified_metrics"])
+        self.assertEqual(metrics, [("bytesReceived", 200, "ev-rc-net"), ("bytesReceived", 200, "ev-rc-net-2"),
+                                   ("bytesSent", 1000, "ev-rc-net"), ("bytesSent", 5000, "ev-rc-net-2")])
+        self.assertTrue(all("unit" not in m and "direction" not in m for m in digest["unclassified_metrics"]))
         self.assertIsNone(digest["volume"]["total"])
-        self.assertTrue(any(r["field"] == "bytesSent" and r["readings"] == 2 for r in digest["volume"]["repeated_sessions"]))
-        self.assertNotIn("6000", json.dumps(digest))  # no sum of repeated readings anywhere
+        self.assertNotIn("6000", json.dumps(digest))  # no sum anywhere
+
+    def test_verified_counters_keep_session_unit_and_direction_and_are_never_summed(self):
+        tool = "search_endpoint_activities_list"
+        verified = {(tool, "bytesSent"): {"unit": "bytes", "direction": "sent by the endpoint (synthetic verification)"}}
+        flow = dict(CONNECT, flowId="flow-9", bytesSent=1000)
+        later = dict(flow, uuid="ev-rc-net-2", bytesSent=5000)
+        with mock.patch.dict(xdr_followup.NETWORK_COUNTERS, verified):
+            digest = run(collect(client(lambda t, a: [flow, later]), parameters(**self.follow["phases"][0]["parameters"])))[
+                "evidence_digest"]
+        self.assertEqual([c["value"] for c in digest["transfer_counters"]], [1000, 5000])
+        self.assertEqual(digest["transfer_counters"][0]["session"]["flowId"], "flow-9")
+        self.assertEqual(digest["transfer_counters"][0]["unit"], "bytes")
+        self.assertEqual(digest["volume"]["state"], "verified_counters_returned")
+        self.assertTrue(any(r["readings"] == 2 for r in digest["volume"]["repeated_sessions"]))
+        self.assertIsNone(digest["volume"]["total"])
+        self.assertNotIn("6000", json.dumps(digest))
 
     def test_report_renders_the_plan_and_the_assessment_scope(self):
         text = render_alert_markdown(self.report)
@@ -141,6 +162,57 @@ class SparseWorkbenchTests(unittest.TestCase):
         asm = self.report["assessment"]
         self.assertIn("trend_search_data", asm["scope"]["excludes"])
         self.assertIn("coleta inicial", asm["note_pt"])
+
+
+class DigestIdentityTests(unittest.TestCase):
+    TOOL = "search_endpoint_activities_list"
+    BASE = {"endpointGuid": GUID, "endpointHostName": HOST, "processFilePath": "C:\\Tools\\tool.exe"}
+
+    def digest(self, rows):
+        return digest([{"data": row} for row in rows], self.TOOL, "q", True, 0)
+
+    def test_same_image_without_instance_ids_stays_separate_executions(self):
+        rows = [dict(self.BASE, uuid="a", processPid=101, processUser="EXAMPLE\\alice", processCmd="tool.exe --one"),
+                dict(self.BASE, uuid="b", processPid=202, processUser="EXAMPLE\\bob", processCmd="tool.exe --two")]
+        d = self.digest(rows)
+        self.assertEqual(len(d["actors"]), 2)
+        self.assertEqual([(a["pids"], a["users"]) for a in d["actors"]],
+                         [([101], ["EXAMPLE\\alice"]), ([202], ["EXAMPLE\\bob"])])
+        self.assertTrue(all(a["instance"] is None and "unidentified" in a["identity"] for a in d["actors"]))
+        aggregate = d["image_aggregates"][0]
+        self.assertIn("not a single execution", aggregate["aggregate"])
+        self.assertEqual((aggregate["pids"], aggregate["users"]), ([101, 202], ["EXAMPLE\\alice", "EXAMPLE\\bob"]))
+        self.assertEqual([r["uuid"] for r in aggregate["records"]], ["a", "b"])
+
+    def test_same_command_text_keeps_every_endpoint_role_and_instance(self):
+        cmd = "backup.exe --all"
+        rows = [dict(self.BASE, uuid="a", processCmd=cmd, processHashId="inst-a", processPid=1),
+                {"uuid": "b", "endpointGuid": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "endpointHostName": "other.example.test",
+                 "processFilePath": "C:\\Windows\\cmd.exe", "objectCmd": cmd, "objectProcessHashId": "inst-b"},
+                dict(self.BASE, uuid="c", processCmd="svc.exe", processHashId="inst-c", parentCmd=cmd)]
+        entry = next(c for c in self.digest(rows)["commands"] if c["cmd"] == cmd)
+        seen = [(o["endpoint"]["host"], o["role"], o["instance"], o["uuid"]) for o in entry["occurrences"]]
+        self.assertEqual(seen, [(HOST, "process", "inst-a", "a"), ("other.example.test", "object", "inst-b", "b"),
+                                (HOST, "parent", None, "c")])
+
+    def test_non_network_metrics_are_not_transfer_counters(self):
+        row = dict(self.BASE, uuid="m", processHashId="inst-m", memoryBytes=4096, fileBytesWritten=777,
+                   packetLossRate=0.25, dst="198.51.100.9", dpt=443)
+        d = self.digest([row])
+        self.assertEqual(d["transfer_counters"], [])
+        metrics = {m["field"]: m for m in d["unclassified_metrics"]}
+        self.assertEqual({k: metrics[k]["value"] for k in metrics},
+                         {"memoryBytes": 4096, "fileBytesWritten": 777, "packetLossRate": 0.25})
+        self.assertTrue(all("unit" not in m and "direction" not in m for m in metrics.values()))
+        self.assertEqual(d["volume"]["state"], "no_verified_counter_fields")
+        self.assertIsNone(d["volume"]["total"])
+
+    def test_stages_separate_connection_traffic_and_completion(self):
+        stages = {s["stage"]: s for s in xdr_followup.TRANSFER_STAGES}
+        self.assertEqual(list(stages)[-3:], ["connection_attributed", "traffic_observed", "operation_completed"])
+        self.assertIn("job finished", stages["traffic_observed"]["does_not_establish"])
+        self.assertIn("application result", stages["operation_completed"]["established_by"])
+        self.assertNotIn("counter", stages["operation_completed"]["established_by"])
 
 
 class PartitionedSearchTests(unittest.TestCase):

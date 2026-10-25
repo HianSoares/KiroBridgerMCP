@@ -23,19 +23,21 @@ Um alerta, offense ou hipótese envolve utilitário de nuvem, cópia, sync, back
    - Mantenha um registro cumulativo: fase, parâmetros, estado, registros e pendências.
 5. **O que o XDR acrescentou.** Compare `evidence_digest.identifiers` de cada consulta com `xdr_followup.seeds.identifiers` e liste os novos comandos, instâncias, usuários, destinos e IPs com o uuid/`record_index` de cada um.
 6. **Aprofundar a hipótese.** Responda, quando a fonte permitir, às perguntas de `xdr_followup.transfer`:
-   - comando, processo pai, usuário e instância (`evidence_digest.actors` e `commands`);
+   - comando, processo pai, usuário e instância (`evidence_digest.actors`, que é uma execução só com `processHashId`; `image_aggregates` agrupa observações e não é execução; `commands[].occurrences` mantém endpoint, papel e instância de cada ocorrência);
    - origem e destino dos arquivos (`file_objects`);
    - atividade posterior à execução;
    - conexões atribuíveis ao processo: `connections[].attribution` diz se o ator do registro é a instância;
    - destino remoto, resultado e indicadores de transferência.
-7. **Estágios.** Binário presente, acesso à configuração, comando iniciado, conexão atribuída e transferência concluída são estágios diferentes. Relate o último estágio que a evidência alcança e a fonte que alcançaria o próximo.
+7. **Estágios.** Binário presente, acesso à configuração, comando iniciado, conexão atribuída, tráfego observado e operação concluída são estágios diferentes. Relate o último estágio que a evidência alcança e a fonte que alcançaria o próximo.
+   - **Tráfego observado** exige contadores verificados da sessão atribuída, por exemplo flows QRadar com a mesma tupla e o mesmo horário. Mostra dados trafegando nessa sessão. Não mostra que o job terminou, que todos os arquivos chegaram nem que o destino guardou os dados.
+   - **Operação concluída** exige resultado do aplicativo vinculado à mesma execução (log, código de saída ou mensagem de conclusão da instância) ou confirmação no destino. Contadores sozinhos nunca chegam a esse estágio.
    - Ler ou escrever `rclone.conf` não é transferência. O tipo de remote está no conteúdo do arquivo, que a ponte não lê.
    - Software de segurança que examina `rclone.exe` não é execução de `rclone.exe`.
    - Ausência por nome não exclui cópia renomeada. O discriminante é a linha de comando (`copy|sync|move <origem> <remote>:<destino>`, `--config`).
 8. **Volume.** Antes de declarar volume não quantificável, verifique as fontes:
-   - **Trend:** `evidence_digest.transfer_counters` e `evidence_digest.volume` listam todo campo de bytes/pacotes devolvido. Os campos de consulta auditados das fontes endpoint e network não incluem contador de bytes.
+   - **Trend:** `evidence_digest.transfer_counters` contém só campos com semântica de contador de rede verificada para a fonte. Os contratos auditados não verificam nenhum campo de bytes ou pacotes, então campos como `memoryBytes`, `fileBytesWritten` ou `packetLossRate` ficam em `unclassified_metrics` com o valor nativo, sem unidade, direção nem total, e não são volume transferido.
    - **QRadar flows:** só quando houver IP do host e a cobertura de flows for pertinente. Chame `qradar_read_aql_resource` para os campos de flows desta implantação e depois `qradar_run_aql` na janela, seguindo qradar-aql-conventions.
-   - **Com contadores:** preserve campo, direção como nomeada, unidade, intervalo e identidade da sessão. Leituras repetidas da mesma sessão podem ser cumulativas, e a ponte nunca as soma. Tráfego de IP compartilhado ou NAT não é do processo só por IP e horário; é preciso a mesma tupla da conexão do processo.
+   - **Com contadores verificados:** preserve campo, direção e unidade verificadas, intervalo e identidade da sessão. Leituras repetidas da mesma sessão podem ser cumulativas, e a ponte nunca as soma. Tráfego de IP compartilhado ou NAT não é do processo só por IP e horário; é preciso a mesma tupla da conexão do processo.
    - **Não são bytes transferidos:** tamanho de arquivo, quantidade de eventos e porta de destino.
    - **Sem contador utilizável:** declare quais fontes e consultas foram feitas e qual campo falta. Não estime.
 9. **Hipóteses.** Configuração legítima, execução sem transferência, transferência autorizada (backup ou sync sancionado) e exfiltração. Cite o que confirma ou refuta cada uma.
@@ -70,4 +72,4 @@ Não há tool de captura de pacote, bloqueio, isolamento ou alteração neste fl
 
 ## Critério de conclusão
 
-O parecer distingue cada estágio (binário, configuração, comando, conexão atribuída, transferência concluída) e o volume com a sua origem, ou a falta dele com os campos e consultas verificados. Cada lacuna traz a fonte e a consulta que a resolveria.
+O parecer distingue cada estágio (binário, configuração, comando, conexão atribuída, tráfego observado, operação concluída) e o volume com a sua origem, ou a falta dele com os campos e consultas verificados. Cada lacuna traz a fonte e a consulta que a resolveria.

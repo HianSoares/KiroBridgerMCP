@@ -12,9 +12,10 @@
 
 #### Acceptance Criteria
 
-2.1 THE SYSTEM SHALL plan transfer phases for backup, sync and transfer tools and distinguish binary present, configuration accessed, command started, connection attributed and transfer completed.
-2.2 THE SYSTEM SHALL report byte and packet counters only as returned, with field, direction as named, unit and session identity, never summing readings, and SHALL treat file size, event counts and ports as not transferred volume.
+2.1 THE SYSTEM SHALL plan transfer phases for backup, sync and transfer tools and distinguish binary present, configuration accessed, command started, connection attributed, traffic observed and operation completed; counters alone SHALL NOT establish completion.
+2.2 THE SYSTEM SHALL classify as network counters only fields with verified semantics for the source, report them with field, verified unit and direction and session identity, never summing readings; other numeric metrics SHALL stay unclassified with native values, and file size, event counts and ports SHALL be reported as not transferred volume.
 2.3 THE SYSTEM SHALL state, when no counter is returned, which records were checked and that volume is not established, without an estimate.
+2.4 THE SYSTEM SHALL treat an actor as one execution only when processHashId identifies it on an endpoint, keep other observations separate, label image groupings as aggregates, and keep every command occurrence with endpoint, role, instance and reference.
 
 ### Requirement 3 — Continuation and conclusion
 

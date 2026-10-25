@@ -22,7 +22,7 @@ O analista quer testar uma hipótese de comportamento adversário, com uma offen
    | Varredura externa (T1595) | Ariel: muitos `destinationport`/`destinationip` distintos para a mesma `sourceip` na amostra; nomes de evento deny/accept | se um `accept` virou sessão de aplicação |
    | Brute force/spraying (T1110.00x) | Ariel: `username` e evento de falha/sucesso por origem, na amostra | identidade/autoridade das contas, dados ausentes na retenção |
    | Escalação local (T1078.003/T1548.003) | Ariel: sequência PAM e payload selecionado por AQL, origem/alvo quando registrados | autorização da sessão, campos não armazenados |
-   | Exfiltração (T1567.002/T1048) | Trend Search: `processCmd`, instância, conexões atribuídas (`evidence_digest`) e contadores de bytes só quando retornados; QRadar flows por tupla e janela (exfiltration-assessment) | resultado no destino, autorização, destino resolvido (proxy/DNS) |
+   | Exfiltração (T1567.002/T1048) | Trend Search: `processCmd`, instância, conexões atribuídas (`evidence_digest`) e contadores de rede só com semântica verificada; QRadar flows por tupla e janela para tráfego observado (exfiltration-assessment) | conclusão da operação (resultado do aplicativo ou destino), autorização, destino resolvido (proxy/DNS) |
    | Web/C2 (T1071.001, T1189, T1566.002) | FortiGate `action`/`subtype`/`policyid`; Trend `blocking`/`act` | conteúdo entregue, processo requisitante, origem do link |
 
    Use apenas campos retornados; dados insuficientes deixam hipótese `não verificada`.
