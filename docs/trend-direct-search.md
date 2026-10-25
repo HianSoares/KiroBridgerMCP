@@ -60,6 +60,15 @@ Siga `continuation_plan`:
 
 Guarde os resultados anteriores e suas referências no contexto da investigação. Uma chamada de continuação devolve apenas sua janela e não incorpora automaticamente o histórico em casos persistidos. Corte, timeout, formato inválido, descoberta incompleta e falha de permissão não são resultado vazio. `any_matching_record=null` significa indeterminado; `false` só aparece após cobertura completa da consulta vazia. Uma resposta vazia vale para a conta, fonte, filtro e janela consultados, nunca para todo o ambiente.
 
+## Resumo de evidências (`evidence_digest`)
+
+Cada busca não `count_only` devolve, além dos registros nativos, um `evidence_digest` derivado só dos registros retornados:
+
+- atores, comandos, instâncias, pais, objetos de arquivo e conexões, com `record_index`/uuid;
+- contadores de rede só para campos com semântica verificada, por registro e sessão; outros campos numéricos ficam em `unclassified_metrics` com o valor nativo, sem unidade, direção ou total;
+- o estado do volume.
+
+Os campos de consulta documentados das fontes endpoint e network não incluem contador de bytes. Sem contador retornado, `volume.state` é `no_counter_fields_in_returned_records` e nenhuma estimativa é produzida. Com partições pendentes, a cobertura do digest é parcial.
 ## Atualização após merge
 
 No PowerShell, na pasta do projeto:
@@ -74,7 +83,7 @@ if ($LASTEXITCODE -ne 0) { throw "Falha na instalação." }
 .\start-kiro-soc-bridge.ps1 -Live
 ```
 
-Reconecte `soc-bridge-readonly` e abra um chat novo. São 28 tools. As duas novas consultas usam somente Trend; a necessidade de credenciais adicionais do launcher Live segue o guia de instalação. No WSL, use o launcher e a `.venv` Linux descritos no [guia WSL](guia-wsl.md).
+Reconecte `soc-bridge-readonly` e abra um chat novo. São 33 tools. As duas novas consultas usam somente Trend; a necessidade de credenciais adicionais do launcher Live segue o guia de instalação. No WSL, use o launcher e a `.venv` Linux descritos no [guia WSL](guia-wsl.md).
 
 ## Referências oficiais verificadas
 

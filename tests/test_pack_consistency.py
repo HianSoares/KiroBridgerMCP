@@ -8,14 +8,21 @@ from pathlib import Path
 from soc_bridge.capabilities import LOCAL_WRITE_TOOLS, public_tools
 
 ROOT = Path(__file__).resolve().parents[1]
-TOOL_LIKE = re.compile(r"`((?:investigate|qradar|trend|bridge)_[a-z_]+|list_cases|get_case|reassess_case)\b")
+TOOL_LIKE = re.compile(r"`((?:investigate|qradar|trend|bridge|upstream)_[a-z_]+|list_cases|get_case|reassess_case)\b")
 # Identifiers with a tool-like prefix that are report fields, parameters or pivot actions.
 NOT_TOOLS = {"qradar_correlation", "qradar_utc_offset_hours", "investigate_related_alert", "bridge_findings",
              "trend_link", "trend_state", "trend_search", "trend_finding_refuted",
              "qradar_link", "trend_finding_reinstated", "trend_hash_states",
-             "qradar_instance_key"}  # functions, modules and record types
+             "qradar_instance_key", "upstream_tool_error", "upstream_pages_read", "upstream_client",
+             "upstream_total_count", "upstream_rows_scanned", "upstream_call_attempted", "upstream_error",
+             "upstream_unavailable", "upstream_access", "upstream_live", "upstream_policy", "upstream_registry"}  # functions, modules and record types
 SPECS = ["capability-discovery-diagnostics", "case-persistence-resume", "investigation-orchestration-pivots",
-         "evidence-decisions-closure", "kiro-pack-quality", "trend-direct-search"]
+         "evidence-decisions-closure", "kiro-pack-quality", "trend-direct-search", "upstream-full-access",
+         "workbench-xdr-followup"]
+
+
+def section(text: str, title: str) -> str:
+    return text.split(f"## {title}", 1)[1].split("\n## ", 1)[0] if f"## {title}" in text else ""
 
 
 def texts():
@@ -25,6 +32,34 @@ def texts():
 
 
 class PackConsistencyTests(unittest.TestCase):
+    def test_skills_that_use_direct_search_allow_it_and_agents_expose_their_tools(self):
+        skills = {p.parent.name: p.read_text(encoding="utf-8") for p in (ROOT / ".kiro" / "skills").glob("*/SKILL.md")}
+        agents = {p.stem: p.read_text(encoding="utf-8") for p in (ROOT / ".kiro" / "agents").glob("*.md")}
+        for name, text in skills.items():
+            allowed = section(text, "Tools permitidas")
+            steps = text.replace(allowed, "")
+            for tool in ("trend_search_data", "trend_read_search_resource"):
+                if f"`{tool}" in steps:
+                    with self.subTest(skill=name, tool=tool):
+                        self.assertIn(tool, allowed, f"{name} instructs {tool} but does not allow it")
+        for name in ("exfiltration-assessment", "trend-alert-investigation"):
+            allowed = section(skills[name], "Tools permitidas")
+            for tool in ("trend_read_search_resource", "trend_search_data", "investigate_vision_alert"):
+                self.assertIn(tool, allowed, name)
+            self.assertIn("xdr_followup", skills[name])
+            self.assertIn("evidence_digest", skills[name])
+        exfil = skills["exfiltration-assessment"]
+        self.assertNotIn("Solicite linha de comando", exfil)  # the bridge collects it through Search
+        for phrase in ("não estime", "tamanho de arquivo", "nunca as soma", "Benign True Positive"):
+            self.assertIn(phrase.lower(), exfil.lower())
+        self.assertIn("skill://exfiltration-assessment", agents["case-investigator"])
+        for agent in ("case-investigator", "threat-hunter"):
+            header = agents[agent].split("\n---", 1)[0]
+            self.assertIn("@soc-bridge-readonly/trend_search_data", header)
+            self.assertIn("xdr_followup", agents[agent])
+        for path, text in {**{f"skill {k}": v for k, v in skills.items()}, **{f"agent {k}": v for k, v in agents.items()}}.items():
+            self.assertNotRegex(text, r"(?i)assessment[^.\n]{0,60}(é atualizad|atualiza automaticamente)", path)
+
     def test_operational_execution_and_recovery_rules_are_consistent(self):
         steering = (ROOT / ".kiro/steering/operational-execution.md").read_text(encoding="utf-8")
         self.assertIn("inclusion: always", steering)
@@ -73,6 +108,13 @@ class PackConsistencyTests(unittest.TestCase):
         self.assertTrue(LOCAL_WRITE_TOOLS <= tools_of("case-investigator"))
         for name in agents:
             self.assertNotIn("toolsSettings", agents[name])  # only the documented tools-list syntax
+        for name in ("case-investigator", "threat-hunter"):
+            self.assertTrue({"upstream_tools", "upstream_tool_details", "upstream_query"} <= tools_of(name))
+        for path, text in texts().items():  # change tools live only in the separate, disabled server
+            self.assertNotIn("@soc-bridge-change", text, path.name)
+            if ".kiro" in path.parts:
+                self.assertNotIn("change_execute", text, path.name)
+                self.assertNotIn("change_request", text, path.name)
 
     def test_specs_are_complete_and_tasks_verified(self):
         for spec in SPECS:

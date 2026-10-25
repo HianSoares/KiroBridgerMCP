@@ -204,7 +204,7 @@ class RankingTests(unittest.TestCase):
         self.assertEqual(len(before), 20)
         for name, schema in before.items():
             self.assertEqual(tools[name].inputSchema, schema, name)
-        self.assertEqual(set(tools) - set(before), {'trend_search_data', 'trend_read_search_resource', 'qradar_list_offenses', 'investigate_offense_case', 'reassess_case', 'list_cases', 'get_case', 'bridge_diagnostics'})
+        self.assertEqual(set(tools) - set(before), {'trend_search_data', 'trend_read_search_resource', 'qradar_list_offenses', 'investigate_offense_case', 'reassess_case', 'list_cases', 'get_case', 'bridge_diagnostics', 'upstream_tools', 'upstream_tool_details', 'upstream_query', 'upstream_inventory', 'upstream_download'})
         self.assertTrue(all((t.annotations.readOnlyHint or t.name in LOCAL_WRITE_TOOLS) and not t.annotations.destructiveHint for t in tools.values()))
         self.assertNotIn('description', tools['qradar_list_offenses'].inputSchema['properties'])
 

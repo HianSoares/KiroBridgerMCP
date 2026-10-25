@@ -316,6 +316,8 @@ async def investigate_vision_alert(qradar: Protocol, vision: Protocol, alert_id:
                          "budgeted Ariel queries (reserved budget) -> Optional enrichments")}
     report["timeline"] = timeline(report)
     report["assessment"] = assess(report)
+    from .xdr_followup import followup
+    report["xdr_followup"] = followup(report, (discovery or {}).get("records_all", []))
     return report
 
 

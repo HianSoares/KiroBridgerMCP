@@ -247,5 +247,9 @@ async def collect(vision: Any, selection: dict, budget: Budget | None = None, re
     out["any_matching_record"] = True if out["records"] else False if out["result_set_complete"] else None
     out["outcome"] = ("partial" if partial and delivered else "unavailable" if out["errors"] else "not_started") if partial else (
         "counted" if selection["count_only"] else "complete_in_window" if out["records"] else "empty")
+    if not selection["count_only"]:
+        from .xdr_followup import digest
+        out["evidence_digest"] = digest(out["records"], tool, selection["query"], out["result_set_complete"],
+                                        len(out["continuation_plan"]))
     out["budget"] = budget.describe()
     return out

@@ -1,28 +1,65 @@
 {
  "source": {
   "repository": "https://github.com/IBM/qradar-mcp.git",
-  "commit": "f51c0070f0b480c401fd527b0bf5b8e1bf360169",
-  "commit_date": "2026-09-29"
+  "commit": "60ca119ecc0553946c44ac1702d574109a80f603",
+  "commit_date": "2026-10-05",
+  "tags": []
  },
  "tools": [
   {
    "name": "add_offense_note",
    "group": "offense",
+   "source_file": "tools/offense/add_offense_note.py",
    "verb": "POST",
    "endpoint": "siem/offenses/{offense_id}/notes",
+   "approval_required": true,
+   "client_calls": [
+    "post"
+   ],
    "args": [
     "offense_id",
     "note_text",
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "offense_id": {
+      "type": "integer",
+      "description": "The ID of the offense to add the note to",
+      "minimum": 0
+     },
+     "note_text": {
+      "type": "string",
+      "description": "The text content of the note",
+      "minLength": 1,
+      "maxLength": 10000
+     },
+     "fields": {
+      "type": "string",
+      "description": "Comma-separated list of fields to return in response"
+     }
+    },
+    "required": [
+     "offense_id",
+     "note_text"
+    ]
+   }
   },
   {
    "name": "add_staged_network",
    "group": "config",
+   "source_file": "tools/config/add_staged_network.py",
    "verb": "PUT",
    "endpoint": "config/network_hierarchy/staged_networks",
+   "approval_required": true,
+   "client_calls": [
+    "get",
+    "put"
+   ],
    "args": [
     "group",
     "name",
@@ -32,13 +69,54 @@
     "country_code"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "group": {
+      "type": "string",
+      "description": "Network group (e.g. 'Internal', 'DMZ', 'External')"
+     },
+     "name": {
+      "type": "string",
+      "description": "Name of the new network entry"
+     },
+     "cidr": {
+      "type": "string",
+      "description": "CIDR range for the network (e.g. '192.168.1.0/24')"
+     },
+     "description": {
+      "type": "string",
+      "description": "Optional description of the network entry"
+     },
+     "domain_id": {
+      "type": "integer",
+      "description": "Domain ID for the network entry (use 0 for default domain; required if QRadar is domain-aware)",
+      "minimum": 0
+     },
+     "country_code": {
+      "type": "string",
+      "description": "Optional ISO country code (e.g. 'US', 'CA')"
+     }
+    },
+    "required": [
+     "group",
+     "name",
+     "cidr"
+    ]
+   }
   },
   {
    "name": "add_to_reference_map",
    "group": "reference_data",
+   "source_file": "tools/reference_data/add_to_reference_map.py",
    "verb": "POST",
    "endpoint": "reference_data/maps/{name}",
+   "approval_required": true,
+   "client_calls": [
+    "post"
+   ],
    "args": [
     "name",
     "key",
@@ -49,13 +127,63 @@
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string",
+      "description": "The name of the reference map"
+     },
+     "key": {
+      "type": "string",
+      "description": "The key to add or update"
+     },
+     "value": {
+      "type": "string",
+      "description": "The value to associate with the key"
+     },
+     "namespace": {
+      "type": "string",
+      "description": "Optional namespace: SHARED or TENANT",
+      "enum": [
+       "SHARED",
+       "TENANT"
+      ]
+     },
+     "domain_id": {
+      "type": "integer",
+      "description": "Optional domain ID for multi-tenancy",
+      "minimum": 0
+     },
+     "source": {
+      "type": "string",
+      "description": "Optional source of the data"
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return"
+     }
+    },
+    "required": [
+     "name",
+     "key",
+     "value"
+    ]
+   }
   },
   {
    "name": "add_to_reference_set",
    "group": "reference_data",
+   "source_file": "tools/reference_data/add_to_reference_set.py",
    "verb": "POST",
    "endpoint": "reference_data_collections/set_entries",
+   "approval_required": true,
+   "client_calls": [
+    "get",
+    "post"
+   ],
    "args": [
     "set_name",
     "value",
@@ -64,13 +192,48 @@
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "set_name": {
+      "type": "string",
+      "description": "Name of the reference set to add the entry to"
+     },
+     "value": {
+      "type": "string",
+      "description": "The value to add (IP, domain, hash, etc.). Must match the set's entry_type"
+     },
+     "source": {
+      "type": "string",
+      "description": "Optional source of the entry (e.g., 'threat_feed', 'manual_investigation')"
+     },
+     "notes": {
+      "type": "string",
+      "description": "Optional notes about this entry (max 10000 characters)"
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return (e.g., 'id,value,first_seen')"
+     }
+    },
+    "required": [
+     "set_name",
+     "value"
+    ]
+   }
   },
   {
    "name": "add_to_reference_table",
    "group": "reference_data",
+   "source_file": "tools/reference_data/add_to_reference_table.py",
    "verb": "POST",
    "endpoint": "reference_data/tables/{name}",
+   "approval_required": true,
+   "client_calls": [
+    "post"
+   ],
    "args": [
     "name",
     "outer_key",
@@ -82,38 +245,140 @@
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string",
+      "description": "The name of the reference table"
+     },
+     "outer_key": {
+      "type": "string",
+      "description": "The outer key (e.g., IP address)"
+     },
+     "inner_key": {
+      "type": "string",
+      "description": "The inner key (e.g., port number)"
+     },
+     "value": {
+      "type": "string",
+      "description": "The value to store in the cell"
+     },
+     "namespace": {
+      "type": "string",
+      "description": "Optional namespace: SHARED or TENANT",
+      "enum": [
+       "SHARED",
+       "TENANT"
+      ]
+     },
+     "domain_id": {
+      "type": "integer",
+      "description": "Optional domain ID for multi-tenancy",
+      "minimum": 0
+     },
+     "source": {
+      "type": "string",
+      "description": "Optional source of the data"
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return"
+     }
+    },
+    "required": [
+     "name",
+     "outer_key",
+     "inner_key",
+     "value"
+    ]
+   }
   },
   {
    "name": "assign_offense",
    "group": "offense",
+   "source_file": "tools/offense/assign_offense.py",
    "verb": "POST",
    "endpoint": "siem/offenses/{offense_id}",
+   "approval_required": true,
+   "client_calls": [
+    "post"
+   ],
    "args": [
     "offense_id",
     "assigned_to",
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "offense_id": {
+      "type": "integer",
+      "description": "The ID of the offense to assign",
+      "minimum": 0
+     },
+     "assigned_to": {
+      "type": "string",
+      "description": "Username to assign the offense to"
+     },
+     "fields": {
+      "type": "string",
+      "description": "Comma-separated list of fields to return in response"
+     }
+    },
+    "required": [
+     "offense_id",
+     "assigned_to"
+    ]
+   }
   },
   {
    "name": "create_ariel_search",
    "group": "ariel",
+   "source_file": "tools/ariel/create_ariel_search.py",
    "verb": "POST",
    "endpoint": "ariel/searches",
+   "approval_required": true,
+   "client_calls": [
+    "post"
+   ],
    "args": [
     "query_expression",
     "saved_search_id"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "query_expression": {
+      "type": "string",
+      "description": "The AQL query to execute (e.g., 'SELECT sourceip, destinationip FROM events LAST 1 HOURS'). Mutually exclusive with saved_search_id."
+     },
+     "saved_search_id": {
+      "type": "integer",
+      "description": "Integer ID of a saved Ariel search to execute. Get this integer from list_saved_searches or get_saved_search. Mutually exclusive with query_expression.",
+      "minimum": 1
+     }
+    }
+   }
   },
   {
    "name": "create_dsm_event_mapping",
    "group": "data_classification",
+   "source_file": "tools/data_classification/create_dsm_event_mapping.py",
    "verb": "POST",
    "endpoint": "data_classification/dsm_event_mappings",
+   "approval_required": true,
+   "client_calls": [
+    "post"
+   ],
    "args": [
     "log_source_type_id",
     "log_source_event_id",
@@ -122,13 +387,52 @@
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "log_source_type_id": {
+      "type": "integer",
+      "description": "The ID of the log source type this mapping is associated with. Get this from list_log_source_types",
+      "minimum": 0
+     },
+     "log_source_event_id": {
+      "type": "string",
+      "description": "The primary identifying value parsed from an event (e.g., event type string)"
+     },
+     "log_source_event_category": {
+      "type": "string",
+      "description": "The secondary identifying value parsed from an event"
+     },
+     "qid_record_id": {
+      "type": "integer",
+      "description": "The ID of the QID record to map matching events to. Get this from list_qid_records, get_qid_record, or get_qid_record_by_qid",
+      "minimum": 0
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return in the response"
+     }
+    },
+    "required": [
+     "log_source_type_id",
+     "log_source_event_id",
+     "log_source_event_category",
+     "qid_record_id"
+    ]
+   }
   },
   {
    "name": "create_qid_record",
    "group": "data_classification",
+   "source_file": "tools/data_classification/create_qid_record.py",
    "verb": "POST",
    "endpoint": "data_classification/qid_records",
+   "approval_required": true,
+   "client_calls": [
+    "post"
+   ],
    "args": [
     "log_source_type_id",
     "name",
@@ -138,13 +442,57 @@
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "log_source_type_id": {
+      "type": "integer",
+      "description": "The ID of the log source type this QID record is created for. Get this from list_log_source_types",
+      "minimum": 0
+     },
+     "name": {
+      "type": "string",
+      "description": "The human-readable name for the event type"
+     },
+     "low_level_category_id": {
+      "type": "integer",
+      "description": "The low level category ID to classify this event type. Get this from list_low_level_categories or get_low_level_category",
+      "minimum": 0
+     },
+     "description": {
+      "type": "string",
+      "description": "Optional description of the event type"
+     },
+     "severity": {
+      "type": "integer",
+      "description": "Optional severity override (0-10). Defaults to the low level category's severity.",
+      "minimum": 0,
+      "maximum": 10
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return in the response"
+     }
+    },
+    "required": [
+     "log_source_type_id",
+     "name",
+     "low_level_category_id"
+    ]
+   }
   },
   {
    "name": "create_reference_map",
    "group": "reference_data",
+   "source_file": "tools/reference_data/create_reference_map.py",
    "verb": "POST",
    "endpoint": "reference_data/maps",
+   "approval_required": true,
+   "client_calls": [
+    "post"
+   ],
    "args": [
     "name",
     "element_type",
@@ -156,13 +504,74 @@
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string",
+      "description": "Unique name for the reference map"
+     },
+     "element_type": {
+      "type": "string",
+      "description": "Type of values: IP, ALN, ALNIC, NUM, PORT, DATE, CIDR",
+      "enum": [
+       "IP",
+       "ALN",
+       "ALNIC",
+       "NUM",
+       "PORT",
+       "DATE",
+       "CIDR"
+      ]
+     },
+     "key_label": {
+      "type": "string",
+      "description": "Optional label for keys (e.g., 'IP Address')"
+     },
+     "value_label": {
+      "type": "string",
+      "description": "Optional label for values (e.g., 'Country')"
+     },
+     "description": {
+      "type": "string",
+      "description": "Optional description of the reference map"
+     },
+     "timeout_type": {
+      "type": "string",
+      "description": "Expiry type: UNKNOWN, FIRST_SEEN, or LAST_SEEN",
+      "enum": [
+       "UNKNOWN",
+       "FIRST_SEEN",
+       "LAST_SEEN"
+      ]
+     },
+     "time_to_live": {
+      "type": "string",
+      "description": "Time to live interval (e.g., '1 month', '5 minutes')"
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return"
+     }
+    },
+    "required": [
+     "name",
+     "element_type"
+    ]
+   }
   },
   {
    "name": "create_reference_set",
    "group": "reference_data",
+   "source_file": "tools/reference_data/create_reference_set.py",
    "verb": "POST",
    "endpoint": "reference_data_collections/sets",
+   "approval_required": true,
+   "client_calls": [
+    "post"
+   ],
    "args": [
     "name",
     "entry_type",
@@ -175,13 +584,90 @@
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string",
+      "description": "Unique name for the reference set"
+     },
+     "entry_type": {
+      "type": "string",
+      "description": "Type of entries: IP, ALN, ALNIC, NUM, PORT, DATE, CIDR",
+      "enum": [
+       "IP",
+       "ALN",
+       "ALNIC",
+       "NUM",
+       "PORT",
+       "DATE",
+       "CIDR"
+      ]
+     },
+     "description": {
+      "type": "string",
+      "description": "Optional description of the reference set"
+     },
+     "namespace": {
+      "type": "string",
+      "description": "Namespace: PRIVATE, SHARED, or TENANT (default: PRIVATE)",
+      "enum": [
+       "PRIVATE",
+       "SHARED",
+       "TENANT"
+      ]
+     },
+     "time_to_live": {
+      "type": "integer",
+      "description": "Time to live in seconds for entries (optional)",
+      "minimum": 0
+     },
+     "expiry_type": {
+      "type": "string",
+      "description": "Expiry type: FIRST_SEEN, LAST_SEEN, or NO_EXPIRY",
+      "enum": [
+       "FIRST_SEEN",
+       "LAST_SEEN",
+       "NO_EXPIRY"
+      ]
+     },
+     "expired_log_option": {
+      "type": "string",
+      "description": "Logging option for expired entries: LOG_NONE, LOG_EACH, LOG_BATCH",
+      "enum": [
+       "LOG_NONE",
+       "LOG_EACH",
+       "LOG_BATCH"
+      ]
+     },
+     "tenant_id": {
+      "type": "integer",
+      "description": "Tenant ID (required if namespace is TENANT)",
+      "minimum": 0
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return"
+     }
+    },
+    "required": [
+     "name",
+     "entry_type"
+    ]
+   }
   },
   {
    "name": "create_reference_table",
    "group": "reference_data",
+   "source_file": "tools/reference_data/create_reference_table.py",
    "verb": "POST",
    "endpoint": "reference_data/tables",
+   "approval_required": true,
+   "client_calls": [
+    "post"
+   ],
    "args": [
     "name",
     "element_type",
@@ -193,24 +679,103 @@
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string",
+      "description": "Unique name for the reference table"
+     },
+     "element_type": {
+      "type": "string",
+      "description": "Default type for values: IP, ALN, ALNIC, NUM, PORT, DATE, CIDR",
+      "enum": [
+       "IP",
+       "ALN",
+       "ALNIC",
+       "NUM",
+       "PORT",
+       "DATE",
+       "CIDR"
+      ]
+     },
+     "outer_key_label": {
+      "type": "string",
+      "description": "Optional label for outer keys (e.g., 'IP Address')"
+     },
+     "key_name_types": {
+      "type": "string",
+      "description": "Optional JSON array defining inner keys: [{\"key_name\": \"port\", \"element_type\": \"PORT\"}]"
+     },
+     "description": {
+      "type": "string",
+      "description": "Optional description of the reference table"
+     },
+     "timeout_type": {
+      "type": "string",
+      "description": "Expiry type: UNKNOWN, FIRST_SEEN, or LAST_SEEN",
+      "enum": [
+       "UNKNOWN",
+       "FIRST_SEEN",
+       "LAST_SEEN"
+      ]
+     },
+     "time_to_live": {
+      "type": "string",
+      "description": "Time to live interval (e.g., '1 month', '5 minutes')"
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return"
+     }
+    },
+    "required": [
+     "name",
+     "element_type"
+    ]
+   }
   },
   {
    "name": "delete_ariel_search",
    "group": "ariel",
+   "source_file": "tools/ariel/delete_ariel_search.py",
    "verb": "DELETE",
    "endpoint": "ariel/searches/{search_id}",
+   "approval_required": true,
+   "client_calls": [
+    "delete"
+   ],
    "args": [
     "search_id"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "search_id": {
+      "type": "string",
+      "description": "The ID of the Ariel search to delete"
+     }
+    },
+    "required": [
+     "search_id"
+    ]
+   }
   },
   {
    "name": "delete_reference_map",
    "group": "reference_data",
+   "source_file": "tools/reference_data/delete_reference_map.py",
    "verb": "DELETE",
    "endpoint": "reference_data/maps/{name}",
+   "approval_required": true,
+   "client_calls": [
+    "delete"
+   ],
    "args": [
     "name",
     "purge_only",
@@ -218,24 +783,77 @@
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string",
+      "description": "The name of the reference map to delete or purge"
+     },
+     "purge_only": {
+      "type": "boolean",
+      "description": "If true, keep structure but clear data (default: false)"
+     },
+     "namespace": {
+      "type": "string",
+      "description": "Optional namespace: SHARED or TENANT",
+      "enum": [
+       "SHARED",
+       "TENANT"
+      ]
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return"
+     }
+    },
+    "required": [
+     "name"
+    ]
+   }
   },
   {
    "name": "delete_reference_set",
    "group": "reference_data",
+   "source_file": "tools/reference_data/delete_reference_set.py",
    "verb": "DELETE",
    "endpoint": "reference_data_collections/sets/{name}",
+   "approval_required": true,
+   "client_calls": [
+    "delete"
+   ],
    "args": [
     "set_id"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "formatted_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "set_id": {
+      "type": "integer",
+      "description": "The ID of the reference set to delete",
+      "minimum": 0
+     }
+    },
+    "required": [
+     "set_id"
+    ]
+   }
   },
   {
    "name": "delete_reference_table",
    "group": "reference_data",
+   "source_file": "tools/reference_data/delete_reference_table.py",
    "verb": "DELETE",
    "endpoint": "reference_data/tables/{name}",
+   "approval_required": true,
+   "client_calls": [
+    "delete"
+   ],
    "args": [
     "name",
     "purge_only",
@@ -243,223 +861,647 @@
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string",
+      "description": "The name of the reference table to delete or purge"
+     },
+     "purge_only": {
+      "type": "boolean",
+      "description": "If true, keep structure but clear data (default: false)"
+     },
+     "namespace": {
+      "type": "string",
+      "description": "Optional namespace: SHARED or TENANT",
+      "enum": [
+       "SHARED",
+       "TENANT"
+      ]
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return"
+     }
+    },
+    "required": [
+     "name"
+    ]
+   }
   },
   {
    "name": "delete_saved_search",
    "group": "ariel",
+   "source_file": "tools/ariel/delete_saved_search.py",
    "verb": "DELETE",
    "endpoint": "ariel/saved_searches/{search_id}",
+   "approval_required": true,
+   "client_calls": [
+    "delete"
+   ],
    "args": [
     "search_id",
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "search_id": {
+      "type": "integer",
+      "description": "ID of the saved search to delete. Get this from list_saved_searches or get_saved_search",
+      "minimum": 1
+     },
+     "fields": {
+      "type": "string",
+      "description": "Comma-separated list of fields to return in task status"
+     }
+    },
+    "required": [
+     "search_id"
+    ]
+   }
   },
   {
    "name": "delete_staged_network",
    "group": "config",
+   "source_file": "tools/config/delete_staged_network.py",
    "verb": "PUT",
    "endpoint": "config/network_hierarchy/staged_networks",
+   "approval_required": true,
+   "client_calls": [
+    "get",
+    "put"
+   ],
    "args": [
     "network_id"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "formatted_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "network_id": {
+      "type": "integer",
+      "description": "The id of the network entry to remove (from get_staged_network_hierarchy)",
+      "minimum": 0
+     }
+    },
+    "required": [
+     "network_id"
+    ]
+   }
   },
   {
    "name": "deploy_qradar_config",
    "group": "config",
+   "source_file": "tools/config/deploy_qradar_config.py",
    "verb": "POST",
    "endpoint": "staged_config/deploy_status",
+   "approval_required": true,
+   "client_calls": [
+    "post"
+   ],
    "args": [
     "type"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "type": {
+      "type": "string",
+      "description": "Deploy type: INCREMENTAL or FULL",
+      "enum": [
+       "INCREMENTAL",
+       "FULL"
+      ]
+     }
+    },
+    "required": [
+     "type"
+    ]
+   }
   },
   {
    "name": "dns_lookup",
    "group": "services",
+   "source_file": "tools/services/dns_lookup.py",
    "verb": "POST",
    "endpoint": "services/dns_lookups",
+   "approval_required": true,
+   "client_calls": [
+    "post"
+   ],
    "args": [
     "ip_address",
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "formatted_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "ip_address": {
+      "type": "string",
+      "description": "IP address to resolve (IPv4)"
+     },
+     "fields": {
+      "type": "string",
+      "description": "Comma-separated list of fields to return"
+     }
+    },
+    "required": [
+     "ip_address"
+    ]
+   }
   },
   {
    "name": "geolocate_ip",
    "group": "services",
+   "source_file": "tools/services/geolocate_ip.py",
    "verb": "GET",
    "endpoint": "services/geolocations",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "ip_address",
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "formatted_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "ip_address": {
+      "type": "string",
+      "description": "IP address to geolocate (IPv4 or IPv6)"
+     },
+     "fields": {
+      "type": "string",
+      "description": "Comma-separated list of fields to return"
+     }
+    },
+    "required": [
+     "ip_address"
+    ]
+   }
   },
   {
    "name": "get_ariel_search_results",
    "group": "ariel",
+   "source_file": "tools/ariel/get_ariel_search_results.py",
    "verb": "GET",
    "endpoint": "ariel/searches/{search_id}/results",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "search_id",
     "start",
     "limit"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": true,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "search_id": {
+      "type": "string",
+      "description": "The ID of the completed Ariel search to retrieve results for"
+     },
+     "start": {
+      "type": "integer",
+      "description": "Starting index for pagination (0-based). Use with limit to retrieve a specific range of results.",
+      "minimum": 0
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of results to return. Use with start for pagination. Default returns all results.",
+      "minimum": 1,
+      "maximum": 10000
+     }
+    },
+    "required": [
+     "search_id"
+    ]
+   }
   },
   {
    "name": "get_ariel_search_status",
    "group": "ariel",
+   "source_file": "tools/ariel/get_ariel_search_status.py",
    "verb": "GET",
    "endpoint": "ariel/searches/{search_id}",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "search_id",
     "wait_seconds"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "search_id": {
+      "type": "string",
+      "description": "The ID of the Ariel search to retrieve status for"
+     },
+     "wait_seconds": {
+      "type": "integer",
+      "description": "Optional number of seconds to wait for search completion. If specified, the API will wait up to this many seconds for the search to reach COMPLETED status before returning.",
+      "minimum": 0,
+      "maximum": 300
+     }
+    },
+    "required": [
+     "search_id"
+    ]
+   }
   },
   {
    "name": "get_building_block",
    "group": "analytics",
+   "source_file": "tools/analytics/get_building_block.py",
    "verb": "GET",
    "endpoint": "analytics/building_blocks/{building_block_id}",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "building_block_id",
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "building_block_id": {
+      "type": "integer",
+      "description": "The ID of the building block rule to retrieve",
+      "minimum": 0
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return (e.g., 'id,name,type,enabled')"
+     }
+    },
+    "required": [
+     "building_block_id"
+    ]
+   }
   },
   {
    "name": "get_case",
    "group": "forensics",
+   "source_file": "tools/forensics/get_case.py",
    "verb": "GET",
    "endpoint": "forensics/case_management/cases/{case_id}",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "case_id",
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "case_id": {
+      "type": "integer",
+      "description": "The ID of the case to retrieve",
+      "minimum": 1
+     },
+     "fields": {
+      "type": "string",
+      "description": "Specific fields to return (e.g., 'id,name,assigned_to')"
+     }
+    },
+    "required": [
+     "case_id"
+    ]
+   }
   },
   {
    "name": "get_custom_action",
    "group": "analytics",
+   "source_file": "tools/analytics/get_custom_action.py",
    "verb": "GET",
    "endpoint": "analytics/custom_actions/actions/{action_id}",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "action_id",
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "action_id": {
+      "type": "integer",
+      "description": "ID of the custom action to retrieve",
+      "minimum": 1
+     },
+     "fields": {
+      "type": "string",
+      "description": "Comma-separated fields (e.g., 'id,name,parameters')"
+     }
+    },
+    "required": [
+     "action_id"
+    ]
+   }
   },
   {
    "name": "get_deploy_status",
    "group": "config",
+   "source_file": "tools/config/get_deploy_status.py",
    "verb": "GET",
    "endpoint": "staged_config/deploy_status",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {}
+   }
   },
   {
    "name": "get_dns_result",
    "group": "services",
+   "source_file": "tools/services/get_dns_result.py",
    "verb": "GET",
    "endpoint": "services/dns_lookups/{task_id}",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "task_id",
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "formatted_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "task_id": {
+      "type": "integer",
+      "description": "DNS lookup task ID from dns_lookup tool",
+      "minimum": 1
+     },
+     "fields": {
+      "type": "string",
+      "description": "Comma-separated list of fields to return"
+     }
+    },
+    "required": [
+     "task_id"
+    ]
+   }
   },
   {
    "name": "get_dsm_event_mapping",
    "group": "data_classification",
+   "source_file": "tools/data_classification/get_dsm_event_mapping.py",
    "verb": "GET",
    "endpoint": "data_classification/dsm_event_mappings/{dsm_event_mapping_id}",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "dsm_event_mapping_id",
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "dsm_event_mapping_id": {
+      "type": "integer",
+      "description": "The ID of the DSM event mapping to retrieve",
+      "minimum": 0
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return. Examples: \"id,log_source_type_id,qid_record_id\""
+     }
+    },
+    "required": [
+     "dsm_event_mapping_id"
+    ]
+   }
   },
   {
    "name": "get_high_level_category",
    "group": "data_classification",
+   "source_file": "tools/data_classification/get_high_level_category.py",
    "verb": "GET",
    "endpoint": "data_classification/high_level_categories/{high_level_category_id}",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "high_level_category_id",
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "high_level_category_id": {
+      "type": "integer",
+      "description": "The ID of the high level category to retrieve (must be a positive integer)",
+      "minimum": 1
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return. Examples: \"id,name,description\""
+     }
+    },
+    "required": [
+     "high_level_category_id"
+    ]
+   }
   },
   {
    "name": "get_log_source",
    "group": "log_source",
+   "source_file": "tools/log_source/get_log_source.py",
    "verb": "GET",
    "endpoint": "config/event_sources/log_source_management/log_sources/{log_source_id}",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "log_source_id",
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "log_source_id": {
+      "type": "integer",
+      "description": "The ID of the log source to retrieve",
+      "minimum": 0
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return (e.g., \"id,name,enabled,status\")"
+     }
+    },
+    "required": [
+     "log_source_id"
+    ]
+   }
   },
   {
    "name": "get_low_level_category",
    "group": "data_classification",
+   "source_file": "tools/data_classification/get_low_level_category.py",
    "verb": "GET",
    "endpoint": "data_classification/low_level_categories/{low_level_category_id}",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "low_level_category_id",
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "low_level_category_id": {
+      "type": "integer",
+      "description": "The ID of the low level category to retrieve (must be a positive integer)",
+      "minimum": 1
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return. Examples: \"id,name,severity,high_level_category_id\""
+     }
+    },
+    "required": [
+     "low_level_category_id"
+    ]
+   }
   },
   {
    "name": "get_network_hierarchy",
    "group": "config",
+   "source_file": "tools/config/get_network_hierarchy.py",
    "verb": "GET",
    "endpoint": "config/network_hierarchy/networks",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return (e.g., 'id,name,cidr,group')"
+     }
+    }
+   }
   },
   {
    "name": "get_offense",
    "group": "offense",
+   "source_file": "tools/offense/get_offense.py",
    "verb": "GET",
    "endpoint": "siem/offenses/{offense_id}",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "offense_id"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "offense_id": {
+      "type": "integer",
+      "description": "The ID of the offense to retrieve",
+      "minimum": 0
+     }
+    },
+    "required": [
+     "offense_id"
+    ]
+   }
   },
   {
    "name": "get_offense_notes",
    "group": "offense",
+   "source_file": "tools/offense/get_offense_notes.py",
    "verb": "GET",
    "endpoint": "siem/offenses/{offense_id}/notes",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "offense_id",
     "filter",
@@ -468,37 +1510,123 @@
     "limit"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "offense_id": {
+      "type": "integer",
+      "description": "The ID of the offense to retrieve notes for",
+      "minimum": 0
+     },
+     "filter": {
+      "type": "string",
+      "description": "Optional filter to restrict notes"
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return (e.g., 'id,note_text,create_time')"
+     },
+     "start": {
+      "type": "integer",
+      "description": "Starting index for pagination (0-based)",
+      "minimum": 0,
+      "default": 0
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of notes to return",
+      "minimum": 1,
+      "maximum": 100,
+      "default": 50
+     }
+    },
+    "required": [
+     "offense_id"
+    ]
+   }
   },
   {
    "name": "get_qid_record",
    "group": "data_classification",
+   "source_file": "tools/data_classification/get_qid_record.py",
    "verb": "GET",
    "endpoint": "data_classification/qid_records/{qid_record_id}",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "qid_record_id",
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "qid_record_id": {
+      "type": "integer",
+      "description": "The ID of the QID record to retrieve (must be a positive integer)",
+      "minimum": 1
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return. Examples: \"id,qid,name,severity\""
+     }
+    },
+    "required": [
+     "qid_record_id"
+    ]
+   }
   },
   {
    "name": "get_qid_record_by_qid",
    "group": "data_classification",
+   "source_file": "tools/data_classification/get_qid_record_by_qid.py",
    "verb": "GET",
    "endpoint": "data_classification/qid_records",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "qid",
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "qid": {
+      "type": "integer",
+      "description": "The numeric QRadar Identifier (QID) to look up (e.g., 2500001)",
+      "minimum": 0
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return. Examples: \"id,qid,name,severity\""
+     }
+    },
+    "required": [
+     "qid"
+    ]
+   }
   },
   {
    "name": "get_reference_map",
    "group": "reference_data",
+   "source_file": "tools/reference_data/get_reference_map.py",
    "verb": "GET",
    "endpoint": "reference_data/maps/{name}",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "name",
     "namespace",
@@ -508,25 +1636,93 @@
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string",
+      "description": "The name of the reference map to retrieve"
+     },
+     "namespace": {
+      "type": "string",
+      "description": "Optional namespace: SHARED or TENANT (default: SHARED)",
+      "enum": [
+       "SHARED",
+       "TENANT"
+      ]
+     },
+     "filter": {
+      "type": "string",
+      "description": "Optional AQL filter to restrict map entries"
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of entries to return (default: 50)",
+      "minimum": 1,
+      "maximum": 10000
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Number of entries to skip for pagination (default: 0)",
+      "minimum": 0
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return"
+     }
+    },
+    "required": [
+     "name"
+    ]
+   }
   },
   {
    "name": "get_reference_set",
    "group": "reference_data",
+   "source_file": "tools/reference_data/get_reference_set.py",
    "verb": "GET",
    "endpoint": "reference_data_collections/sets/{name}",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "set_id",
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "set_id": {
+      "type": "integer",
+      "description": "The ID of the reference set to retrieve",
+      "minimum": 0
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return (e.g., 'id,name,entry_type,number_of_entries')"
+     }
+    },
+    "required": [
+     "set_id"
+    ]
+   }
   },
   {
    "name": "get_reference_table",
    "group": "reference_data",
+   "source_file": "tools/reference_data/get_reference_table.py",
    "verb": "GET",
    "endpoint": "reference_data/tables/{name}",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "name",
     "namespace",
@@ -536,71 +1732,215 @@
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string",
+      "description": "The name of the reference table to retrieve"
+     },
+     "namespace": {
+      "type": "string",
+      "description": "Optional namespace: SHARED or TENANT (default: SHARED)",
+      "enum": [
+       "SHARED",
+       "TENANT"
+      ]
+     },
+     "filter": {
+      "type": "string",
+      "description": "Optional AQL filter to restrict table entries"
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of entries to return (default: 50)",
+      "minimum": 1,
+      "maximum": 10000
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Number of entries to skip for pagination (default: 0)",
+      "minimum": 0
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return"
+     }
+    },
+    "required": [
+     "name"
+    ]
+   }
   },
   {
    "name": "get_rule",
    "group": "analytics",
+   "source_file": "tools/analytics/get_rule.py",
    "verb": "GET",
    "endpoint": "analytics/rules/{rule_id}",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "rule_id",
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "rule_id": {
+      "type": "integer",
+      "description": "The ID of the analytics rule to retrieve",
+      "minimum": 0
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return (e.g., 'id,name,type,enabled')"
+     }
+    },
+    "required": [
+     "rule_id"
+    ]
+   }
   },
   {
    "name": "get_saved_search",
    "group": "ariel",
+   "source_file": "tools/ariel/get_saved_search.py",
    "verb": "GET",
    "endpoint": "ariel/saved_searches/{search_id}",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "search_id",
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "search_id": {
+      "type": "integer",
+      "description": "ID of the saved search to retrieve",
+      "minimum": 1
+     },
+     "fields": {
+      "type": "string",
+      "description": "Comma-separated list of fields to return (e.g., 'id,name,aql,owner')"
+     }
+    },
+    "required": [
+     "search_id"
+    ]
+   }
   },
   {
    "name": "get_staged_network_hierarchy",
    "group": "config",
+   "source_file": "tools/config/get_staged_network_hierarchy.py",
    "verb": "GET",
    "endpoint": "config/network_hierarchy/staged_networks",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return"
+     }
+    }
+   }
   },
   {
    "name": "get_system_info",
    "group": "system",
+   "source_file": "tools/system/get_system_info.py",
    "verb": "GET",
    "endpoint": "system/about",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return (e.g., 'build_version,external_version')"
+     }
+    }
+   }
   },
   {
    "name": "get_whois_result",
    "group": "services",
+   "source_file": "tools/services/get_whois_result.py",
    "verb": "GET",
    "endpoint": "services/whois_lookups/{task_id}",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "task_id",
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "formatted_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "task_id": {
+      "type": "integer",
+      "description": "WHOIS lookup task ID from whois_lookup tool",
+      "minimum": 1
+     },
+     "fields": {
+      "type": "string",
+      "description": "Comma-separated list of fields to return"
+     }
+    },
+    "required": [
+     "task_id"
+    ]
+   }
   },
   {
    "name": "list_asset_properties",
    "group": "asset",
+   "source_file": "tools/asset/list_asset_properties.py",
    "verb": "GET",
    "endpoint": "asset_model/properties",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "filter",
     "fields",
@@ -608,13 +1948,43 @@
     "offset"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "filter": {
+      "type": "string",
+      "description": "Filter properties (e.g., 'custom=true' for custom properties only)"
+     },
+     "fields": {
+      "type": "string",
+      "description": "Specific fields to return (e.g., 'id,name,data_type')"
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of properties to return (1-100)",
+      "minimum": 1,
+      "maximum": 100
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Starting index for pagination (0-based)",
+      "minimum": 0
+     }
+    }
+   }
   },
   {
    "name": "list_assets",
    "group": "asset",
+   "source_file": "tools/asset/list_assets.py",
    "verb": "GET",
    "endpoint": "asset_model/assets",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "filter",
     "fields",
@@ -624,13 +1994,52 @@
     "format_output"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text (format_output=true returns a formatted table)",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "filter": {
+      "type": "string",
+      "description": "Optional filter expression."
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return."
+     },
+     "sort": {
+      "type": "string",
+      "description": "Optional sort expression."
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of assets to return (default: 50, max: 10000)",
+      "minimum": 1,
+      "maximum": 10000
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Number of assets to skip for pagination (default: 0)",
+      "minimum": 0
+     },
+     "format_output": {
+      "type": "boolean",
+      "description": "Format output as human-readable table (default: false)",
+      "default": false
+     }
+    }
+   }
   },
   {
    "name": "list_building_blocks",
    "group": "analytics",
+   "source_file": "tools/analytics/list_building_blocks.py",
    "verb": "GET",
    "endpoint": "analytics/building_blocks",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "filter",
     "fields",
@@ -639,13 +2048,50 @@
     "format_output"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text (format_output=true returns a formatted table)",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "filter": {
+      "type": "string",
+      "description": "Optional filter expression."
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to include."
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of building blocks to return (default: 10, max: 10000)",
+      "minimum": 1,
+      "maximum": 10000,
+      "default": 10
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Number of building blocks to skip for pagination (default: 0)",
+      "minimum": 0,
+      "default": 0
+     },
+     "format_output": {
+      "type": "boolean",
+      "description": "Format output as human-readable table (default: false)",
+      "default": false
+     }
+    }
+   }
   },
   {
    "name": "list_cases",
    "group": "forensics",
+   "source_file": "tools/forensics/list_cases.py",
    "verb": "GET",
    "endpoint": "forensics/case_management/cases",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "filter",
     "fields",
@@ -653,13 +2099,43 @@
     "offset"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "filter": {
+      "type": "string",
+      "description": "Filter cases (e.g., 'name contains \"incident\"')"
+     },
+     "fields": {
+      "type": "string",
+      "description": "Specific fields to return (e.g., 'id,name,assigned_to')"
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of cases to return (1-100)",
+      "minimum": 1,
+      "maximum": 100
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Starting index for pagination (0-based)",
+      "minimum": 0
+     }
+    }
+   }
   },
   {
    "name": "list_custom_actions",
    "group": "analytics",
+   "source_file": "tools/analytics/list_custom_actions.py",
    "verb": "GET",
    "endpoint": "analytics/custom_actions/actions",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "fields",
     "filter",
@@ -667,13 +2143,43 @@
     "offset"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "fields": {
+      "type": "string",
+      "description": "Comma-separated fields."
+     },
+     "filter": {
+      "type": "string",
+      "description": "Optional filter expression."
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of results to return (1-100)",
+      "minimum": 1,
+      "maximum": 100
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Starting position for pagination (0-based)",
+      "minimum": 0
+     }
+    }
+   }
   },
   {
    "name": "list_dsm_event_mappings",
    "group": "data_classification",
+   "source_file": "tools/data_classification/list_dsm_event_mappings.py",
    "verb": "GET",
    "endpoint": "data_classification/dsm_event_mappings",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "filter",
     "fields",
@@ -681,13 +2187,45 @@
     "offset"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "filter": {
+      "type": "string",
+      "description": "Optional filter expression."
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return."
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of mappings to return (default: 10, max: 10000)",
+      "minimum": 1,
+      "maximum": 10000,
+      "default": 10
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Number of mappings to skip for pagination (default: 0)",
+      "minimum": 0,
+      "default": 0
+     }
+    }
+   }
   },
   {
    "name": "list_high_level_categories",
    "group": "data_classification",
+   "source_file": "tools/data_classification/list_high_level_categories.py",
    "verb": "GET",
    "endpoint": "data_classification/high_level_categories",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "filter",
     "sort",
@@ -696,26 +2234,87 @@
     "offset"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "filter": {
+      "type": "string",
+      "description": "Optional filter expression."
+     },
+     "sort": {
+      "type": "string",
+      "description": "Optional sort expression."
+     },
+     "fields": {
+      "type": "string",
+      "description": "Comma-separated list of fields to return."
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of categories to return (default: 10, max: 10000)",
+      "minimum": 1,
+      "maximum": 10000,
+      "default": 10
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Number of categories to skip for pagination (default: 0)",
+      "minimum": 0,
+      "default": 0
+     }
+    }
+   }
   },
   {
    "name": "list_local_destination_addresses",
    "group": "offense",
+   "source_file": "tools/offense/list_local_destination_addresses.py",
    "verb": "GET",
    "endpoint": "siem/local_destination_addresses",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "filter",
     "limit",
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "filter": {
+      "type": "string",
+      "description": "Optional filter expression."
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of results to return (default: 10)",
+      "minimum": 1,
+      "default": 10
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return."
+     }
+    }
+   }
   },
   {
    "name": "list_log_source_types",
    "group": "log_source",
+   "source_file": "tools/log_source/list_log_source_types.py",
    "verb": "GET",
    "endpoint": "config/event_sources/log_source_management/log_source_types",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "filter",
     "fields",
@@ -723,13 +2322,43 @@
     "offset"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "filter": {
+      "type": "string",
+      "description": "Optional filter expression."
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return."
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of types to return (default: 10)",
+      "minimum": 1,
+      "default": 10
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Starting index for pagination (0-based)",
+      "minimum": 0
+     }
+    }
+   }
   },
   {
    "name": "list_log_sources",
    "group": "log_source",
+   "source_file": "tools/log_source/list_log_sources.py",
    "verb": "GET",
    "endpoint": "config/event_sources/log_source_management/log_sources",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "filter",
     "fields",
@@ -739,13 +2368,54 @@
     "format_output"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text (format_output=true returns a formatted table)",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "filter": {
+      "type": "string",
+      "description": "Optional filter expression."
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to include."
+     },
+     "sort": {
+      "type": "string",
+      "description": "Optional sort expression."
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of log sources to return (default: 10, max: 10000)",
+      "minimum": 1,
+      "maximum": 10000,
+      "default": 10
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Number of log sources to skip for pagination (default: 0)",
+      "minimum": 0,
+      "default": 0
+     },
+     "format_output": {
+      "type": "boolean",
+      "description": "Format output as human-readable table (default: false)",
+      "default": false
+     }
+    }
+   }
   },
   {
    "name": "list_low_level_categories",
    "group": "data_classification",
+   "source_file": "tools/data_classification/list_low_level_categories.py",
    "verb": "GET",
    "endpoint": "data_classification/low_level_categories",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "filter",
     "sort",
@@ -754,13 +2424,49 @@
     "offset"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "filter": {
+      "type": "string",
+      "description": "Optional filter expression."
+     },
+     "sort": {
+      "type": "string",
+      "description": "Optional sort expression."
+     },
+     "fields": {
+      "type": "string",
+      "description": "Comma-separated list of fields to return."
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of categories to return (default: 10, max: 10000)",
+      "minimum": 1,
+      "maximum": 10000,
+      "default": 10
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Number of categories to skip for pagination (default: 0)",
+      "minimum": 0,
+      "default": 0
+     }
+    }
+   }
   },
   {
    "name": "list_offense_closing_reasons",
    "group": "offense",
+   "source_file": "tools/offense/list_offense_closing_reasons.py",
    "verb": "GET",
    "endpoint": "siem/offense_closing_reasons",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "include_reserved",
     "include_deleted",
@@ -769,13 +2475,46 @@
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "include_reserved": {
+      "type": "boolean",
+      "description": "Include reserved closing reasons (default: false). Reserved reasons cannot be used to close offenses."
+     },
+     "include_deleted": {
+      "type": "boolean",
+      "description": "Include deleted closing reasons (default: false). Deleted reasons cannot be used to close offenses."
+     },
+     "filter": {
+      "type": "string",
+      "description": "Optional filter expression."
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of results to return (default: 10)",
+      "minimum": 1,
+      "default": 10
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return."
+     }
+    }
+   }
   },
   {
    "name": "list_offense_types",
    "group": "offense",
+   "source_file": "tools/offense/list_offense_types.py",
    "verb": "GET",
    "endpoint": "siem/offense_types",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "filter",
     "sort",
@@ -783,13 +2522,42 @@
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "filter": {
+      "type": "string",
+      "description": "Optional AQL filter expression."
+     },
+     "sort": {
+      "type": "string",
+      "description": "Optional sort expression."
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of results to return (default: 10)",
+      "minimum": 1,
+      "default": 10
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return."
+     }
+    }
+   }
   },
   {
    "name": "list_offenses",
    "group": "offense",
+   "source_file": "tools/offense/list_offenses.py",
    "verb": "GET",
    "endpoint": "siem/offenses",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "filter",
     "sort",
@@ -799,13 +2567,54 @@
     "format_output"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text (format_output=true returns a formatted table)",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "filter": {
+      "type": "string",
+      "description": "Optional filter expression.\""
+     },
+     "sort": {
+      "type": "string",
+      "description": "Sort expression."
+     },
+     "fields": {
+      "type": "string",
+      "description": "Comma-separated list of fields to include."
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of offenses to return (default: 10, max: 10000)",
+      "minimum": 1,
+      "maximum": 10000,
+      "default": 10
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Number of offenses to skip for pagination (default: 0)",
+      "minimum": 0,
+      "default": 0
+     },
+     "format_output": {
+      "type": "boolean",
+      "description": "Format output as human-readable table (default: false)",
+      "default": false
+     }
+    }
+   }
   },
   {
    "name": "list_qid_records",
    "group": "data_classification",
+   "source_file": "tools/data_classification/list_qid_records.py",
    "verb": "GET",
    "endpoint": "data_classification/qid_records",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "filter",
     "fields",
@@ -813,26 +2622,81 @@
     "offset"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "filter": {
+      "type": "string",
+      "description": "Optional filter expression."
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return."
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of QID records to return (default: 10, max: 10000)",
+      "minimum": 1,
+      "maximum": 10000,
+      "default": 10
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Number of QID records to skip for pagination (default: 0)",
+      "minimum": 0,
+      "default": 0
+     }
+    }
+   }
   },
   {
    "name": "list_qvm_assets",
    "group": "qvm",
+   "source_file": "tools/qvm/list_qvm_assets.py",
    "verb": "GET",
    "endpoint": "qvm/assets",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "saved_search_id",
     "saved_search_name",
     "filters"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "saved_search_id": {
+      "type": "string",
+      "description": "ID of saved QVM asset search to execute"
+     },
+     "saved_search_name": {
+      "type": "string",
+      "description": "Name of saved QVM asset search to execute"
+     },
+     "filters": {
+      "type": "string",
+      "description": "(e.g., [{\"parameter\":\"Severity\",\"operator\":\"GreaterThan\",\"value\":\"7\"}])"
+     }
+    }
+   }
   },
   {
    "name": "list_reference_maps",
    "group": "reference_data",
+   "source_file": "tools/reference_data/list_reference_maps.py",
    "verb": "GET",
    "endpoint": "reference_data/maps",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "filter",
     "sort",
@@ -842,13 +2706,52 @@
     "format_output"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text (format_output=true returns a formatted table)",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "filter": {
+      "type": "string",
+      "description": "Optional AQL-style filter expression."
+     },
+     "sort": {
+      "type": "string",
+      "description": "Optional sort expression."
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of maps to return (default: 50, max: 10000)",
+      "minimum": 1,
+      "maximum": 10000
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Number of maps to skip for pagination (default: 0)",
+      "minimum": 0
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return."
+     },
+     "format_output": {
+      "type": "boolean",
+      "description": "Format output as human-readable table (default: false)",
+      "default": false
+     }
+    }
+   }
   },
   {
    "name": "list_reference_sets",
    "group": "reference_data",
+   "source_file": "tools/reference_data/list_reference_sets.py",
    "verb": "GET",
    "endpoint": "reference_data_collections/sets",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "filter",
     "sort",
@@ -858,13 +2761,52 @@
     "format_output"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text (format_output=true returns a formatted table)",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "filter": {
+      "type": "string",
+      "description": "Optional AQL-style filter expression."
+     },
+     "sort": {
+      "type": "string",
+      "description": "Optional sort expression."
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of sets to return (default: 50, max: 10000)",
+      "minimum": 1,
+      "maximum": 10000
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Number of sets to skip for pagination (default: 0)",
+      "minimum": 0
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to include."
+     },
+     "format_output": {
+      "type": "boolean",
+      "description": "Format output as human-readable table (default: false)",
+      "default": false
+     }
+    }
+   }
   },
   {
    "name": "list_reference_tables",
    "group": "reference_data",
+   "source_file": "tools/reference_data/list_reference_tables.py",
    "verb": "GET",
    "endpoint": "reference_data/tables",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "filter",
     "sort",
@@ -874,13 +2816,52 @@
     "format_output"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text (format_output=true returns a formatted table)",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "filter": {
+      "type": "string",
+      "description": "Optional AQL-style filter expression."
+     },
+     "sort": {
+      "type": "string",
+      "description": "Optional sort expression."
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of tables to return (default: 50, max: 10000)",
+      "minimum": 1,
+      "maximum": 10000
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Number of tables to skip for pagination (default: 0)",
+      "minimum": 0
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return."
+     },
+     "format_output": {
+      "type": "boolean",
+      "description": "Format output as human-readable table (default: false)",
+      "default": false
+     }
+    }
+   }
   },
   {
    "name": "list_rules",
    "group": "analytics",
+   "source_file": "tools/analytics/list_rules.py",
    "verb": "GET",
    "endpoint": "analytics/rules",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "filter",
     "fields",
@@ -889,13 +2870,50 @@
     "format_output"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text (format_output=true returns a formatted table)",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "filter": {
+      "type": "string",
+      "description": "Optional filter expression."
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to include."
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of rules to return (default: 10, max: 10000)",
+      "minimum": 1,
+      "maximum": 10000,
+      "default": 10
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Number of rules to skip for pagination (default: 0)",
+      "minimum": 0,
+      "default": 0
+     },
+     "format_output": {
+      "type": "boolean",
+      "description": "Format output as human-readable table (default: false)",
+      "default": false
+     }
+    }
+   }
   },
   {
    "name": "list_saved_searches",
    "group": "ariel",
+   "source_file": "tools/ariel/list_saved_searches.py",
    "verb": "GET",
    "endpoint": "ariel/saved_searches",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "fields",
     "filter",
@@ -903,13 +2921,43 @@
     "offset"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "fields": {
+      "type": "string",
+      "description": "Comma-separated fields (e.g., 'id,name,owner,aql')"
+     },
+     "filter": {
+      "type": "string",
+      "description": "AQL-style filter (e.g., 'is_shared=true')"
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of results to return (1-100)",
+      "minimum": 1,
+      "maximum": 100
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Starting position for pagination (0-based)",
+      "minimum": 0
+     }
+    }
+   }
   },
   {
    "name": "list_servers",
    "group": "system",
+   "source_file": "tools/system/list_servers.py",
    "verb": "GET",
    "endpoint": "system/servers",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "fields",
     "filter",
@@ -917,13 +2965,43 @@
     "offset"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return"
+     },
+     "filter": {
+      "type": "string",
+      "description": "Optional filter expression."
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of servers to return (1-100)",
+      "minimum": 1,
+      "maximum": 100
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Number of servers to skip for pagination",
+      "minimum": 0
+     }
+    }
+   }
   },
   {
    "name": "list_source_addresses",
    "group": "offense",
+   "source_file": "tools/offense/list_source_addresses.py",
    "verb": "GET",
    "endpoint": "siem/source_addresses",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "filter",
     "limit",
@@ -931,13 +3009,43 @@
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "filter": {
+      "type": "string",
+      "description": "Optional filter expression."
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of results to return (default: 10)",
+      "minimum": 1,
+      "default": 10
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Starting position for pagination (0-based)",
+      "minimum": 0
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return"
+     }
+    }
+   }
   },
   {
    "name": "list_user_roles",
    "group": "config",
+   "source_file": "tools/config/list_user_roles.py",
    "verb": "GET",
    "endpoint": "config/access/user_roles",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "current_user_role",
     "contains",
@@ -947,13 +3055,57 @@
     "offset"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "current_user_role": {
+      "type": "boolean",
+      "description": "Return only the current user's role (default: false)"
+     },
+     "contains": {
+      "type": "string",
+      "description": "Filter roles containing this capability",
+      "enum": [
+       "ADMIN",
+       "SAAS_ADMIN",
+       "ADMIN_MANAGER",
+       "LOCAL_ONLY"
+      ]
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return"
+     },
+     "filter": {
+      "type": "string",
+      "description": "Optional filter expression"
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of roles to return (1-100)",
+      "minimum": 1,
+      "maximum": 100
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Number of roles to skip for pagination",
+      "minimum": 0
+     }
+    }
+   }
   },
   {
    "name": "list_users",
    "group": "config",
+   "source_file": "tools/config/list_users.py",
    "verb": "GET",
    "endpoint": "config/access/users",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "current_user",
     "fields",
@@ -963,26 +3115,87 @@
     "offset"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "current_user": {
+      "type": "boolean",
+      "description": "Return only the current user's information (default: false)"
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return"
+     },
+     "filter": {
+      "type": "string",
+      "description": "Optional filter expression."
+     },
+     "sort": {
+      "type": "string",
+      "description": "Optional sort expression."
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximum number of users to return (1-100)",
+      "minimum": 1,
+      "maximum": 100
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Number of users to skip for pagination",
+      "minimum": 0
+     }
+    }
+   }
   },
   {
    "name": "list_vulnerabilities",
    "group": "qvm",
+   "source_file": "tools/qvm/list_vulnerabilities.py",
    "verb": "GET",
    "endpoint": "qvm/vulns",
+   "approval_required": false,
+   "client_calls": [
+    "get"
+   ],
    "args": [
     "saved_search_id",
     "saved_search_name",
     "filters"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "saved_search_id": {
+      "type": "string",
+      "description": "ID of saved QVM search to execute"
+     },
+     "saved_search_name": {
+      "type": "string",
+      "description": "Name of saved QVM search to execute"
+     },
+     "filters": {
+      "type": "string",
+      "description": "(e.g., [{\"parameter\":\"IP Address\",\"operator\":\"Equals\",\"value\":\"10.0.0.1\"}])"
+     }
+    }
+   }
   },
   {
    "name": "remove_from_reference_map",
    "group": "reference_data",
+   "source_file": "tools/reference_data/remove_from_reference_map.py",
    "verb": "DELETE",
    "endpoint": "reference_data/maps/{name}/{key}",
+   "approval_required": true,
+   "client_calls": [
+    "delete"
+   ],
    "args": [
     "name",
     "key",
@@ -992,24 +3205,88 @@
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string",
+      "description": "The name of the reference map"
+     },
+     "key": {
+      "type": "string",
+      "description": "The key to remove"
+     },
+     "value": {
+      "type": "string",
+      "description": "The value to remove (must match existing value)"
+     },
+     "namespace": {
+      "type": "string",
+      "description": "Optional namespace: SHARED or TENANT",
+      "enum": [
+       "SHARED",
+       "TENANT"
+      ]
+     },
+     "domain_id": {
+      "type": "integer",
+      "description": "Optional domain ID for multi-tenancy",
+      "minimum": 0
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return"
+     }
+    },
+    "required": [
+     "name",
+     "key",
+     "value"
+    ]
+   }
   },
   {
    "name": "remove_from_reference_set",
    "group": "reference_data",
+   "source_file": "tools/reference_data/remove_from_reference_set.py",
    "verb": "DELETE",
    "endpoint": "reference_data_collections/set_entries/{entry_id}",
+   "approval_required": true,
+   "client_calls": [
+    "delete"
+   ],
    "args": [
     "entry_id"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "formatted_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "entry_id": {
+      "type": "integer",
+      "description": "The ID of the entry to remove from the reference set. Get this from list_reference_sets or a prior add_to_reference_set result",
+      "minimum": 0
+     }
+    },
+    "required": [
+     "entry_id"
+    ]
+   }
   },
   {
    "name": "remove_from_reference_table",
    "group": "reference_data",
+   "source_file": "tools/reference_data/remove_from_reference_table.py",
    "verb": "DELETE",
    "endpoint": "reference_data/tables/{name}/{outer_key}/{inner_key}",
+   "approval_required": true,
+   "client_calls": [
+    "delete"
+   ],
    "args": [
     "name",
     "outer_key",
@@ -1020,39 +3297,145 @@
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string",
+      "description": "The name of the reference table"
+     },
+     "outer_key": {
+      "type": "string",
+      "description": "The outer key"
+     },
+     "inner_key": {
+      "type": "string",
+      "description": "The inner key"
+     },
+     "value": {
+      "type": "string",
+      "description": "The value to remove (must match existing value)"
+     },
+     "namespace": {
+      "type": "string",
+      "description": "Optional namespace: SHARED or TENANT",
+      "enum": [
+       "SHARED",
+       "TENANT"
+      ]
+     },
+     "domain_id": {
+      "type": "integer",
+      "description": "Optional domain ID for multi-tenancy",
+      "minimum": 0
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return"
+     }
+    },
+    "required": [
+     "name",
+     "outer_key",
+     "inner_key",
+     "value"
+    ]
+   }
   },
   {
    "name": "set_offense_follow_up",
    "group": "offense",
+   "source_file": "tools/offense/set_offense_follow_up.py",
    "verb": "POST",
    "endpoint": "siem/offenses/{offense_id}",
+   "approval_required": true,
+   "client_calls": [
+    "post"
+   ],
    "args": [
     "offense_id",
     "follow_up",
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "offense_id": {
+      "type": "integer",
+      "description": "The ID of the offense to update",
+      "minimum": 0
+     },
+     "follow_up": {
+      "type": "boolean",
+      "description": "Set to true to mark offense for follow-up"
+     },
+     "fields": {
+      "type": "string",
+      "description": "Comma-separated list of fields to return in response"
+     }
+    },
+    "required": [
+     "offense_id",
+     "follow_up"
+    ]
+   }
   },
   {
    "name": "set_offense_protected",
    "group": "offense",
+   "source_file": "tools/offense/set_offense_protected.py",
    "verb": "POST",
    "endpoint": "siem/offenses/{offense_id}",
+   "approval_required": true,
+   "client_calls": [
+    "post"
+   ],
    "args": [
     "offense_id",
     "protected",
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "offense_id": {
+      "type": "integer",
+      "description": "The ID of the offense to update",
+      "minimum": 0
+     },
+     "protected": {
+      "type": "boolean",
+      "description": "Set to true to protect the offense from being closed"
+     },
+     "fields": {
+      "type": "string",
+      "description": "Comma-separated list of fields to return in response"
+     }
+    },
+    "required": [
+     "offense_id",
+     "protected"
+    ]
+   }
   },
   {
    "name": "set_offense_status",
    "group": "offense",
+   "source_file": "tools/offense/set_offense_status.py",
    "verb": "POST",
    "endpoint": "siem/offenses/{offense_id}",
+   "approval_required": true,
+   "client_calls": [
+    "post"
+   ],
    "args": [
     "offense_id",
     "status",
@@ -1060,26 +3443,93 @@
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "offense_id": {
+      "type": "integer",
+      "description": "The ID of the offense to update",
+      "minimum": 0
+     },
+     "status": {
+      "type": "string",
+      "description": "New status: OPEN, HIDDEN, or CLOSED",
+      "enum": [
+       "OPEN",
+       "HIDDEN",
+       "CLOSED"
+      ]
+     },
+     "closing_reason_id": {
+      "type": "integer",
+      "description": "Closing reason ID from list_offense_closing_reasons (required when status=CLOSED)",
+      "minimum": 1
+     },
+     "fields": {
+      "type": "string",
+      "description": "Comma-separated list of fields to return in response"
+     }
+    },
+    "required": [
+     "offense_id",
+     "status"
+    ]
+   }
   },
   {
    "name": "update_dsm_event_mapping",
    "group": "data_classification",
+   "source_file": "tools/data_classification/update_dsm_event_mapping.py",
    "verb": "POST",
    "endpoint": "data_classification/dsm_event_mappings/{dsm_event_mapping_id}",
+   "approval_required": true,
+   "client_calls": [
+    "post"
+   ],
    "args": [
     "dsm_event_mapping_id",
     "qid_record_id",
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "dsm_event_mapping_id": {
+      "type": "integer",
+      "description": "The ID of the DSM event mapping to update. Get this from list_dsm_event_mappings or get_dsm_event_mapping",
+      "minimum": 0
+     },
+     "qid_record_id": {
+      "type": "integer",
+      "description": "The new ID of the QID record to map matching events to. Get this from list_qid_records, get_qid_record, or get_qid_record_by_qid",
+      "minimum": 0
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return in the response"
+     }
+    },
+    "required": [
+     "dsm_event_mapping_id",
+     "qid_record_id"
+    ]
+   }
   },
   {
    "name": "update_qid_record",
    "group": "data_classification",
+   "source_file": "tools/data_classification/update_qid_record.py",
    "verb": "POST",
    "endpoint": "data_classification/qid_records/{qid_record_id}",
+   "approval_required": true,
+   "client_calls": [
+    "post"
+   ],
    "args": [
     "qid_record_id",
     "name",
@@ -1089,13 +3539,55 @@
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "qid_record_id": {
+      "type": "integer",
+      "description": "The ID of the QID record to update",
+      "minimum": 1
+     },
+     "name": {
+      "type": "string",
+      "description": "Optional new name for the event type"
+     },
+     "description": {
+      "type": "string",
+      "description": "Optional new description for the event type"
+     },
+     "severity": {
+      "type": "integer",
+      "description": "Optional new severity level (0-10)",
+      "minimum": 0,
+      "maximum": 10
+     },
+     "low_level_category_id": {
+      "type": "integer",
+      "description": "Optional new low level category ID",
+      "minimum": 0
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return in the response"
+     }
+    },
+    "required": [
+     "qid_record_id"
+    ]
+   }
   },
   {
    "name": "update_reference_set",
    "group": "reference_data",
+   "source_file": "tools/reference_data/update_reference_set.py",
    "verb": "POST",
    "endpoint": "reference_data_collections/sets/{name}",
+   "approval_required": true,
+   "client_calls": [
+    "post"
+   ],
    "args": [
     "set_id",
     "description",
@@ -1106,13 +3598,68 @@
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": true
+   "range_pagination": true,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "set_id": {
+      "type": "integer",
+      "description": "The ID of the reference set to update",
+      "minimum": 0
+     },
+     "description": {
+      "type": "string",
+      "description": "Optional updated description of the reference set"
+     },
+     "time_to_live": {
+      "type": "integer",
+      "description": "Time to live in seconds for entries (optional)",
+      "minimum": 0
+     },
+     "expiry_type": {
+      "type": "string",
+      "description": "Expiry type: FIRST_SEEN, LAST_SEEN, or NO_EXPIRY",
+      "enum": [
+       "FIRST_SEEN",
+       "LAST_SEEN",
+       "NO_EXPIRY"
+      ]
+     },
+     "expired_log_option": {
+      "type": "string",
+      "description": "Logging option for expired entries: LOG_NONE, LOG_EACH, LOG_BATCH",
+      "enum": [
+       "LOG_NONE",
+       "LOG_EACH",
+       "LOG_BATCH"
+      ]
+     },
+     "delete_entries": {
+      "type": "boolean",
+      "description": "Set to true to delete all entries from the set"
+     },
+     "fields": {
+      "type": "string",
+      "description": "Optional comma-separated list of fields to return"
+     }
+    },
+    "required": [
+     "set_id"
+    ]
+   }
   },
   {
    "name": "update_staged_network",
    "group": "config",
+   "source_file": "tools/config/update_staged_network.py",
    "verb": "PUT",
    "endpoint": "config/network_hierarchy/staged_networks",
+   "approval_required": true,
+   "client_calls": [
+    "get",
+    "put"
+   ],
    "args": [
     "network_id",
     "group",
@@ -1122,38 +3669,110 @@
     "domain_id",
     "country_code"
    ],
-   "args_not_used_in_handler": [
-    "group",
-    "name",
-    "cidr",
-    "description",
-    "domain_id",
-    "country_code"
-   ],
-   "range_pagination": false
+   "args_not_used_in_handler": [],
+   "range_pagination": false,
+   "output": "json_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "network_id": {
+      "type": "integer",
+      "description": "The id of the network entry to update (from get_staged_network_hierarchy)",
+      "minimum": 0
+     },
+     "group": {
+      "type": "string",
+      "description": "Updated network group (e.g. 'Internal', 'DMZ')"
+     },
+     "name": {
+      "type": "string",
+      "description": "Updated name of the network entry"
+     },
+     "cidr": {
+      "type": "string",
+      "description": "Updated CIDR range (e.g. '192.168.1.0/24')"
+     },
+     "description": {
+      "type": "string",
+      "description": "Updated description of the network entry"
+     },
+     "domain_id": {
+      "type": "integer",
+      "description": "Updated domain ID (use 0 for default domain)",
+      "minimum": 0
+     },
+     "country_code": {
+      "type": "string",
+      "description": "Updated ISO country code (e.g. 'US', 'CA')"
+     }
+    },
+    "required": [
+     "network_id"
+    ]
+   }
   },
   {
    "name": "validate_aql",
    "group": "ariel",
+   "source_file": "tools/ariel/validate_aql.py",
    "verb": "POST",
    "endpoint": "ariel/validators/aql",
+   "approval_required": true,
+   "client_calls": [
+    "post"
+   ],
    "args": [
     "query_expression"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "formatted_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "query_expression": {
+      "type": "string",
+      "description": "The AQL query to validate (e.g., 'SELECT sourceip FROM events LAST 1 HOURS')"
+     }
+    },
+    "required": [
+     "query_expression"
+    ]
+   }
   },
   {
    "name": "whois_lookup",
    "group": "services",
+   "source_file": "tools/services/whois_lookup.py",
    "verb": "POST",
    "endpoint": "services/whois_lookups",
+   "approval_required": true,
+   "client_calls": [
+    "post"
+   ],
    "args": [
     "ip_address",
     "fields"
    ],
    "args_not_used_in_handler": [],
-   "range_pagination": false
+   "range_pagination": false,
+   "output": "formatted_text",
+   "handler_schema": {
+    "type": "object",
+    "properties": {
+     "ip_address": {
+      "type": "string",
+      "description": "IP address to query (IPv4)"
+     },
+     "fields": {
+      "type": "string",
+      "description": "Comma-separated list of fields to return"
+     }
+    },
+    "required": [
+     "ip_address"
+    ]
+   }
   }
  ]
 }
