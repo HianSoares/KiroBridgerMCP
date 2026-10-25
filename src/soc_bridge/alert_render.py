@@ -212,6 +212,8 @@ def render(report: dict[str, Any]) -> str:
             lines.append(f"- {phase['id']} [{phase['kind']}{'/' + phase['hypothesis'] if phase['hypothesis'] else ''}] "
                          f"{phase['purpose']}; answers {phase['answers']}; parameters "
                          f"`{json.dumps(phase['parameters'], ensure_ascii=False)}`")
+        for item in found.get("instance_queries_not_planned", []):
+            lines.append(f"- Instance {item['id']}: query not planned ({item['reason']})")
         if follow.get("transfer"):
             tr = follow["transfer"]
             lines.append(f"- Transfer/backup hypothesis: {tr['applies_because']}. {tr['rule']}")
