@@ -49,3 +49,7 @@ Cada pivô mantém proveniência, timezone e limite. Detecção próxima não vi
 - O ledger de `bridge_diagnostics` é cumulativo, o `call_outcomes` do alerta é daquela tentativa. Inicialização/descoberta não repara sessões anteriores nem prova acesso ao sandbox, Insights ou Search. Informe permissão/parâmetros/fonte conforme a falha específica, sem inventar a causa.
 
 A Trend é a fonte primária da entrada WB: se a inicialização do QRadar falhar, analise a evidência Trend devolvida e declare correlação não executada com a causa indicada. A investigação do alerta pode continuar; isso não autoriza concluir sobre uma offense não consultada.
+
+## Complementar o Workbench com logs diretos
+
+Se faltarem outros comandos, alvo de dump ou contexto no alerta, leia `trend_read_search_resource` e execute `trend_search_data` pela fonte apropriada. Host e janela bastam como ponto de partida; não exija outro ID WB. Consulte a série de comandos do host antes de restringir ao binário detectado. Preserve ator/objeto, instância/início, hashes completos e artefatos. Leia os cortes e siga as partições pendentes; correlação por PID ou tempo continua candidata. Invocação de dump não comprova arquivo gerado nem sucesso. Estas consultas devolvem evidência, não atualizam automaticamente assessment/caso; cite os registros na análise e não atribua autorização sem fonte correspondente.

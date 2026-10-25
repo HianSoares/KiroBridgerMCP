@@ -37,6 +37,7 @@ class Discovery:
     def __init__(self, source: str):
         self.source = source
         self.names: set[str] = set()
+        self.schemas: dict[str, dict] = {}
         self.pages = 0
         self.complete = False
         self.stop_reason = "not started"
@@ -94,6 +95,10 @@ async def discover(session: Any, source: str, max_pages: int = MAX_PAGES, deadli
             return found
         found.pages += 1
         found.names.update(t.name for t in tools)
+        for tool in tools:
+            schema = getattr(tool, "inputSchema", None)
+            if isinstance(schema, dict):
+                found.schemas[tool.name] = schema
         cursor = getattr(result, "nextCursor", None)
         if not cursor:
             found.complete = True

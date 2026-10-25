@@ -11,10 +11,53 @@ from mcp.types import ToolAnnotations
 from .core import investigate, render_markdown
 from .alert_investigation import render_alert_markdown
 from .demo import DemoQRadar, DemoVision
-from .transports import live_investigation, live_alert_investigation, live_extra_case, live_qradar_query, live_trend_discovery
+from .transports import live_investigation, live_alert_investigation, live_extra_case, live_qradar_query, live_trend_discovery, live_trend_search
 
 
 mcp = FastMCP("SOC Bridge Investigator")
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def trend_read_search_resource(source: str = "endpoint") -> dict:
+    """Read the live Trend Search input schema and guide before constructing a query.
+
+    Sources: endpoint, detections, network, identity, email, cloud, container, mobile.
+    Queries tools/list of the readonly Search MCP, not production event records.
+    Inspect input_schema.properties.query.description for source-specific fields.
+    Availability does not establish permission, license, retention or logging coverage.
+    No QRadar connection, WB ID, response task or file collection is required.
+    """
+    return await live_trend_search("resource", {"source": source},
+        os.environ.get("TREND_VISION_ONE_API_KEY", ""), os.environ.get("TREND_VISION_ONE_REGION", "us"))
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def trend_search_data(query: str, source: str = "endpoint", start_date_time: str = "",
+                            end_date_time: str = "", select: str = "", top: int = 500,
+                            limit: int = 1000, max_calls: int = 12, count_only: bool = False) -> dict:
+    """Search XDR Data Explorer API data independently of any Workbench alert/offense.
+
+    Read trend_read_search_resource first: fields differ by source. query is native
+    TMV1-Query, not AQL/SQL. source: endpoint/detections/network/identity/email/cloud/
+    container/mobile. Default last 24h; explicit ISO bounds require Z or offset,
+    both supplied, positive range <=30 days. select is an optional comma field list.
+    top: 50/100/500/1000/5000; limit: 1..5000 native records; max_calls: 1..24.
+    The shared 60s budget includes initialize/discovery/collection. Returned native
+    data includes command/hash/PID/instance fields when upstream supplies them; every
+    cut is marked in preservation. count_only returns a count, never complete logs.
+    Full pages split in time. Follow continuation_plan parameters for pending windows,
+    refine_filters for unresolved full leaves; no skipToken/nextLink input exists.
+    Earlier results are not embedded in a continuation call: retain their provenance.
+    For command-series/dump pivots, scope by host and time, distinguish processPid
+    from objectPid, inspect instance/launch time, command and file evidence. Host/PID
+    coincidence or a tool invocation alone does not demonstrate dump success.
+    No QRadar required. No data export pipeline, endpoint command or mutation runs.
+    Empty is bounded to this API source/filter/window; missing/failed is not empty.
+    """
+    return await live_trend_search("search", {"query": query, "source": source,
+        "start_date_time": start_date_time, "end_date_time": end_date_time, "select": select,
+        "top": top, "limit": limit, "max_calls": max_calls, "count_only": count_only},
+        os.environ.get("TREND_VISION_ONE_API_KEY", ""), os.environ.get("TREND_VISION_ONE_REGION", "us"))
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))

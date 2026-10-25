@@ -70,3 +70,7 @@ A [matriz de cobertura](coverage-matrix.md) lista todas as tools dos MCPs oficia
 ## Execução e recuperação
 
 Falha de encerramento preserva o relatório; falhas secundárias preservam evidências anteriores. A retomada de alertas na mesma ponte usa estado temporário, separado por credenciais/parâmetros (até 15 minutos, quatro alertas); reinício/expiração/remoção elimina esse estado. Search IDs e cursores devolvidos permitem retomar buscas pelo QRadar, sem recriá-las. Leia [o fluxo e os limites de recuperação](investigation-recovery.md).
+
+## Search direta Trend
+
+`trend_read_search_resource` e `trend_search_data` expõem oito fontes Search sem WB/offense nem QRadar. A ponte integra 40 leituras Trend; cloud é leitura explícita, sem associação automática a entidades de alertas. Consulte o [guia](trend-direct-search.md): campos nativos/cortes, fonte/filtro/janela, partições sem cursor, limites e distinção entre logs e countOnly. Não há paridade garantida com todas as fontes do console, incorporação automática ao caso ou veredito por consulta.

@@ -56,8 +56,8 @@ QRADAR = {
 TREND = {
     "workbench_alerts_list": ("workbench", f"trend_find_alerts; {E_OFF}", "status/severity/window or offense IP", "one page; no cursor input upstream"),
     "workbench_alert_detail_get": ("workbench", E_ALR, "WB alert ID", "single alert; reused when deepened"),
-    "search_endpoint_activities_list": ("search", E_ALR, "alert hash/path, process instance, then endpoint", "time partitions (no cursor upstream)"),
-    "search_detections_list": ("search", E_ALR, "alert hash, then endpoint", "time partitions"),
+    "search_endpoint_activities_list": ("search", E_ALR + " / trend_search_data", "alert hash/path, process instance, then endpoint or explicit source query", "direct: bounded time partitions; automatic: time partitions (no cursor upstream)"),
+    "search_detections_list": ("search", E_ALR + " / trend_search_data", "alert hash, then endpoint or explicit source query", "direct: bounded time partitions; automatic: time partitions"),
     "endpoint_security_endpoints_list": ("endpoint", E_ALR, "endpoint name without GUID", "skipToken forwarded"),
     "workbench_alert_notes_list": ("workbench", E_ALR, "always (enrichment)", "first page only: skipToken declared but not forwarded"),
     "workbench_observed_attack_techniques_list": ("workbench", E_ALR, "alert endpoint GUID/name", "nextBatchToken, 5 batches"),
@@ -66,11 +66,11 @@ TREND = {
     "workbench_insight_impact_scope_entities_list": ("workbench", E_ALR, "insight that references the alert", "values preserved within limits"),
     "workbench_insight_indicators_list": ("workbench", E_ALR, "insight that references the alert", "values preserved within limits"),
     "workbench_insight_matched_highlights_list": ("workbench", E_ALR, "insight that references the alert", "values preserved within limits"),
-    "search_network_activities_list": ("search", E_ALR, "hypothesis: transfer of a collected artifact", "one page of 500"),
-    "search_identity_activities_list": ("search", E_ALR, "account entity in the alert", "IdP data; partial match; not account nature"),
-    "search_email_activities_list": ("search", E_ALR, "mailbox entity in the alert", "one page"),
-    "search_container_activities_list": ("search", E_ALR, "container entity in the alert", "one page; partial match"),
-    "search_mobile_activities_list": ("search", E_ALR, "mobile entity in the alert", "one page"),
+    "search_network_activities_list": ("search", E_ALR + " / trend_search_data", "hypothesis: transfer of a collected artifact or explicit source query", "direct: bounded time partitions; automatic: one page of 500"),
+    "search_identity_activities_list": ("search", E_ALR + " / trend_search_data", "account entity in the alert or explicit source query", "direct: bounded time partitions; automatic: IdP data; partial match; not account nature"),
+    "search_email_activities_list": ("search", E_ALR + " / trend_search_data", "mailbox entity in the alert or explicit source query", "direct: bounded time partitions; automatic: one page"),
+    "search_container_activities_list": ("search", E_ALR + " / trend_search_data", "container entity in the alert or explicit source query", "direct: bounded time partitions; automatic: one page; partial match"),
+    "search_mobile_activities_list": ("search", E_ALR + " / trend_search_data", "mobile entity in the alert or explicit source query", "direct: bounded time partitions; automatic: one page"),
     "search_activity_statistics_get": ("search", E_ALR, "Search empty/no linked record", "tenant-level, period ending now"),
     "search_sensor_statistics_get": ("search", E_ALR, "Search empty/no linked record", "tenant-level, period ending now"),
     "endpoint_security_endpoint_get": ("endpoint", E_ALR, "endpoint GUID in alert", "current snapshot"),
@@ -93,6 +93,7 @@ TREND = {
     "case_management_case_get": ("cases", E_ALR, "case containing the alert ID (max 2)", "single case"),
     "case_management_case_contents_list": ("cases", E_ALR, "case containing the alert ID", "50 contents; untrusted text"),
     "audit_logs_list": ("audit", E_ALR, "alert updated after creation", "±10 min; matched by alert ID"),
+    "search_cloud_activities_list": ("search", "trend_search_data", "explicit CloudTrail/VPC source query", "bounded time partitions; no upstream cursor"),
 }
 
 TREND_RULES = [
@@ -119,7 +120,6 @@ TREND_RULES = [
     (r"^case_management_", "case attachments/tasks/highlights not read automatically; case and contents are read"),
     (r"^workbench_alert_note_get$", "single note by ID; the notes list already returns the notes"),
     (r"^dmm_exception_get$", "single exception by ID; the exceptions list is read"),
-    (r"^search_cloud_activities_list$", "no verifiable mapping from alert entities to CloudTrail/VPC fields"),
 ]
 
 QRADAR_RULES = [

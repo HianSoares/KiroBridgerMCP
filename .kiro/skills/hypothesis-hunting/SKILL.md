@@ -1,19 +1,19 @@
 ---
 name: hypothesis-hunting
-description: Fazer threat hunting por hipótese MITRE ATT&CK usando referências concretas e AQL personalizada com limites pelas tools da ponte; sem Trend Search livre.
+description: Fazer threat hunting por hipótese MITRE ATT&CK usando referências concretas e AQL personalizada com limites pelas tools da ponte; Search independente limitada por fonte/filtro/janela.
 ---
 
 # Hunting por hipótese
 
 ## Quando ativar
 
-O analista quer testar uma hipótese de comportamento adversário, com uma offense, alerta ou evento concreto como ponto de partida.
+O analista quer testar uma hipótese de comportamento adversário, com uma offense, alerta, evento, host ou filtro concreto como ponto de partida.
 
 ## Passo a passo
 
-1. Escreva a hipótese falsificável: ativo, comportamento, intervalo/fuso, resultado esperado e explicação legítima. Se não houver referência ou evento individual, explique que o MCP não faz varredura global e solicite um ponto de partida; `investigate_demo()` serve apenas para treino.
+1. Escreva a hipótese falsificável: ativo, comportamento, intervalo/fuso, resultado esperado e explicação legítima. Se não houver referência, evento ou entidade/filtro concreto, explique que o MCP não faz varredura global e solicite um ponto de partida; `investigate_demo()` serve apenas para treino.
 2. Mapeie ATT&CK como hipótese, não veredito, respeitando direção e fase. Varredura **de origem externa** contra o perímetro → T1595 Active Scanning (Reconnaissance; .001 Scanning IP Blocks, .002 Vulnerability Scanning). Varredura **a partir de ativo interno** → T1046 Network Service Discovery (Discovery), o que pressupõe ativo interno sob controle adversário ou ferramenta legítima de inventário/varredura de vulnerabilidade, hipótese a refutar. Falhas repetidas de login → T1110 Brute Force, com sub-técnica pelo padrão observado (.001 Password Guessing: muitas senhas, poucas contas; .003 Password Spraying: poucas senhas, muitas contas; .004 Credential Stuffing: pares vazados); só avance a T1078 Valid Accounts com login bem-sucedido atribuído à mesma origem. Transferência externa → ver `exfiltration-assessment`. O nome da regra QRadar ou do modelo Workbench não confirma a técnica; cite o campo observado que sustenta o mapeamento.
-3. Escolha só uma entrada válida: `investigate_offense(offense_id)` para offense, `investigate_vision_alert(alert_id)` para Workbench, `investigate_case(reference)` para origem ambígua; UAC e reputação web usam suas tools especializadas. Para testes adicionais, use AQL personalizada pelas tools qradar_* conforme qradar-aql-conventions; Trend Search livre não é exposto.
+3. Escolha só uma entrada válida: `investigate_offense(offense_id)` para offense, `investigate_vision_alert(alert_id)` para Workbench, `investigate_case(reference)` para origem ambígua; UAC e reputação web usam suas tools especializadas. Para testes adicionais, use AQL personalizada pelas tools qradar_* conforme qradar-aql-conventions; para logs Trend, leia `trend_read_search_resource` e consulte `trend_search_data` com fonte, filtro e janela; não exija ID WB.
 4. Extraia consultas realmente executadas, estados, janelas UTC/local, limites e resultados. Teste se houve atividade de endpoint mesmo quando não apareceu Workbench; se faltou busca, marque lacuna.
 5. Compare observações a previsões, separando o que a ponte pode mostrar do que exige fonte externa:
 
@@ -41,3 +41,5 @@ Há hipótese, evidência pró/contra, explicação alternativa, mapeamento ATT&
 ## Pivôs registrados no caso
 
 Quando houver caso (`get_case`), parta de `hypotheses` e `pending`: cada pivô traz hipótese, evidência motivadora, fonte, filtros, janela, custo, resultados que apoiariam/contradiriam e critério de parada. Proponha somente pivôs com possibilidade concreta de mudar a avaliação.
+
+Um host, hash ou filtro com hipótese concreta também permite Search independente, sem alerta WB. Leia `trend_read_search_resource`, use `trend_search_data`, declare a janela padrão quando aplicável e siga as continuações. Teste hipóteses com os papéis e instâncias nativos; nunca trate um PID, caminho, ferramenta dual-use ou ausência em busca parcial como veredito.

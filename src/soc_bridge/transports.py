@@ -10,6 +10,7 @@ from .capabilities import GLOBAL_LEDGER, Ledger, outcome_for, tool_names
 from .diagnostics import MCPToolFailure, collection_failure, failure_reason, unavailable
 from .connection_lifecycle import InvestigationConnections
 from .alert_resume import ALERT_READ_CACHE
+from .trend_search import DIRECT_SEARCH_TOOLS
 from .aql_errors import AQLValidationError, ResponseFormatError
 from .aql_search import AQL_RESOURCES
 
@@ -54,7 +55,7 @@ ALERT_ENRICHMENT_TOOLS = {
     "response_task_get", "case_management_case_get", "case_management_case_contents_list", "eiqs_endpoints_list",
     "search_activity_statistics_get", "search_sensor_statistics_get", "crem_vulnerable_devices_list",
     "search_container_activities_list", "search_mobile_activities_list"}
-ALERT_VISION_TOOLS = VISION_TOOLS | ALERT_ENRICHMENT_TOOLS
+ALERT_VISION_TOOLS = VISION_TOOLS | ALERT_ENRICHMENT_TOOLS | set(DIRECT_SEARCH_TOOLS)
 # Toolsets loaded for alert-first investigation; with -readonly=true the upstream registers
 # only their read tools, and ALERT_VISION_TOOLS narrows further.
 ALERT_TOOLSETS = "workbench,search,endpoint,threatintel,dmm,crem,cases,audit,sandbox,response,eiqs"
@@ -521,6 +522,63 @@ async def _live_alert_investigation(alert_id: str, url: str, token: str | None,
         return stack.deliver(qr_stack.deliver(report) if qr_ready else report)
     except Exception as exc:
         raise unavailable(stage, exc) from None
+
+
+async def live_trend_search(operation: str, parameters: dict[str, Any], api_key: str, region: str) -> dict[str, Any]:
+    """Search/catalog through Trend alone; never connects QRadar or requires a Workbench ID."""
+    import os
+    from mcp import ClientSession, StdioServerParameters
+    from mcp.client.stdio import stdio_client
+    from .ariel_collection import Budget
+    from .trend_search import collect, failed, parameters as validate, resource, validate_source
+
+    if operation not in {"search", "resource"}:
+        raise ValueError("Unknown Trend Search operation")
+    selection = validate(**parameters) if operation == "search" else {"source": parameters.get("source", "endpoint")}
+    validate_source(selection["source"])
+    if region not in {"au", "ca", "eu", "id", "in", "jp", "mea", "sg", "uk", "us", "za"}:
+        raise ValueError("Unsupported Vision One region")
+    if not api_key:
+        raise ValueError("TREND_VISION_ONE_API_KEY is required")
+    budget = Budget(max_seconds=60, max_calls=selection.get("max_calls", 12),
+                    max_partitions=selection.get("max_calls", 12), max_records=selection.get("limit", 1000))
+    ledger = Ledger()
+    report = None
+    stage = "Vision One Search Docker startup"
+    try:
+        async with InvestigationConnections() as stack:
+            params = StdioServerParameters(command="docker", args=["run", "-i", "--rm", "-e",
+                "TREND_VISION_ONE_API_KEY", "ghcr.io/trendmicro/vision-one-mcp-server", "-region", region,
+                "-readonly=true", "-toolsets=search"], env={**os.environ, "TREND_VISION_ONE_API_KEY": api_key})
+            stream = await stack.enter(stdio_client(params), "Vision One", "Docker stdio transport")
+            session = await stack.enter(ClientSession(stream[0], stream[1]), "Vision One", "MCP session")
+            stage = "Vision One Search MCP initialization"
+            await budget.run(session.initialize, stage)
+            stage = "Vision One Search tool listing"
+            available = await budget.run(lambda: tool_names(session, "Vision One"), stage)
+            if operation == "resource":
+                report = resource(selection["source"], available)
+            else:
+                client = RestrictedMCP(session, set(DIRECT_SEARCH_TOOLS), available, set(), "Vision One", ledger=ledger)
+                report = {}
+                stage = "Vision One Search collection"
+                await collect(client, selection, budget=budget, report=report)
+            report["call_outcomes"] = ledger.describe()
+            report["call_outcomes"]["scope"] = "this Trend Search call only"
+            stack.collected(report)
+            stage = "Vision One Search shutdown"
+        if report is None:
+            raise RuntimeError("Vision One Search initialization did not return")
+        return stack.deliver(report)
+    except Exception as exc:
+        if report is not None:
+            report.setdefault("errors", []).append(collection_failure(stage, exc))
+            report.update(outcome="partial", result_set_complete=False,
+                          returned_records=len(report.get("records", [])),
+                          any_matching_record=True if report.get("records") else None)
+            report["budget"] = budget.describe()
+            return report
+        return failed(stage, MCPToolFailure("Vision One", stage, failure_reason(exc)), selection)
 
 
 async def live_trend_discovery(parameters: dict[str, Any], api_key: str, region: str) -> dict[str, Any]:

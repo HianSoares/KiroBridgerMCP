@@ -13,6 +13,7 @@ Um pedido de investigação autoriza as leituras necessárias dentro dos limites
 | Listar offenses OPEN e priorizar | `qradar_list_offenses(status="OPEN")`; seguir `continuation_plan`, reunir os IDs e ordenar o conjunto pelos critérios retornados. Não exigir descrição. |
 | Investigar offense por número | `investigate_offense_case(offense_id=...)`; continuar o mesmo `case_id`, executar os pivôs `planned` acessíveis e avaliar decisão/razão/nota. |
 | Investigar várias offenses com a mesma descrição | `qradar_investigate_offenses(description=..., status="OPEN", match="exact")`; seguir cursores e IDs pendentes sem pedir que o analista os descubra manualmente. |
+| Buscar logs/comandos no XDR Data Explorer por host/filtro | `trend_read_search_resource(source=...)`, depois `trend_search_data` com query e janela; não exigir WB/offense nem conexão QRadar. |
 | Ver alertas abertos na Trend | `trend_find_alerts(status="OPEN")`; declarar a janela padrão de 24h e que OPEN inclui Open/In Progress. Não confundir seleção completa na janela com todos os alertas históricos. |
 | Investigar alerta WB e correlacionar no QRadar | `investigate_vision_alert(alert_id=...)`; ler evidência, correlação e continuação. |
 | Investigar os alertas que acabaram de ser listados | Usar os IDs já obtidos e investigar um por vez, em sequência. Uma falha num alerta não impede investigar o próximo. |
