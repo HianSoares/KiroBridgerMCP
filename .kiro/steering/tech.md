@@ -1,3 +1,8 @@
+---
+inclusion: fileMatch
+fileMatchPattern: ["src/**", "tests/**", "scripts/**", "pyproject.toml"]
+---
+
 # Implementation constraints
 
 - Python 3.11+, package source under `src/soc_bridge/`, tests under `tests/`.

@@ -1,26 +1,64 @@
 ---
 name: epm-uac-investigation
-description: Investigar UacAudit do CyberArk EPM recebido no QRadar via EPM_API e comparar candidatos da Trend sem presumir elevação concedida.
+description: "Investigar evento UacAudit do CyberArk EPM recebido no QRadar (log source EPM_API) por lastEventId e lastEventDate, comparar candidatos da Trend por agente e caminho exato e distinguir pedido de elevação, concessão e execução."
 ---
 
 # CyberArk EPM UacAudit
 
-## Quando ativar
+Regras comuns: `soc-core.md`.
 
-Há `lastEventId` e `lastEventDate` de um registro UacAudit EPM_API; a intenção é identificar melhor executável, host e contexto.
+## Quando usar
 
-## Passo a passo
+Há `lastEventId` e `lastEventDate` de um registro UacAudit EPM_API, e a intenção é identificar o executável, o host e o contexto.
 
-1. Obtenha o ID exato e o horário com fuso; confirme o offset QRadar. Chame `investigate_epm_uac` com `{"last_event_id":"uac-exemplo-001","last_event_date":"2026-01-15T12:00:00Z","qradar_utc_offset_hours":-3}` somente se o offset `-3` tiver sido confirmado. `endpoint_host` é opcional e só entra se verificado independentemente.
-2. Liste campos do EPM observados: nome, caminho, hash, publisher, host, agente, usuário, `policyAction`, primeiro/último horário, arrival e estado de agregação, sem inferir contagem de concessões a partir de `totalEvents`, `skipped` ou `Collect UAC actions`.
-3. Descreva busca suplementar por agente, quantidade de hosts distintos e qualidade desse vínculo. Se o relatório trouxer buscas por pasta temporária na Trend, reporte cada consulta, janela, linhas e se houve **caminho completo exato + horário**. Conclusão de consulta sem linha não é prova de inexistência.
-4. Se surgir candidato, separe host/hash do EPM versus da Trend. `updater.exe` ou outro nome genérico nunca confirma identidade do binário. Pergunte por ação efetiva, assinatura, hash, processo pai e linha de comando em fonte apropriada se faltarem.
-5. Formule hipóteses: atualizador legítimo, tentativa não concedida, elevação efetiva, execução maliciosa; anote o evento necessário para refutar ou confirmar cada uma. Não mapeie T1548.002 (Bypass User Account Control) a partir de um UacAudit: o registro indica pedido de elevação pelo caminho do UAC, e bypass é justamente evitar esse caminho. T1548.002 exige evidência de bypass (binário auto-elevado como `fodhelper.exe`/`eventvwr.exe` com chave de registro sequestrada, processo elevado sem prompt correspondente).
+## Quando não usar
 
-## Tool permitida
+- Sem o ID exato do evento EPM: peça-o, porque nenhuma tool o descobre a partir do nome do arquivo.
+- Elevação Linux por sudo/su: use offense-investigation.
 
-`investigate_epm_uac(last_event_id: string, last_event_date: string, endpoint_host?: string, qradar_utc_offset_hours?: integer)`.
+## Entradas mínimas e descoberta automática
 
-## Critério de conclusão
+- **Obrigatórios:** ID exato e horário com fuso. `qradar_utc_offset_hours` só depois de confirmar o offset do console; o padrão `-3` não é uma medição.
+- **Opcional:** `endpoint_host`, somente se verificado de forma independente.
+- **Descoberta automática:** a tool busca outros registros EPM_API do mesmo `lastEventAgentId` numa janela limitada. Sem host resolvido e com subpasta Temp distintiva mais nome de arquivo, faz buscas Trend pelo caminho completo perto do primeiro e do último horário.
 
-O relatório distingue evento agregado, concessão de privilégio e execução do processo, além de explicitar quando a Trend não foi consultada e por quê. Sem hash/host confiável, a identidade fica `não verificada`.
+## Procedimento
+
+1. Chame `investigate_epm_uac({"last_event_id":"uac-exemplo-001","last_event_date":"2026-01-15T12:00:00Z","qradar_utc_offset_hours":-3})` com valores fictícios substituídos pelos reais e o offset confirmado.
+2. **Campos do EPM observados:** nome, caminho, hash, publisher, host, agente, usuário, `policyAction`, primeiro e último horário, arrival e agregação.
+   - `firstEventDate`, `lastEventDate` e `arrivalTime` são relógios distintos.
+   - `totalEvents`, `skipped` e `Collect UAC actions` não contam concessões.
+   - Nomes genéricos, hash vazio, `fileSize=0` e `fileQualifier` opaco não identificam o binário.
+3. **Hostname em outros registros do mesmo agente:** é candidato vinculado ao agente, não o host confirmado do evento original.
+4. **Buscas por caminho:**
+   - Relate cada consulta: janela, linhas da primeira página e contagens de caminho exato, exato fora da janela, parcial e ausente.
+   - "8/8 consultas concluídas" diz só que as requisições terminaram.
+   - Linhas de consultas diferentes podem duplicar um evento.
+   - Host ou hash da Trend vindo de caminho exato é candidato, nunca vínculo com o EPM nem prova de elevação.
+5. **Hipóteses:** atualizador legítimo, tentativa não concedida, elevação efetiva ou execução maliciosa, com o evento que confirmaria ou refutaria cada uma.
+6. **ATT&CK:** não mapeie T1548.002 (Bypass User Account Control) a partir de um UacAudit. O registro indica pedido de elevação pelo caminho do UAC, e bypass é evitar esse caminho; exige evidência específica, como binário auto-elevado com chave de registro sequestrada ou processo elevado sem prompt.
+
+## Evidência esperada e falhas
+
+- **Busca QRadar pelo ID:** a busca exata roda mesmo quando a busca Trend por hostname é pulada. Diga qual das duas rodou: busca por hostname e busca por caminho são diferentes.
+- **Busca por caminho sem candidato:** nenhuma linha não prova a inexistência do arquivo.
+- **Resultado ambíguo:** busca capada, incompleta ou com vários hosts pede confirmação independente do hostname.
+
+## Continuação, escalonamento e parada
+
+- Sem evidência exata, peça um host ou hash verificado em vez de ampliar para o nome genérico.
+- Pare quando a identidade depender de fonte externa (console EPM, inventário) e diga qual.
+
+## Saída
+
+- Distinga evento agregado, pedido de elevação, concessão e execução do processo.
+- Diga quando a Trend não foi consultada e por quê.
+- Sem hash ou host confiável, a identidade fica `não verificada`.
+
+## Tools permitidas
+
+- `investigate_epm_uac`
+
+## Referências
+
+`soc-core.md` (estados e evidência).

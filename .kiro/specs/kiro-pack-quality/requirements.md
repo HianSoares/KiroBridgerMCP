@@ -34,6 +34,6 @@ The Kiro pack (agents, steering, skills, specs) and the documentation must match
 #### Acceptance Criteria
 
 1. THE SYSTEM SHALL fail tests when an agent, steering, skill or spec references a bridge tool that does not exist.
-2. THE SYSTEM SHALL fail tests when the documented tool count differs from the registry, when a spec task is unchecked, or when a spec lacks requirements, design or tasks.
+2. THE SYSTEM SHALL fail tests when the documented tool count differs from the registry, when a spec task is unchecked without a recorded `_Pending: <reason>_`, or when a spec lacks requirements, design or tasks.
 3. THE SYSTEM SHALL run the full suite, the schema snapshots and the coverage-matrix check on Windows and Linux with Python 3.11 to 3.13.
 4. THE SYSTEM SHALL use only synthetic data in public tests.

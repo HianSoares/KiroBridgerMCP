@@ -1,8 +1,12 @@
 ---
-inclusion: always
+inclusion: auto
+name: case-workflow
+description: "Fluxo de caso persistido de offense QRadar: investigate_offense_case, continuação pelo mesmo case_id, reassess_case com confirmações com escopo, refutação e reinstalação de fatos Trend, vínculo offense↔alerta e decisão."
 ---
 
 # Fluxo profissional de caso ("investigue a offense X")
+
+Regras comuns (autonomia, orçamento, estados de coleta, evidência, delegação e segurança): `soc-core.md`, a fonte principal. Este arquivo trata só do domínio abaixo.
 
 1. **Identificar.** Chame `investigate_offense_case(offense_id)`. O pedido autoriza os pivôs de leitura necessários dentro dos limites da ponte; não peça permissão para cada consulta nem pergunte dados que as tools obtêm.
 2. **Ler o caso.** Use `decision`, `observed_behavior` (comportamento ≠ nome da regra), `decisive_evidence` (com referências de consulta/search ID/linha ou alerta), `hypotheses`, `contradictions`, `coverage`, `confidence`, `next_action` e `note_pt`.
@@ -21,5 +25,15 @@ inclusion: always
    - Alerta Trend True Positive só confirma malícia da offense com `link = demonstrated`: o processo QRadar da offense é a própria instância Trend que sustenta o veredito malicioso (mesmo host, hash completo igual do mesmo algoritmo — ou, sem hash comparável, caminho idêntico — com PID igual ou linha de comando idêntica e horários de execução compatíveis) ou seu pai/filho demonstrado por identidade de instância (`ParentProcessGuid` apontando para o registro da instância maliciosa) e descrito em `link_relations`. Hashes completos divergentes ou PIDs diferentes impedem o vínculo e aparecem como contradição `link_conflict`; isso não prova benignidade. Hash de arquivo, hash de processo pai, PID de pai reutilizado, IP ou horário isolados são `candidate`: não confirmam malícia, não corroboram e bloqueiam fechamento benigno até o pivô `verify_alert_link` demonstrar ou excluir o vínculo.
    - Uma nova coleta inconclusiva, com timeout ou falha da Trend não apaga fatos anteriores: `related_alerts[].classification_basis` diz desde quando os fatos se sustentam e qual foi a última tentativa.
 7. **Nunca executar.** A ponte e o Kiro não fecham offenses, não publicam notas, não alteram regras e não executam contenção.
+
+## Confirmações com escopo e contradições
+
+- Uma confirmação do analista vale apenas para a atividade, as entidades, os processos e a janela que declara, com fonte e referência.
+- Cada instância observada (cada criação de processo, script block, comando sudo ou troca de identidade, cada entidade das demais atividades) é avaliada por entidade, comportamento/cadeia e janela. As não cobertas e as não avaliadas continuam listadas.
+- O nome de um executável ou de uma conta nunca autoriza todo o comportamento dele. Autorização abrangente só vale quando o registro externo a declara; autorização genérica de host, conta ou aplicação não cobre toda a atividade observada.
+- Horário sem fuso explícito é recusado. Um registro fora da janela observada gera contradição não resolvida, que bloqueia as conclusões dependentes até ser esclarecida.
+- Corroboração exige que a segunda fonte descreva comprovadamente a mesma atividade: a mesma execução, ou uma cadeia pai/filho demonstrada, no mesmo host. Hash de arquivo identifica um artefato, não uma execução, e a simples existência de eventos QRadar não corrobora um alerta Trend.
+- O PID de um pai não identifica a instância (reutilização de PID); só o GUID/instância identifica.
+- Não observar de novo um fato não o refuta. Uma refutação precisa de evidência e fica registrada com fonte e fatos substituídos; reler a mesma evidência não a desfaz.
 
 Casos ficam em `reports/cases` (fora do Git), com retenção e exclusão documentadas em `docs/case-store.md`. `list_cases` lista; `get_case` lê a revisão atual; revisões anteriores são preservadas.

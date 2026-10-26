@@ -1,5 +1,7 @@
 # Design — Kiro pack and automated quality
 
+Status: historical record. The current agent, steering and skill structure is defined in `kiro-operational-pack`; the steering files named below were later merged into `soc-core.md`.
+
 ## Agents
 
 The front-matter `tools` lists use the existing `@soc-bridge-readonly/<tool>` syntax. No other permission syntax is introduced.
@@ -24,7 +26,7 @@ The front-matter `tools` lists use the existing `@soc-bridge-readonly/<tool>` sy
 The tests check that:
 - every `@soc-bridge-readonly/<name>` reference and every backticked tool-like name in `.kiro` and the docs exists in the registry;
 - the README tool count matches the registry;
-- each spec has its three files, uses EARS `WHEN/THE SYSTEM SHALL` criteria and has only checked tasks;
+- each spec has its three files, uses EARS `WHEN/THE SYSTEM SHALL` criteria and has only checked tasks or unchecked tasks with a recorded pending reason;
 - `response-advisor` has no tools;
 - `report-writer` cannot write cases.
 

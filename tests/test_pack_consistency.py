@@ -18,7 +18,7 @@ NOT_TOOLS = {"qradar_correlation", "qradar_utc_offset_hours", "investigate_relat
              "upstream_unavailable", "upstream_access", "upstream_live", "upstream_policy", "upstream_registry"}  # functions, modules and record types
 SPECS = ["capability-discovery-diagnostics", "case-persistence-resume", "investigation-orchestration-pivots",
          "evidence-decisions-closure", "kiro-pack-quality", "trend-direct-search", "upstream-full-access",
-         "workbench-xdr-followup"]
+         "workbench-xdr-followup", "kiro-operational-pack"]
 
 
 def section(text: str, title: str) -> str:
@@ -52,7 +52,7 @@ class PackConsistencyTests(unittest.TestCase):
         self.assertNotIn("Solicite linha de comando", exfil)  # the bridge collects it through Search
         for phrase in ("não estime", "tamanho de arquivo", "nunca as soma", "Benign True Positive"):
             self.assertIn(phrase.lower(), exfil.lower())
-        self.assertIn("skill://exfiltration-assessment", agents["case-investigator"])
+        self.assertIn("skill://.kiro/skills/exfiltration-assessment/SKILL.md", agents["case-investigator"])
         for agent in ("case-investigator", "threat-hunter"):
             header = agents[agent].split("\n---", 1)[0]
             self.assertIn("@soc-bridge-readonly/trend_search_data", header)
@@ -70,16 +70,17 @@ class PackConsistencyTests(unittest.TestCase):
             self.assertIn(phrase, exfil)
 
     def test_operational_execution_and_recovery_rules_are_consistent(self):
-        steering = (ROOT / ".kiro/steering/operational-execution.md").read_text(encoding="utf-8")
+        # Common execution rules live in the main source (soc-core.md), which every agent loads.
+        steering = (ROOT / ".kiro/steering/soc-core.md").read_text(encoding="utf-8")
         self.assertIn("inclusion: always", steering)
         for phrase in ("qradar_list_offenses", "trend_find_alerts", "em sequência", "connection_lifecycle",
-                       "creation_uncertain", "ledger é cumulativo", "sem perguntar se deve montar"):
+                       "creation_uncertain", "é cumulativo do processo", "sem perguntar se deve montar"):
             self.assertIn(phrase, steering)
-        for agent in ("case-investigator", "threat-hunter"):
-            self.assertIn("operational-execution.md", (ROOT / f".kiro/agents/{agent}.md").read_text(encoding="utf-8"))
-        old = (ROOT / ".kiro/steering/investigation.md").read_text(encoding="utf-8")
-        self.assertNotIn("state no complete report was collected", old)
-        self.assertNotIn("retry `investigate_case` once for a timeout or closed connection", old)
+        for agent in ("case-investigator", "threat-hunter", "report-writer", "response-advisor"):
+            self.assertIn("soc-core.md", (ROOT / f".kiro/agents/{agent}.md").read_text(encoding="utf-8"))
+        for merged in ("operational-execution.md", "soc-principles.md", "safety-guardrails.md", "evidence-and-limits.md",
+                       "investigation.md"):
+            self.assertFalse((ROOT / ".kiro/steering" / merged).exists(), f"{merged} was merged into soc-core.md")
         doc = (ROOT / "docs/investigation-recovery.md").read_text(encoding="utf-8")
         self.assertIn("não repara uma", doc)
         self.assertIn("não é armazenamento", doc.lower())
@@ -116,7 +117,7 @@ class PackConsistencyTests(unittest.TestCase):
         self.assertFalse(tools_of("threat-hunter") & LOCAL_WRITE_TOOLS)
         self.assertTrue(LOCAL_WRITE_TOOLS <= tools_of("case-investigator"))
         for name in agents:
-            self.assertNotIn("toolsSettings", agents[name])  # only the documented tools-list syntax
+            self.assertNotIn("toolsSettings", agents[name])  # CLI-only field in Kiro IDE 1.4.26 (not applied)
         for name in ("case-investigator", "threat-hunter"):
             self.assertTrue({"upstream_tools", "upstream_tool_details", "upstream_query"} <= tools_of(name))
         for path, text in texts().items():  # change tools live only in the separate, disabled server
@@ -135,14 +136,16 @@ class PackConsistencyTests(unittest.TestCase):
             self.assertIn("#### Acceptance Criteria", requirements)
             tasks = (base / "tasks.md").read_text(encoding="utf-8")
             self.assertRegex(tasks, r"- \[x\] 1\.")
-            self.assertNotIn("- [ ]", tasks, f"{spec} has unchecked tasks")
+            for line in tasks.splitlines():  # pending work is allowed only with its reason recorded
+                if line.startswith("- [ ]"):
+                    self.assertRegex(line, r"_Pending: .+_", f"{spec}: unchecked task without a pending reason")
             for ref in re.findall(r"_Requirements: ([^_]+)_", tasks):
                 for item in re.findall(r"(\d+)\.\d+", ref):
                     self.assertIn(f"### Requirement {item}", requirements, f"{spec}: requirement {item}")
 
     def test_case_workflow_steering_is_loaded_by_the_investigator(self):
         steering = (ROOT / ".kiro" / "steering" / "case-workflow.md").read_text(encoding="utf-8")
-        self.assertIn("inclusion: always", steering)
+        self.assertIn("inclusion: auto", steering)  # loaded by the agents' resources; on demand elsewhere
         self.assertIn("investigate_offense_case", steering)
         self.assertIn("case-workflow.md", (ROOT / ".kiro" / "agents" / "case-investigator.md").read_text(encoding="utf-8"))
         product = (ROOT / ".kiro" / "steering" / "product.md").read_text(encoding="utf-8")

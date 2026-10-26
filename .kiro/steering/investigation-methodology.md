@@ -1,8 +1,12 @@
 ---
-inclusion: always
+inclusion: auto
+name: investigation-methodology
+description: "Método de investigação SOC: enquadrar, coletar antes de concluir, hipóteses concorrentes incluindo erro de atribuição, pivôs com critério de parada, causa raiz até o último elo, classificação e recomendações."
 ---
 
 # Método de investigação
+
+Regras comuns (autonomia, orçamento, estados de coleta, evidência, delegação e segurança): `soc-core.md`, a fonte principal. Este arquivo trata só do domínio abaixo.
 
 1. **Enquadrar:** registre referência, gatilho exato, fonte, relógio e fuso, ativo, usuário e severidade conforme recebidos. Uma referência não é evidência de execução maliciosa.
 2. **Coletar antes de concluir:** chame a tool de entrada adequada conforme operational-execution, sem oferecer um menu para um pedido claro. Extraia do relatório quais consultas Ariel, Workbench, Trend Search e outras realmente foram executadas, seus estados e seus limites. Em offense sem Workbench, examine a seção de Ariel e atividade/detecções de endpoint; se ausentes, anote a lacuna. Relate separadamente a ausência de alerta Workbench e o resultado da busca Trend por IP.
