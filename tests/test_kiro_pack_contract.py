@@ -37,6 +37,11 @@ REVIEWED_BUILTINS = {"disclose_context"}
 SKILL_SECTIONS = ("Quando usar", "Quando não usar", "Entradas mínimas e descoberta automática", "Procedimento",
                   "Evidência esperada e falhas", "Continuação, escalonamento e parada", "Saída", "Tools permitidas")
 TOOL_NAME = re.compile(r"`((?:investigate|qradar|trend|bridge|upstream)_[a-z_]+|list_cases|get_case|reassess_case)`")
+# Routing entries write calls with arguments, e.g. `investigate_demo()`.
+TOOL_CALL = re.compile(r"`((?:investigate|qradar|trend|bridge|upstream)_[a-z_]+|list_cases|get_case|reassess_case)"
+                       r"(?:\([^`]*\))?`")
+# Owner words that stand for every agent; they are expanded, never skipped.
+GENERIC_OWNERS = {"qualquer", "qualquer agente", "todos", "todos os agentes"}
 
 
 def front_matter(path: Path) -> tuple[dict, str]:
@@ -109,6 +114,28 @@ def bridge_tools(front: dict) -> set[str]:
     return {t.split("/", 1)[1] for t in front.get("tools", []) if t.startswith("@soc-bridge-readonly/")}
 
 
+def routing_rows(table: str) -> list[list[str]]:
+    rows = [r for r in table.splitlines() if r.startswith("| ") and not r.startswith("| Pedido") and "---" not in r]
+    return [[c.strip() for c in r.strip("|").split("|")] for r in rows]
+
+
+def routing_violations(rows: list[list[str]], agent_tools: dict[str, set[str]]) -> list[str]:
+    """Every owner of a row, generic owners expanded to all agents, must expose every tool of its entry."""
+    problems = []
+    for request, agent_cell, entry, _ in rows:
+        owners = []
+        for owner in (a.strip() for a in re.split(r" ou |, ", agent_cell) if a.strip()):
+            owners += sorted(agent_tools) if owner in GENERIC_OWNERS else [owner]
+        for owner in owners:
+            if owner not in agent_tools:
+                problems.append(f"{request}: unknown agent {owner}")
+                continue
+            for tool in TOOL_CALL.findall(entry):
+                if tool not in agent_tools[owner]:
+                    problems.append(f"{request}: {owner} does not expose {tool}")
+    return problems
+
+
 class PackContractTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -168,6 +195,8 @@ class PackContractTests(unittest.TestCase):
         self.assertFalse(advisor["includeMcpJson"])
         self.assertTrue(all(r.startswith("file://") for r in advisor["resources"]))
         self.assertEqual(tools["report-writer"], {"list_cases", "get_case", "investigate_demo"})
+        self.assertIn("únicas tools MCP são `list_cases`, `get_case` e `investigate_demo`", self.agents["report-writer"][1])
+        self.assertIn("`disclose_context` é uma tool interna do Kiro", self.agents["report-writer"][1])
         hunter = tools["threat-hunter"]
         self.assertFalse(hunter & LOCAL_WRITE_TOOLS)
         self.assertNotIn("qradar_assess_closure", hunter)
@@ -199,30 +228,35 @@ class PackContractTests(unittest.TestCase):
     def test_routing_table_maps_requests_to_existing_components(self):
         core = (KIRO / "steering" / "soc-core.md").read_text(encoding="utf-8")
         table = section(core, "Roteamento")
-        rows = [r for r in table.splitlines() if r.startswith("| ") and not r.startswith("| Pedido") and "---" not in r]
+        rows = routing_rows(table)
         self.assertGreaterEqual(len(rows), 15)
+        agent_tools = {name: bridge_tools(front) for name, (front, _) in self.agents.items()}
+        self.assertEqual(routing_violations(rows, agent_tools), [])
         seen_skills = set()
-        for row in rows:
-            cells = [c.strip() for c in row.strip("|").split("|")]
-            request, agent_cell, entry, skill = cells
+        for request, _, entry, skill in rows:
             with self.subTest(request=request):
-                owners = [a.strip() for a in re.split(r" ou |, ", agent_cell) if a.strip()]
-                for owner in owners:
-                    if owner == "qualquer":
-                        continue
-                    self.assertIn(owner, self.agents)
-                    for tool in TOOL_NAME.findall(entry):
-                        if owner in ("report-writer",) and tool not in bridge_tools(self.agents[owner][0]):
-                            self.fail(f"{owner} cannot call {tool}")
-                        if owner not in ("response-advisor", "report-writer"):
-                            self.assertIn(tool, bridge_tools(self.agents[owner][0]), f"{owner}: {tool}")
+                for tool in TOOL_CALL.findall(entry):
+                    self.assertIn(tool, self.public)
                 if skill not in ("—", "conforme a origem"):
                     self.assertIn(skill, self.skills)
                     seen_skills.add(skill)
         self.assertEqual(seen_skills, set(self.skills))
+        demo = [r for r in rows if "investigate_demo" in r[2]]
+        self.assertTrue(demo and all("response-advisor" not in r[1] for r in demo))
         for request in ("offense X", "WB-X", "View event", "UacAudit", "Reputação web", "AD", "Hipótese", "Relatório",
                         "Plano de resposta", "Backup", "Dado que as entradas curadas não coletam"):
             self.assertIn(request, table)
+
+    def test_routing_check_rejects_owners_without_the_tool(self):
+        agent_tools = {name: bridge_tools(front) for name, (front, _) in self.agents.items()}
+        contradictory = routing_rows("| Treino sem credenciais | qualquer | `investigate_demo()` | — |\n"
+                                     "| Plano de resposta | response-advisor | `get_case(case_id)` | — |\n"
+                                     "| Relatório | report-witer | caso | incident-report |")
+        self.assertEqual(routing_violations(contradictory, agent_tools), [
+            "Treino sem credenciais: response-advisor does not expose investigate_demo",
+            "Plano de resposta: response-advisor does not expose get_case",
+            "Relatório: unknown agent report-witer",
+        ])
 
     def test_handoff_contract_is_defined_and_consumed(self):
         core = section((KIRO / "steering" / "soc-core.md").read_text(encoding="utf-8"), "Delegação e contrato de passagem")
@@ -275,6 +309,9 @@ class PackContractTests(unittest.TestCase):
                     self.assertTrue(callable(getattr(getattr(loaded, cls), method)))
                 else:
                     self.assertTrue(check["pending"])
+                    if "partial" in check:  # code covers one part; the rest of the scenario stays pending
+                        self.assertTrue(check["partial"]["covers"])
+                        CHECKS[check["partial"]["check"]](self)
         self.assertEqual(len(catalog["scenarios"]), 16)
         self.assertGreater(kinds["rule_only"], 0)  # model behaviors stay pending, never claimed as tested
 
@@ -310,26 +347,35 @@ GUID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
 HOST = "ws-synth-01.example.test"
 
 
-def xdr_phases_start_with_alert_endpoint(test):
+def xdr_plan_follows_listed_endpoint_order(test):
+    """Only the XDR plan order: phases of each endpoint come in the order the alert lists them.
+
+    The bridge does not tell the main endpoint from a contextual one, and it does not account for budget
+    or for Ariel/QRadar priority; that part of the scenario is an agent decision (see BRIDGE-BACKLOG.md).
+    """
     sys.path.insert(0, str(ROOT / "tests"))
     from trend_fixtures import NOW, T0, FakeVision, z
     from soc_bridge.alert_investigation import investigate_vision_alert
-    alert = {"id": "WB-SYNTH-CTX-0001", "model": "Synthetic Detection", "createdDateTime": z(T0),
-             "impactScope": {"entities": [
-                 {"entityType": "host", "entityId": GUID, "entityValue": {"name": HOST, "guid": GUID}},
-                 {"entityType": "host", "entityId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-                  "entityValue": {"name": "ctx-server.example.test", "guid": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"}}]},
-             "matchedRules": [{"id": "r", "name": "Synthetic", "matchedFilters": [
-                 {"id": "f", "name": "f", "matchedDateTime": z(T0), "matchedEvents": []}]}]}
+    other = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+    hosts = {GUID: {"name": HOST, "guid": GUID}, other: {"name": "ctx-server.example.test", "guid": other}}
 
     class NoQRadar:
         async def call(self, name, args):
             raise AssertionError("QRadar is not used")
-    report = _run(investigate_vision_alert(NoQRadar(), FakeVision(alert=alert, search=lambda t, a: []), alert["id"],
-                                           enable_vision_search=True, qradar_correlation=False, now=NOW))
-    phases = report["xdr_followup"]["phases"]
-    test.assertEqual(phases[0]["kind"], "command_series")
-    test.assertIn(GUID, phases[0]["parameters"]["query"])  # the alert's first endpoint is planned first
+    for listed in ([GUID, other], [other, GUID]):
+        alert = {"id": "WB-SYNTH-CTX-0001", "model": "Synthetic Detection", "createdDateTime": z(T0),
+                 "impactScope": {"entities": [{"entityType": "host", "entityId": g, "entityValue": hosts[g]}
+                                              for g in listed]},
+                 "matchedRules": [{"id": "r", "name": "Synthetic", "matchedFilters": [
+                     {"id": "f", "name": "f", "matchedDateTime": z(T0), "matchedEvents": []}]}]}
+        report = _run(investigate_vision_alert(NoQRadar(), FakeVision(alert=alert, search=lambda t, a: []),
+                                               alert["id"], enable_vision_search=True, qradar_correlation=False,
+                                               now=NOW))
+        phases = report["xdr_followup"]["phases"]
+        owners = [g for p in phases for g in listed if g in p["parameters"]["query"]]
+        test.assertEqual(len(owners), len(phases))  # every phase names exactly one listed endpoint
+        test.assertEqual(phases[0]["kind"], "command_series")
+        test.assertEqual(owners, sorted(owners, key=listed.index))  # all phases of the first, then the next
 
 
 def remote_name_is_kept_as_command_text_only(test):
@@ -404,7 +450,7 @@ def empty_search_is_bounded_to_its_window(test):
     test.assertEqual(result["errors"], [])
 
 
-CHECKS = {f.__name__: f for f in (xdr_phases_start_with_alert_endpoint, remote_name_is_kept_as_command_text_only,
+CHECKS = {f.__name__: f for f in (xdr_plan_follows_listed_endpoint_order, remote_name_is_kept_as_command_text_only,
                                   transfer_stages_are_ordered_and_distinct, pid_reuse_and_large_ids_stay_distinct,
                                   identifier_match_is_not_linked, host_level_network_record_is_not_process_attributed,
                                   repeated_session_counters_are_never_summed, empty_search_is_bounded_to_its_window)}

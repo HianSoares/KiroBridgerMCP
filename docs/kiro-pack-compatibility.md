@@ -30,9 +30,9 @@ Versão alvo: **Kiro IDE 1.4.26**, instalado em `%LOCALAPPDATA%\Programs\Kiro`. 
 
 | Item | Estado |
 | --- | --- |
-| Campos do front matter dos agentes | Confirmado: schema da 1.4.26 e documentação. |
-| Caminhos `file://` e `skill://` | Confirmado: resolvedor da 1.4.26, reproduzido em `tests/test_kiro_pack_contract.py`. |
-| `disclose_context` | Confirmado: tool presente na 1.4.26. A necessidade de listá-la explicitamente não foi confirmada; listá-la é seguro. |
+| Campos do front matter dos agentes | Conformidade estática: os campos usados constam do schema da 1.4.26 e da documentação. |
+| Caminhos `file://` e `skill://` | Conformidade estática: apontam para arquivos existentes segundo o resolvedor lido no código da 1.4.26, reimplementado em Python em `tests/test_kiro_pack_contract.py`. Essa reimplementação não prova que o Kiro carrega os recursos; o carregamento real está pendente. |
+| `disclose_context` | A tool existe no código da 1.4.26. Não confirmei se ela precisa estar listada explicitamente; listá-la é seguro. |
 | Delegação por `subagent/<id>` | Derivado do código da 1.4.26, não documentado. A execução real não foi validada. |
 | `toolsSettings.subagent` | Não usado: campo exclusivo do CLI na IDE 1.4.26. |
 | Ativação de skills e steering `auto`, delegação e qualidade das respostas | **Pendente:** exige uma sessão real do Kiro, ainda não executada por falta de créditos. |

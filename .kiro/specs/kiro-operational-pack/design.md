@@ -38,15 +38,15 @@ Per-agent `subagent/<id>` entries are taken from the installed code, not from th
 
 | Requirement | Implementation | Test | Validation evidence |
 | --- | --- | --- | --- |
-| 1.1 | agent `resources` | `test_resources_resolve_like_kiro_1_4_26` | offline resolver; real activation pending |
-| 1.2 | agent front matter | `test_front_matter_uses_ide_schema_only` | 1.4.26 schema |
-| 1.3 | `tools` lists | `test_tools_are_bridge_tools_or_reviewed_builtins` | installed code; real delegation pending |
-| 1.4 | soc-core routing table | `test_routing_table_maps_requests_to_existing_components` | structural |
+| 1.1 | agent `resources` | `test_resources_resolve_like_kiro_1_4_26` | structural: a Python re-implementation of the resolver read in the installed code. It does not show that Kiro loads the resources; real activation pending |
+| 1.2 | agent front matter | `test_front_matter_uses_ide_schema_only` | structural: 1.4.26 schema |
+| 1.3 | `tools` lists | `test_tools_are_bridge_tools_or_reviewed_builtins` | structural, from the installed code; real delegation pending |
+| 1.4 | soc-core routing table | `test_routing_table_maps_requests_to_existing_components`, `test_routing_check_rejects_owners_without_the_tool` | structural: every owner of a row, a generic owner expanded to all agents, exposes the tools of its entry |
 | 2.1–2.4 | agents | `test_agent_boundaries` | structural |
 | 2.5 | soc-core contract, agents | `test_handoff_contract_is_defined_and_consumed` | structural; real behavior pending |
 | 3.1–3.2 | steering | `test_steering_inclusion_and_main_source` | structural |
 | 3.3 | skills | `test_skills_have_sections_and_compatible_tools` | structural |
-| 3.4 | soc-core, skills | `test_scenarios_have_rules_and_code_checks` | code checks for verifiable scenarios; the rest pending |
+| 3.4 | soc-core, skills | `test_scenarios_have_rules_and_code_checks` | synthetic integration for the code-verifiable scenarios. A `partial` check covers only the part it names (for context-asset-budget, the XDR plan order); agent behavior pending |
 | 4.1–4.3 | tests, tasks | `test_specs_are_traceable_and_pending_is_explained` | CI |
 
 ## Out of scope

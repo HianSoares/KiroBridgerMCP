@@ -1,9 +1,12 @@
 {
- "note": "Synthetic scenarios observed in investigations, expressed with fictitious values only. Each one names the pack rule that covers it and how it is verified offline: 'code' runs existing bridge code in tests/test_kiro_pack_contract.py, 'existing_test' points to a test that already exercises the behavior, and 'rule_only' is model behavior that only a real Kiro session can evaluate.",
+ "note": "Synthetic scenarios observed in investigations, expressed with fictitious values only. Each one names the pack rule that covers it and how it is verified offline: 'code' runs existing bridge code in tests/test_kiro_pack_contract.py, 'existing_test' points to a test that already exercises the behavior, and 'rule_only' is model behavior that only a real Kiro session can evaluate. A 'partial' entry inside a rule_only scenario runs code for the part it 'covers' only; the scenario as a whole stays pending.",
  "scenarios": [
   {"id": "context-asset-budget", "description": "A contextual asset consumes the budget before the main endpoint of the alert.",
    "rule": {"file": ".kiro/steering/soc-core.md", "phrase": "nem deixe um ativo contextual consumir o orçamento do endpoint principal"},
-   "verification": {"type": "code", "check": "xdr_phases_start_with_alert_endpoint"}},
+   "verification": {"type": "rule_only",
+                    "pending": "telling the main endpoint from a contextual one, spending the budget on it first and the Ariel/QRadar priority are agent decisions; the bridge plans no shared budget (BRIDGE-BACKLOG.md); needs a real Kiro session",
+                    "partial": {"check": "xdr_plan_follows_listed_endpoint_order",
+                                "covers": "only the XDR plan order: the phases of each endpoint follow the order in which the alert lists it; no budget, endpoint role or Ariel/QRadar priority is verified"}}},
   {"id": "main-query-not-started", "description": "The main query is not_started while the agent offers optional deepening.",
    "rule": {"file": ".kiro/steering/soc-core.md", "phrase": "Não ofereça um opcional enquanto a principal estiver pendente"},
    "verification": {"type": "rule_only", "pending": "agent ordering decision; needs a real Kiro session"}},

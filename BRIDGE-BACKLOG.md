@@ -184,6 +184,30 @@ identificador param no teto combinado, sem afetar chamadas sem identificador.
 
 ---
 
+# Sugestão de melhoria da ponte: papel do endpoint no plano XDR
+
+**Origem:** cenário context-asset-budget do pacote operacional Kiro
+(`tests/fixtures/kiro_scenarios.json`, 2026-10-26).
+
+**Situação atual:** `xdr_followup.phases` planeja até 5 endpoints na ordem em
+que a extração do alerta os lista. Todas as fases de um endpoint vêm antes das
+fases do seguinte. A ponte não distingue o endpoint do evento detectado de um
+ativo de contexto do `impactScope`, não reparte orçamento entre eles e não
+define prioridade entre a coleta Trend e a Ariel/QRadar. Um ativo de contexto
+listado primeiro é planejado primeiro. Hoje a regra "não deixe um ativo
+contextual consumir o orçamento do endpoint principal" depende só do agente.
+
+**Mudança proposta (não implementada):** marcar em cada endpoint extraído o seu
+papel (do evento detectado ou de contexto), com a fonte. A ordem das fases
+passaria a ser o endpoint do evento primeiro, e cada fase registraria o papel
+do endpoint.
+
+**Critério de aceite:** um teste sintético com o ativo de contexto listado antes
+do endpoint do evento, em que as fases do endpoint do evento vêm primeiro e
+cada fase declara o papel.
+
+---
+
 # Pendência de verificação: busca por `processHashId` numérico
 
 **Origem:** pacote operacional Kiro, regra de identidade de execução

@@ -36,7 +36,7 @@ Este é o arquivo principal das regras comuns. Os steering de domínio (`case-wo
 | Relatório | report-writer | caso (`get_case`) ou evidências recebidas | incident-report |
 | Plano de resposta | response-advisor | evidências recebidas, sem tools | — |
 | Referência ambígua | case-investigator | `investigate_case(reference)` | conforme a origem |
-| Treino sem credenciais | qualquer | `investigate_demo()` | — |
+| Treino sem credenciais | case-investigator, threat-hunter ou report-writer | `investigate_demo()` | — |
 
 ## Autonomia, perguntas, orçamento e parada
 

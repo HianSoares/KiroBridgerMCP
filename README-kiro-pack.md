@@ -53,9 +53,9 @@ Os IDs acima são fictícios. Para treinar sem credenciais, use `investigate_dem
 
 | Nível | Situação |
 | --- | --- |
-| Estrutura e configuração | `tests/test_kiro_pack_contract.py`: schema 1.4.26, resolução de recursos como na 1.4.26, tools e delegação, compatibilidade skill↔tool, roteamento, contrato de passagem, inclusão de steering e rastreabilidade das specs. `tests/test_pack_consistency.py`: referências a tools, contagens e regras do caso. |
-| Integração sintética | Cenários de `tests/fixtures/kiro_scenarios.json` verificáveis pelo código existente (identidade de execuções, IDs maiores que 2^53, estágios de transferência, contadores sem soma, vínculo candidato, vazio limitado à janela), mais os testes da ponte. |
-| Kiro real | **Pendente:** ativação de skills e steering `auto`, delegação e qualidade das respostas. Os testes não demonstram comportamento do modelo. |
+| Estrutura e configuração | `tests/test_kiro_pack_contract.py` verifica:<br>• schema 1.4.26;<br>• resolução de recursos por uma reimplementação em Python do resolvedor da 1.4.26, que não prova o carregamento no Kiro;<br>• tools e delegação;<br>• compatibilidade skill↔tool;<br>• roteamento: cada responsável de uma linha, inclusive "qualquer", expandido para todos os agentes, precisa expor as tools da entrada;<br>• contrato de passagem, inclusão de steering e rastreabilidade das specs.<br>`tests/test_pack_consistency.py` verifica referências a tools, contagens e regras do caso. |
+| Integração sintética | Cenários de `tests/fixtures/kiro_scenarios.json` verificáveis pelo código existente (identidade de execuções, IDs maiores que 2^53, estágios de transferência, contadores sem soma, vínculo candidato, vazio limitado à janela), mais os testes da ponte.<br>O cenário do ativo contextual só tem verificada a ordem do plano XDR: as fases de cada endpoint seguem a ordem em que o alerta o lista. A escolha do endpoint principal, o consumo do orçamento e a prioridade Ariel/QRadar não são verificados. |
+| Kiro real | **Pendente:** ativação de skills e steering `auto`, delegação, priorização do endpoint principal e do orçamento, e qualidade das respostas. Os testes não demonstram comportamento do modelo. |
 
 ### Roteiro de validação no Kiro (quando houver créditos)
 
