@@ -34,6 +34,16 @@ For macOS/Linux commands, Docker setup, QRadar and Trend credentials, and a live
 
 **Kiro on Windows with the bridge in WSL 2?** Follow the [WSL guide (Portuguese)](docs/guia-wsl.md). Kiro for Windows starts MCP servers as Windows processes, so it cannot run the `.venv/bin/python` path that `configure_kiro.py` writes inside WSL. `scripts/configure_kiro_wsl.py` configures `soc-bridge-readonly` to start through `wsl.exe` instead, and `scripts/wsl_preflight.py` checks the setup end to end without credentials.
 
+## Update an existing installation
+
+Close Kiro, then run this from the project folder in PowerShell (no venv activation needed):
+
+```powershell
+.\bridger --update
+```
+
+The updater fetches `origin/master`, fast-forwards the local `master`, installs into this project's `.venv`, and runs the synthetic tests plus registry/coverage checks. It stops on tracked edits, unmerged local commits, file collisions or a failed step. It preserves personal files and the ignored MCP configuration; it never resets, stashes, pushes or starts services. This updates this repository, not Docker or the upstream MCP installations. See [update requirements and recovery (Portuguese)](docs/guia-instalacao.md#10-atualize-com-um-comando).
+
 ## Investigate a real case
 
 Clear investigation requests authorize the required read-only pivots. Completed reports survive connection shutdown errors; partial evidence and known Ariel search IDs are preserved. See [execution and resumption (Portuguese)](docs/investigation-recovery.md) for the temporary alert cache and recovery limits.
