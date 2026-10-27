@@ -214,3 +214,53 @@ Veja [README](../README.md) e [limitações conhecidas](bridge-known-limitations
 Descoberta por descrição e investigação em lotes: [guia](offense-batch-investigation.md). As duas novas tools são `qradar_find_offenses` e `qradar_investigate_offenses`.
 
 Para listar a fila OPEN inteira sem descrição e ordenar sua triagem, use `qradar_list_offenses(status="OPEN")`. Siga as continuações e ordene os IDs acumulados pelos critérios retornados; a posição de uma página não é prioridade global. São 33 tools após reconectar a ponte e abrir um chat novo.
+
+## 10. Atualize com um comando
+
+Depois da instalacao inicial, feche o Kiro e execute na raiz do projeto:
+
+```powershell
+.\bridger --update
+```
+
+`bridger.cmd` usa o Python da `.venv` desta pasta; nao e preciso ativar o ambiente,
+alterar o PATH, instalar um comando global ou mudar a politica de execucao do PowerShell.
+O prefixo `.\` e necessario para executar um comando da pasta atual.
+Se sua copia ainda nao tem `bridger.cmd`, obtenha esta versao uma vez com
+`git switch master` e `git pull --ff-only`, depois use o atalho nas proximas atualizacoes.
+
+No Linux/WSL/macOS, dentro do checkout com a `.venv` ja criada:
+
+```bash
+./.venv/bin/python scripts/update_bridge.py --update
+```
+
+O comando:
+
+1. Verifica o checkout Git e exige o `origin` oficial `HianSoares/KiroBridgerMCP` no GitHub, por HTTPS ou SSH, sem token embutido na URL.
+2. Recusa alteracoes em arquivos rastreados, operacoes Git em andamento e HEAD destacado. Busca a `master` do `origin`.
+3. So troca para `master` se a branch atual e a `master` local nao tiverem commits fora de `origin/master`. Integra por fast-forward, recusando colisoes com arquivos pessoais, inclusive ignorados.
+4. Executa `pip install -e .` com o Python desta `.venv`.
+5. Executa os testes sinteticos e os checks do registro upstream e da matriz de cobertura. Qualquer falha interrompe as etapas seguintes e devolve codigo diferente de zero.
+
+Ele nao usa reset, stash, clean, force ou push. Arquivos pessoais nao rastreados,
+relatorios e `.kiro/settings/mcp.json` ignorado permanecem locais; uma colisao com
+um arquivo que o remoto queira rastrear interrompe a operacao, sem sobrescreve-lo.
+O configurador MCP e o launcher nao sao chamados pelo atualizador.
+
+**Escopo:** atualiza o codigo, os agents, skills, specs e steering versionados
+neste repositorio e instala suas dependencias declaradas. Nao atualiza Git,
+Python, Docker, Kiro nem os MCPs upstream; nao inicia/reinicia servicos e nao
+consulta QRadar/Trend. Requer acesso ao GitHub e ao indice de pacotes Python
+configurado, salvo quando as dependencias ja estiverem disponiveis em cache.
+
+**Se falhar:** leia a etapa informada. Alteracoes/commits locais precisam ser
+revisados manualmente. Se a instalacao ou os testes falharem depois do
+fast-forward, o codigo ja estara na revisao exibida: nao ha rollback automatico
+do Git nem das dependencias. Corrija a causa e rode o comando novamente antes
+de usar a ponte. Um lock abandonado (`git rev-parse --git-path bridger-update.lock`)
+so deve ser removido apos confirmar que nenhum atualizador esta executando.
+
+**Se terminar com sucesso:** reabra o Kiro ou reconecte `soc-bridge-readonly` e
+abra um chat novo. Creditos do Kiro e credenciais dos produtos nao sao necessarios
+para atualizar e executar estas verificacoes sinteticas.
