@@ -1,8 +1,12 @@
 ---
-inclusion: always
+inclusion: auto
+name: trend-search-conventions
+description: "Interpretar alertas Workbench, Trend Search/XDR Data Explorer, OAT, Insights, dump, classificação do alerta, descoberta sem ID, xdr_followup e evidence_digest."
 ---
 
 # Interpretar Workbench e Trend Search da ponte
+
+Regras comuns (autonomia, orçamento, estados de coleta, evidência, delegação e segurança): `soc-core.md`, a fonte principal. Este arquivo trata só do domínio abaixo.
 
 O Kiro dispõe de Search independente limitada por fonte/filtro/janela via `trend_read_search_resource` e `trend_search_data`. `investigate_case`, `investigate_offense`, `investigate_vision_alert`, `investigate_vision_event`, `investigate_epm_uac` e `investigate_web_reputation` podem executar buscas internas limitadas; relate apenas as chamadas e resultados que a tool efetivamente declarar.
 

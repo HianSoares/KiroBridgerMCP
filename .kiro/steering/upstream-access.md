@@ -1,8 +1,12 @@
 ---
-inclusion: always
+inclusion: auto
+name: upstream-access
+description: "Acesso às ferramentas de leitura dos MCPs oficiais QRadar e Vision One pelo registro auditado (upstream_tools, upstream_tool_details, upstream_query, upstream_inventory, upstream_download)."
 ---
 
 # Acesso às ferramentas dos MCPs oficiais (registro auditado)
+
+Regras comuns (autonomia, orçamento, estados de coleta, evidência, delegação e segurança): `soc-core.md`, a fonte principal. Este arquivo trata só do domínio abaixo.
 
 Além das investigações curadas, `soc-bridge-readonly` alcança qualquer ferramenta de consulta das versões auditadas do IBM QRadar MCP e do Trend Vision One MCP por cinco tools. Use-as quando um objetivo concreto exigir dado que as investigações não coletaram.
 

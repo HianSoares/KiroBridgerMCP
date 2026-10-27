@@ -1,8 +1,12 @@
 ---
-inclusion: always
+inclusion: auto
+name: qradar-aql-conventions
+description: "AQL personalizada e Ariel pela ponte: resources de campos, validação, jobs, status, paginação, payload UTF8, fuso e interpretação de resultados QRadar."
 ---
 
 # Interpretar consultas QRadar/Ariel da ponte
+
+Regras comuns (autonomia, orçamento, estados de coleta, evidência, delegação e segurança): `soc-core.md`, a fonte principal. Este arquivo trata só do domínio abaixo.
 
 O `soc-bridge-readonly` oferece AQL personalizada pelas seis tools `qradar_read_aql_resource`, `qradar_validate_aql`, `qradar_start_aql`, `qradar_get_search_status`, `qradar_get_search_results` e `qradar_run_aql`. Use-as para testar hipóteses com dados do QRadar sem navegar no console.
 
@@ -34,3 +38,9 @@ O `soc-bridge-readonly` oferece AQL personalizada pelas seis tools `qradar_read_
 Para uma pesquisa ausente, diga “não executada” e explique a dependência (pivô não atribuído, upstream indisponível ou tool não exposta). AQL agregada pode contar usuários observados em logs com fonte/janela explícitas; isso não é inventário do AD. Toda consulta personalizada passa pelos limites da ponte e pela validação do QRadar.
 
 A coleta `offense_evidence` e `qradar_verify_offense` seguem offense-verification: registros INOFFENSE, censo COUNT/UNIQUECOUNT, regras e contexto do host baseado nos epochs observados. A janela Workbench é o intervalo original com padding ±1h; não a apresente como metadados crus. O novo contexto do host usa ±15min e explicita a margem futura ainda não observável. AQL agregada pagina os grupos retornados pelo mesmo search ID; grupos excluídos por LIMIT exigem outra consulta particionada/refinada.
+
+## Janelas e leads entre fontes
+
+- O QRadar arredonda START/STOP para minutos. Uma busca focada restringe os segundos por um predicado numérico em `starttime`.
+- Quando a amostra Ariel de 100 linhas atinge o cap, leia o refinamento de ±60 s/±20 s antes de interpretar a amostra.
+- Uma linha Trend com o mesmo IP e horário da offense é um lead. Um lead de rede mais forte exige IP de origem, IP de destino, porta de destino e horário (≤60 s) coincidentes nas amostras exibidas. Mesmo assim, ele não identifica o processo por trás do log QRadar nem prova um incidente compartilhado.

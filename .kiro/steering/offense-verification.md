@@ -1,8 +1,12 @@
 ---
-inclusion: always
+inclusion: auto
+name: offense-verification
+description: "Verificar offense QRadar antes de concluir: coleta INOFFENSE, continuidade de jobs, tempo e contagens, autenticação, processos e PowerShell, Linux sudo/su/SSH, motivos de fechamento, lotes por descrição e fila OPEN."
 ---
 
 # Verificar offense antes de concluir
+
+Regras comuns (autonomia, orçamento, estados de coleta, evidência, delegação e segurança): `soc-core.md`, a fonte principal. Este arquivo trata só do domínio abaixo.
 
 ## Coleta e continuidade
 

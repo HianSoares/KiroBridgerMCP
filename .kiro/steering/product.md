@@ -1,3 +1,8 @@
+---
+inclusion: fileMatch
+fileMatchPattern: ["src/**", "tests/**", "scripts/**", "pyproject.toml"]
+---
+
 # SOC Bridge purpose
 
 SOC Bridge helps analysts investigate a QRadar offense with related Trend Vision One Workbench alerts. Kiro is the primary AI interface: it requests a bounded read-only evidence report from the local `soc-bridge-readonly` MCP server, interprets the evidence, runs bounded custom Ariel/AQL follow-up queries through qradar_* tools, names gaps, and suggests checks an analyst can perform.

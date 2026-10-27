@@ -1,79 +1,107 @@
 ---
 name: exfiltration-assessment
-description: Avaliar suspeita de exfiltração, backup ou sincronização (RClone e similares) a partir de alerta Workbench, offense ou host, com fase XDR Data Explorer automática, estágios separados (binário, configuração, comando, conexão, transferência) e volume sem estimativa inventada.
+description: "Avaliar suspeita de exfiltração, backup ou sincronização (RClone e similares) a partir de alerta Workbench, offense ou host: fase XDR automática, estágios separados (binário, configuração, comando, conexão, tráfego, conclusão), atribuição processo↔rede, volume sem estimativa e autorização pendente sem classificação benigna."
 ---
 
-# Suspeita de exfiltração, backup ou transferência
+# Exfiltração, backup ou transferência
 
-## Quando ativar
+Regras comuns: `soc-core.md`. Detalhes de domínio: `trend-search-conventions.md` e `qradar-aql-conventions.md`.
 
-Um alerta, offense ou hipótese envolve utilitário de nuvem, cópia, sync, backup, envio externo ou staging de dados.
+## Quando usar
 
-## Passo a passo
+Alerta, offense ou hipótese com utilitário de nuvem, cópia, sync, backup, envio externo ou staging de dados.
 
-1. **Investigação inicial, uma vez.** Com um ID Workbench, chame `investigate_vision_alert({"alert_id":"WB-EXEMPLO-0002"})`. Se a origem for ambígua, chame `investigate_case({"reference":"WB-EXEMPLO-0002"})`. Para offense, chame `investigate_offense_case`. Os IDs são fictícios. Não repita a investigação inicial para obter campos que ela não retorna.
-2. **Sementes com proveniência.** Leia `xdr_followup.seeds` no relatório: endpoints (nome, GUID, IPs), usuários, hashes, instâncias de processo, comandos e horários, cada um com a sua fonte. Não peça host, GUID ou IP ao analista quando eles estiverem nas sementes ou puderem sair dos registros Search, por exemplo `endpointIp`.
-3. **Fase XDR explícita.**
-   - Antes da primeira consulta de cada fonte, chame `trend_read_search_resource(source=...)` e use só campos do schema vivo.
-   - Execute cada item de `xdr_followup.phases` com `trend_search_data` e os parâmetros indicados: série de comandos, atividade posterior, detecções, Network Activity Data, atividade e filhos da instância, e, para transferência, comandos, launcher e configuração da ferramenta.
-   - Ajuste a fonte, o filtro ou o `select` quando o schema vivo ou os registros mostrarem outro campo.
-4. **Continuação.**
-   - Siga `continuation_plan`: `search_partition` com a janela devolvida, e `refine_filters` estreitando o filtro, o `select`, o `top` ou o `limit`.
-   - Não repita parâmetros idênticos que não possam trazer progresso.
-   - Mantenha um registro cumulativo: fase, parâmetros, estado, registros e pendências.
-5. **O que o XDR acrescentou.** Compare `evidence_digest.identifiers` de cada consulta com `xdr_followup.seeds.identifiers` e liste os novos comandos, instâncias, usuários, destinos e IPs com o uuid/`record_index` de cada um.
-6. **Aprofundar a hipótese.** Responda, quando a fonte permitir, às perguntas de `xdr_followup.transfer`:
-   - comando, processo pai, usuário e instância (`evidence_digest.actors`, que é uma execução só com `processHashId`; `image_aggregates` agrupa observações e não é execução; `commands[].occurrences` mantém endpoint, papel e instância de cada ocorrência);
+## Quando não usar
+
+- Só para contar usuários ou ativos: use ad-users-scope.
+- Reputação de URL isolada, sem transferência: use web-reputation-fortigate.
+
+## Entradas mínimas e descoberta automática
+
+- **Entrada mínima:** a referência do caso (`WB-`, offense ou host com janela).
+- **Descoberta automática:** sementes com proveniência em `xdr_followup.seeds` e fases em `xdr_followup.phases`. Não peça host, GUID ou IP que as sementes ou os registros trazem (por exemplo `endpointIp`).
+
+## Procedimento
+
+1. **Coleta inicial, uma vez:** `investigate_vision_alert(alert_id)` ou `investigate_case(reference)`. No case-investigator, também `investigate_offense_case(offense_id)`. Os IDs dos exemplos são fictícios.
+2. **Fase XDR:** chame `trend_read_search_resource` por fonte e execute as fases com `trend_search_data`.
+   - Ordem: série de comandos e atividade posterior do endpoint principal, depois instância e filhos, depois as fases de transferência (comando, launcher e configuração da ferramenta).
+   - Siga `continuation_plan` sem repetir parâmetros idênticos.
+3. **O que o XDR acrescentou:** compare `evidence_digest.identifiers` com `seeds.identifiers` e cite uuid e `record_index`.
+4. **Perguntas da hipótese (`xdr_followup.transfer`):**
+   - comando, processo pai, usuário e instância (`actors`, `commands[].occurrences`);
    - origem e destino dos arquivos (`file_objects`);
    - atividade posterior à execução;
-   - conexões atribuíveis ao processo: `connections[].attribution` diz se o ator do registro é a instância;
+   - conexões atribuíveis (`connections[].attribution`);
    - destino remoto, resultado e indicadores de transferência.
-7. **Estágios.** Binário presente, acesso à configuração, comando iniciado, conexão atribuída, tráfego observado e operação concluída são estágios diferentes. Relate o último estágio que a evidência alcança e a fonte que alcançaria o próximo.
-   - **Tráfego observado** exige contadores verificados da sessão atribuída, por exemplo flows QRadar com a mesma tupla e o mesmo horário. Mostra dados trafegando nessa sessão. Não mostra que o job terminou, que todos os arquivos chegaram nem que o destino guardou os dados.
-   - **Operação concluída** exige resultado do aplicativo vinculado à mesma execução (log, código de saída ou mensagem de conclusão da instância) ou confirmação no destino. Contadores sozinhos nunca chegam a esse estágio.
-   - Ler ou escrever `rclone.conf` não é transferência. O tipo de remote está no conteúdo do arquivo, que a ponte não lê.
-   - Software de segurança que examina `rclone.exe` não é execução de `rclone.exe`.
-   - Ausência por nome não exclui cópia renomeada. O discriminante é a linha de comando (`copy|sync|move <origem> <remote>:<destino>`, `--config`).
-8. **Volume.** Antes de declarar volume não quantificável, verifique as fontes:
-   - **Trend:** `evidence_digest.transfer_counters` contém só campos com semântica de contador de rede verificada para a fonte. Os contratos auditados não verificam nenhum campo de bytes ou pacotes, então campos como `memoryBytes`, `fileBytesWritten` ou `packetLossRate` ficam em `unclassified_metrics` com o valor nativo, sem unidade, direção nem total, e não são volume transferido.
-   - **QRadar flows:** só quando houver IP do host e a cobertura de flows for pertinente. Chame `qradar_read_aql_resource` para os campos de flows desta implantação e depois `qradar_run_aql` na janela, seguindo qradar-aql-conventions.
-   - **Com contadores verificados:** preserve campo, direção e unidade verificadas, intervalo e identidade da sessão. Leituras repetidas da mesma sessão podem ser cumulativas, e a ponte nunca as soma. Tráfego de IP compartilhado ou NAT não é do processo só por IP e horário; é preciso a mesma tupla da conexão do processo.
-   - **Não são bytes transferidos:** tamanho de arquivo, quantidade de eventos e porta de destino.
-   - **Sem contador utilizável:** declare quais fontes e consultas foram feitas e qual campo falta. Não estime.
-9. **Hipóteses.** Configuração legítima, execução sem transferência, transferência autorizada (backup ou sync sancionado) e exfiltração. Cite o que confirma ou refuta cada uma.
-   - Finalidade compatível com backup (comando, destino, agendamento, conta de serviço) não prova autorização.
-   - Separe três afirmações: execução confirmada, finalidade compatível com backup e autorização pendente.
-   - Sem um registro de autorização validado (mudança, política de backup ou dono) **e** sem o comportamento esperado conferido (host, conta, comando, destino e horário), não classifique como Benign True Positive. Também não recomende exceção, exclusão, allowlist ou tuning, nem mesmo provisória ou temporária.
-   - A recomendação nesse caso é validar a autorização e o comportamento esperado, mantendo o caso pendente.
-   - ATT&CK depende do estágio comprovado. Um artefato isolado sustenta no máximo Rclone (S1040) como ferramenta observada.
-   - Com transferência demonstrada: armazenamento em nuvem → T1567.002; SFTP → T1048.002; FTP ou outro protocolo sem criptografia → T1048.003.
-   - T1560.001, T1074 e T1030 exigem evidência própria.
+5. **Estágios.** São fatos diferentes, nunca equivalentes. Relate o último estágio que a evidência alcança:
+   1. **binário presente:** evento de arquivo ou detecção;
+   2. **configuração acessada:** `rclone.conf` lido ou escrito pela instância. Não é transferência, e o tipo de remote está no conteúdo do arquivo, que a ponte não lê;
+   3. **mount ou comando iniciado:** linha de comando, pai, usuário e instância. `rclone mount` expõe um remoto como unidade, mas não prova cópia;
+   4. **conexão atribuída:** evento de rede cujo ator é a mesma instância;
+   5. **tráfego observado:** contadores verificados da sessão atribuída, por exemplo flows QRadar com a mesma tupla e o mesmo horário;
+   6. **operação concluída:** resultado do aplicativo da mesma execução (log, código de saída ou mensagem de conclusão) ou confirmação no destino. Contadores sozinhos nunca chegam aqui.
+6. **Nomes e remotos:**
+   - O nome do remoto (`Google_Drive`, `backup`, `s3`) é um rótulo da configuração. Não prova o backend, a conta (pessoal ou corporativa) nem o dono.
+   - Software de segurança que examina `rclone.exe` não executa `rclone.exe`.
+   - Ausência por nome não exclui cópia renomeada; o discriminante é a linha de comando (`copy|sync|move <origem> <remote>:<destino>`, `--config`).
 
-## Entrega (nesta ordem)
+### Atribuição processo↔rede
 
-1. O que aconteceu, sustentado pelas evidências, com fonte, uuid/search ID e horário.
-2. O que a fase XDR acrescentou à coleta inicial.
-3. Correlações confirmadas e candidatas, com o critério de cada uma.
-4. Hipóteses testadas e o resultado de cada teste.
-5. Conclusão técnica, estágio alcançado e confiança.
-6. Pendências externas e o impacto específico de cada uma, por exemplo: o registro de autorização decide entre backup sancionado e exfiltração, mas não muda os fatos técnicos.
+- **Uma conexão é do processo** quando o registro de rede tem como ator a mesma instância (`processHashId`) no mesmo endpoint. Um registro de host sem ator não é atribuível a uma execução.
+- **Firewall, FortiGate e flows:** bytes do host (`srcip`, `sentbyte`, `sourcebytes`) são tráfego do IP, não do processo.
+  - A atribuição exige tupla (IP e porta de origem, destino, porta e protocolo) e horário coincidentes com uma conexão da instância.
+  - NAT, proxy explícito e IP compartilhado mantêm o vínculo `candidato`.
+- **Sessões:** tuplas diferentes são sessões diferentes. Respeite início e fim de cada sessão. Contadores cumulativos ou leituras repetidas da mesma sessão nunca são somados.
 
-Separe as duas avaliações:
+### Volume
 
-- **Assessment da coleta inicial:** `assessment` do relatório, com o seu `scope`. Não o altere e não diga que ele avaliou registros posteriores.
-- **Parecer do agente:** incorpora as evidências complementares, citadas uma a uma.
+1. **Trend:** `evidence_digest.transfer_counters` só contém campos com semântica de contador verificada. Os contratos auditados não verificam nenhum campo de bytes; `memoryBytes`, `fileBytesWritten` e `packetLossRate` ficam em `unclassified_metrics`, sem unidade, direção ou total.
+2. **QRadar flows:** com IP do host e cobertura pertinente, chame `qradar_read_aql_resource` (campos de flows da implantação) e depois `qradar_run_aql` na janela.
+3. **Contadores verificados:** preserve campo, direção, unidade, intervalo e identidade da sessão. A ponte nunca as soma quando há leituras repetidas.
+4. **O que não é volume transferido:** tamanho de arquivo, quantidade de eventos e porta de destino.
+5. **Sem contador utilizável:** declare as fontes e consultas feitas e o campo que falta. Não estime.
 
-A falta de registro de autorização não impede descrever os fatos técnicos confirmados e não autoriza classificar como Benign True Positive.
+### Hipóteses e autorização
+
+- **Hipóteses:** configuração legítima, execução sem transferência, transferência autorizada (backup ou sync sancionado) e exfiltração. Cite o que confirma ou refuta cada uma.
+- **Autorização:** finalidade compatível com backup (comando, destino, agendamento, conta de serviço) não prova autorização. Separe execução confirmada, finalidade compatível e autorização pendente.
+- **O que não fazer sem validação:** sem registro de autorização validado e sem o comportamento esperado conferido (host, conta, comando, destino e horário), não classifique como Benign True Positive e não recomende exceção, exclusão, allowlist ou tuning, nem mesmo provisória ou temporária. Recomende validar a autorização e manter pendente.
+- **ATT&CK por estágio comprovado:** um artefato isolado sustenta no máximo Rclone (S1040). Com transferência demonstrada: nuvem → T1567.002; SFTP → T1048.002; FTP ou protocolo sem criptografia → T1048.003. T1560.001, T1074 e T1030 exigem evidência própria.
+
+## Evidência esperada e falhas
+
+- Coleta parcial, `limited` e `empty` seguem `soc-core.md`.
+- Network ou detections vazios valem só no escopo da consulta executada.
+- Fonte indisponível não apaga os estágios já comprovados.
+
+## Continuação, escalonamento e parada
+
+- Continue as fases e as partições.
+- Delegue ao threat-hunter só a pergunta discriminante (por exemplo, atribuição de uma conexão à instância), com contrato e fração do orçamento.
+- Pare quando a próxima evidência exigir log do aplicativo, confirmação no destino ou registro de autorização. Diga o impacto de cada um: o registro de autorização decide entre backup sancionado e exfiltração, mas não muda os fatos técnicos.
+
+## Saída
+
+1. O que aconteceu (fonte, uuid ou search ID, horário).
+2. O que o XDR acrescentou.
+3. Correlações confirmadas e candidatas.
+4. Hipóteses testadas.
+5. Conclusão técnica, estágio alcançado, volume com origem ou campo faltante, e confiança por achado.
+6. Pendências externas e o seu impacto.
+
+Mantenha separados o assessment da coleta inicial (`assessment.scope`, sem alteração) e o parecer do agente com as evidências complementares. A falta de registro de autorização não impede descrever os fatos técnicos confirmados.
 
 ## Tools permitidas
 
-- **Investigação inicial:** `investigate_vision_alert(alert_id)` e `investigate_case(reference)`. No case-investigator também `investigate_offense_case(offense_id)` e `investigate_vision_event(...)`, este último só com campos exatos de um View event. Use apenas as tools do front matter do agente em uso.
-- **XDR Data Explorer:** `trend_read_search_resource(source)` e `trend_search_data(query, source, start_date_time, end_date_time, select, top, limit, max_calls)`.
-- **QRadar, perfil que os expõe:** `qradar_read_aql_resource`, `qradar_validate_aql`, `qradar_run_aql`, `qradar_start_aql`, `qradar_get_search_status` e `qradar_get_search_results`.
-- **Outras leituras dos MCPs oficiais:** `upstream_tools`, `upstream_tool_details` e `upstream_query`, conforme upstream-access.
+- `investigate_vision_alert`, `investigate_case`
+- `investigate_offense_case`, `investigate_vision_event` (somente case-investigator)
+- `trend_read_search_resource`, `trend_search_data`
+- `qradar_read_aql_resource`, `qradar_validate_aql`, `qradar_start_aql`, `qradar_get_search_status`, `qradar_get_search_results`, `qradar_run_aql`
+- `upstream_tools`, `upstream_tool_details`, `upstream_query`
 
-Não há tool de captura de pacote, bloqueio, isolamento ou alteração neste fluxo.
+Nenhuma tool de captura, bloqueio, isolamento ou alteração faz parte deste fluxo.
 
-## Critério de conclusão
+## Referências
 
-O parecer distingue cada estágio (binário, configuração, comando, conexão atribuída, tráfego observado, operação concluída) e o volume com a sua origem, ou a falta dele com os campos e consultas verificados. Cada lacuna traz a fonte e a consulta que a resolveria.
+`trend-search-conventions.md` (`xdr_followup`, `evidence_digest`, coleta parcial e identificadores) e `qradar-aql-conventions.md` (flows e AQL).

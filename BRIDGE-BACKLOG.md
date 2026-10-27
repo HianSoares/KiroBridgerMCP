@@ -158,3 +158,68 @@ qualquer sintaxe de `permissions:`; só então repetir o teste do parágrafo
 acima com a nova sintaxe e confirmar bloqueio efetivo antes de considerar a
 proteção válida. Até lá, `tools: []` + `includeMcpJson: false` continuam sendo
 a única barreira confiável do `response-advisor`.
+
+---
+
+# Sugestão de melhoria da ponte: orçamento compartilhado por investigação
+
+**Origem:** pacote operacional Kiro (`specs/kiro-operational-pack`, 2026-10-26).
+
+**Situação atual:** cada tool aplica o próprio `budget`, e `connection_lifecycle`
+cobre jobs do processo. Já o orçamento total da investigação (chamadas, jobs
+Ariel, janelas) e a fração repassada a um subagente são só regras de
+`soc-core.md`. A ponte não sabe quais chamadas pertencem à mesma investigação,
+e um subagente que ignore a fração recebida não é barrado.
+
+**Mudança proposta (não implementada):** um identificador opcional de
+investigação aceito pelas tools de leitura, com um contador no processo para
+chamadas e jobs. Ao atingir o teto, a tool devolveria `limited` com o consumo,
+em vez de executar.
+
+**Motivação:** transformar a convenção num limite verificável quando o
+investigador e os subagentes compartilham o mesmo MCP.
+
+**Critério de aceite:** testes sintéticos em que duas sequências com o mesmo
+identificador param no teto combinado, sem afetar chamadas sem identificador.
+
+---
+
+# Sugestão de melhoria da ponte: papel do endpoint no plano XDR
+
+**Origem:** cenário context-asset-budget do pacote operacional Kiro
+(`tests/fixtures/kiro_scenarios.json`, 2026-10-26).
+
+**Situação atual:** `xdr_followup.phases` planeja até 5 endpoints na ordem em
+que a extração do alerta os lista. Todas as fases de um endpoint vêm antes das
+fases do seguinte. A ponte não distingue o endpoint do evento detectado de um
+ativo de contexto do `impactScope`, não reparte orçamento entre eles e não
+define prioridade entre a coleta Trend e a Ariel/QRadar. Um ativo de contexto
+listado primeiro é planejado primeiro. Hoje a regra "não deixe um ativo
+contextual consumir o orçamento do endpoint principal" depende só do agente.
+
+**Mudança proposta (não implementada):** marcar em cada endpoint extraído o seu
+papel (do evento detectado ou de contexto), com a fonte. A ordem das fases
+passaria a ser o endpoint do evento primeiro, e cada fase registraria o papel
+do endpoint.
+
+**Critério de aceite:** um teste sintético com o ativo de contexto listado antes
+do endpoint do evento, em que as fases do endpoint do evento vêm primeiro e
+cada fase declara o papel.
+
+---
+
+# Pendência de verificação: busca por `processHashId` numérico
+
+**Origem:** pacote operacional Kiro, regra de identidade de execução
+(`soc-core.md`, skill trend-alert-investigation).
+
+**Situação atual:** a ponte preserva como texto exato os IDs de instância
+maiores que 2^53. Não verifiquei, contra a API real e em ambiente autorizado,
+qual sintaxe do Search aceita esses valores (número sem aspas ou texto) sem
+perder precisão.
+
+**Mudança proposta:** confirmar a sintaxe num tenant de laboratório e, se
+necessário, fazer `trend_search_data` montar o filtro pelo valor exato.
+
+**Critério de aceite:** um teste sintético com o formato confirmado e o
+registro da data e da versão da API em que ele foi verificado.
